@@ -1,6 +1,6 @@
 # AgentMail
 
-A basic Golang CLI application.
+A Golang CLI application built with [Cobra](https://github.com/spf13/cobra).
 
 ## Installation
 
@@ -20,10 +20,28 @@ go build -o agentmail
 # Say hello
 ./agentmail hello
 ./agentmail hello --name Alice
+./agentmail hello -n Bob  # short flag
 ```
 
 ## Commands
 
 - `version` - Display version information
-- `hello` - Say hello with optional name flag
+- `hello` - Say hello with optional name flag (--name or -n)
 - `help` - Show usage information
+- `completion` - Generate shell autocompletion scripts
+
+## Development
+
+### Running Tests
+
+```bash
+# Run all tests
+go test ./cmd/... -v
+
+# Run with coverage
+go test ./cmd/... -cover
+```
+
+## Technology Stack
+
+- [Cobra](https://github.com/spf13/cobra) - Modern CLI framework for Go

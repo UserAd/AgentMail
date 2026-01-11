@@ -108,9 +108,9 @@ This feature creates GitHub Actions workflow files:
 
 **Purpose**: Final validation and edge case handling
 
-- [ ] T027 Verify fork PR handling in `.github/workflows/test.yml`: ensure `pull_request` trigger (not `pull_request_target`) for fork security, and secrets are not exposed
-- [ ] T028 Add workflow status badges to README.md
-- [ ] T029 Run quickstart.md validation - verify all instructions work and test pipeline completes within 5 minutes (SC-001)
+- [x] T027 Verify fork PR handling in `.github/workflows/test.yml`: ensure `pull_request` trigger (not `pull_request_target`) for fork security, and secrets are not exposed
+- [x] T028 Add workflow status badges to README.md
+- [x] T029 Run quickstart.md validation - verify all instructions work and test pipeline completes within 5 minutes (SC-001)
 
 ---
 

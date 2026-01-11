@@ -89,16 +89,16 @@ This feature creates GitHub Actions workflow files:
 
 ### Implementation for User Story 3
 
-- [ ] T018 [US3] Add build job with matrix strategy to `.github/workflows/release.yml`
-- [ ] T019 [US3] Configure build matrix for linux/amd64, darwin/amd64, darwin/arm64 in `.github/workflows/release.yml`
-- [ ] T020 [US3] Add Go setup in build job in `.github/workflows/release.yml`
-- [ ] T021 [US3] Add cross-compilation step with GOOS/GOARCH and CGO_ENABLED=0 in `.github/workflows/release.yml`
-- [ ] T021b [US3] Add `continue-on-error: true` to build matrix for graceful partial failure handling (FR-008b) in `.github/workflows/release.yml`
-- [ ] T022 [US3] Configure binary naming (`agentmail-{os}-{arch}`) in `.github/workflows/release.yml`
-- [ ] T023 [US3] Add ldflags for smaller binaries (`-s -w`) in `.github/workflows/release.yml`
-- [ ] T024 [US3] Upload build artifacts with `actions/upload-artifact@v4` in `.github/workflows/release.yml`
-- [ ] T025 [US3] Download artifacts in release job with `actions/download-artifact@v4` in `.github/workflows/release.yml`
-- [ ] T026 [US3] Attach all binaries to GitHub Release in `.github/workflows/release.yml`
+- [x] T018 [US3] Add build job with matrix strategy to `.github/workflows/release.yml`
+- [x] T019 [US3] Configure build matrix for linux/amd64, darwin/amd64, darwin/arm64 in `.github/workflows/release.yml`
+- [x] T020 [US3] Add Go setup in build job in `.github/workflows/release.yml`
+- [x] T021 [US3] Add cross-compilation step with GOOS/GOARCH and CGO_ENABLED=0 in `.github/workflows/release.yml`
+- [x] T021b [US3] Add `continue-on-error: true` to build matrix for graceful partial failure handling (FR-008b) in `.github/workflows/release.yml`
+- [x] T022 [US3] Configure binary naming (`agentmail-{os}-{arch}`) in `.github/workflows/release.yml`
+- [x] T023 [US3] Add ldflags for smaller binaries (`-s -w`) in `.github/workflows/release.yml`
+- [x] T024 [US3] Upload build artifacts with `actions/upload-artifact@v4` in `.github/workflows/release.yml`
+- [x] T025 [US3] Download artifacts in release job with `actions/download-artifact@v4` in `.github/workflows/release.yml`
+- [x] T026 [US3] Attach all binaries to GitHub Release in `.github/workflows/release.yml`
 
 **Checkpoint**: All user stories should now be independently functional
 

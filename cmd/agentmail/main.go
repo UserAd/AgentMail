@@ -23,8 +23,9 @@ func main() {
 		exitCode := cli.Send(os.Args[2:], os.Stdout, os.Stderr, cli.SendOptions{})
 		os.Exit(exitCode)
 	case "receive":
-		fmt.Fprintln(os.Stderr, "error: receive command not implemented")
-		os.Exit(1)
+		// T038: Wire up receive subcommand
+		exitCode := cli.Receive(os.Stdout, os.Stderr, cli.ReceiveOptions{})
+		os.Exit(exitCode)
 	default:
 		fmt.Fprintf(os.Stderr, "error: unknown command '%s'\n", command)
 		fmt.Fprintln(os.Stderr, "usage: agentmail <command> [arguments]")

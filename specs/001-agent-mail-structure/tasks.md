@@ -94,23 +94,23 @@ Based on plan.md structure:
 
 ### Tests for User Story 2
 
-- [ ] T025 [P] [US2] Write tests for mailbox ReadAll from recipient file in internal/mail/mailbox_test.go
-- [ ] T026 [P] [US2] Write tests for mailbox FindUnread (filter by read_flag only) in internal/mail/mailbox_test.go
-- [ ] T027 [P] [US2] Write tests for mailbox MarkAsRead operation in internal/mail/mailbox_test.go
-- [ ] T028 [P] [US2] Write tests for receive command no-messages case in internal/cli/receive_test.go
-- [ ] T029 [P] [US2] Write tests for receive command success path in internal/cli/receive_test.go
+- [x] T025 [P] [US2] Write tests for mailbox ReadAll from recipient file in internal/mail/mailbox_test.go
+- [x] T026 [P] [US2] Write tests for mailbox FindUnread (filter by read_flag only) in internal/mail/mailbox_test.go
+- [x] T027 [P] [US2] Write tests for mailbox MarkAsRead operation in internal/mail/mailbox_test.go
+- [x] T028 [P] [US2] Write tests for receive command no-messages case in internal/cli/receive_test.go
+- [x] T029 [P] [US2] Write tests for receive command success path in internal/cli/receive_test.go
 
 ### Implementation for User Story 2
 
-- [ ] T030 [US2] Implement ReadAll function (read .git/mail/<recipient>.jsonl) in internal/mail/mailbox.go
-- [ ] T031 [US2] Implement FindUnread query (filter by read_flag only, no recipient filter needed) in internal/mail/mailbox.go
-- [ ] T032 [US2] Implement WriteAll function (write to recipient file with locking) in internal/mail/mailbox.go
-- [ ] T033 [US2] Implement MarkAsRead function in internal/mail/mailbox.go
-- [ ] T034 [US2] Implement Receive command structure in internal/cli/receive.go
-- [ ] T035 [US2] Add tmux validation to Receive (exit code 2 if not in tmux) in internal/cli/receive.go
-- [ ] T036 [US2] Add message retrieval and display formatting to Receive in internal/cli/receive.go
-- [ ] T037 [US2] Add "No unread messages" handling (exit code 0) to Receive in internal/cli/receive.go
-- [ ] T038 [US2] Wire up receive subcommand in cmd/agentmail/main.go
+- [x] T030 [US2] Implement ReadAll function (read .git/mail/<recipient>.jsonl) in internal/mail/mailbox.go
+- [x] T031 [US2] Implement FindUnread query (filter by read_flag only, no recipient filter needed) in internal/mail/mailbox.go
+- [x] T032 [US2] Implement WriteAll function (write to recipient file with locking) in internal/mail/mailbox.go
+- [x] T033 [US2] Implement MarkAsRead function in internal/mail/mailbox.go
+- [x] T034 [US2] Implement Receive command structure in internal/cli/receive.go
+- [x] T035 [US2] Add tmux validation to Receive (exit code 2 if not in tmux) in internal/cli/receive.go
+- [x] T036 [US2] Add message retrieval and display formatting to Receive in internal/cli/receive.go
+- [x] T037 [US2] Add "No unread messages" handling (exit code 0) to Receive in internal/cli/receive.go
+- [x] T038 [US2] Wire up receive subcommand in cmd/agentmail/main.go
 
 **Checkpoint**: Both `agentmail send` and `agentmail receive` are fully functional
 

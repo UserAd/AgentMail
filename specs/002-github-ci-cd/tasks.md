@@ -67,15 +67,15 @@ This feature creates GitHub Actions workflow files:
 
 ### Implementation for User Story 2
 
-- [ ] T009 [US2] Create release workflow file at `.github/workflows/release.yml`
-- [ ] T010 [US2] Configure main branch push trigger in `.github/workflows/release.yml`
-- [ ] T011 [US2] Add checkout with `fetch-depth: 0` for version history in `.github/workflows/release.yml`
-- [ ] T012 [US2] Add semantic version calculation with `PaulHatch/semantic-version@v5` in `.github/workflows/release.yml`
-- [ ] T013 [US2] Configure conventional commit patterns (feat:, fix:, BREAKING CHANGE:) in `.github/workflows/release.yml`
-- [ ] T014 [US2] Add Git tag creation step in `.github/workflows/release.yml`
-- [ ] T015 [US2] Add release creation with `softprops/action-gh-release@v2` in `.github/workflows/release.yml`
-- [ ] T016 [US2] Configure auto-generated release notes in `.github/workflows/release.yml`
-- [ ] T017 [US2] Set write permissions (`contents: write`) in `.github/workflows/release.yml`
+- [x] T009 [US2] Create release workflow file at `.github/workflows/release.yml`
+- [x] T010 [US2] Configure main branch push trigger in `.github/workflows/release.yml`
+- [x] T011 [US2] Add checkout with `fetch-depth: 0` for version history in `.github/workflows/release.yml`
+- [x] T012 [US2] Add semantic version calculation with `PaulHatch/semantic-version@v5` in `.github/workflows/release.yml`
+- [x] T013 [US2] Configure conventional commit patterns (feat:, fix:, BREAKING CHANGE:) in `.github/workflows/release.yml`
+- [x] T014 [US2] Add Git tag creation step in `.github/workflows/release.yml`
+- [x] T015 [US2] Add release creation with `softprops/action-gh-release@v2` in `.github/workflows/release.yml`
+- [x] T016 [US2] Configure auto-generated release notes in `.github/workflows/release.yml`
+- [x] T017 [US2] Set write permissions (`contents: write`) in `.github/workflows/release.yml`
 
 **Checkpoint**: At this point, User Story 2 should be fully functional. Test by merging a PR to main.
 

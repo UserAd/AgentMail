@@ -112,7 +112,7 @@ func Send(args []string, stdout, stderr io.Writer, opts SendOptions) int {
 		return 1
 	}
 
-	// Output message ID
-	fmt.Fprintln(stdout, id)
+	// Output message confirmation
+	fmt.Fprintf(stdout, "Message #%s sent\n", id)
 	return 0
 }

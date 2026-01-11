@@ -8,6 +8,17 @@ import (
 	"testing"
 )
 
+// extractMessageID extracts the message ID from send output format "Message #ID sent"
+func extractMessageID(output string) string {
+	output = strings.TrimSpace(output)
+	// Format: "Message #ID sent"
+	if strings.HasPrefix(output, "Message #") && strings.HasSuffix(output, " sent") {
+		// Extract ID between "Message #" and " sent"
+		return output[9 : len(output)-5]
+	}
+	return output
+}
+
 // T039: Integration test: send -> receive round-trip
 
 func TestIntegration_SendReceiveRoundTrip(t *testing.T) {
@@ -36,8 +47,8 @@ func TestIntegration_SendReceiveRoundTrip(t *testing.T) {
 		t.Fatalf("Send failed with exit code %d: %s", sendExit, sendStderr.String())
 	}
 
-	// Get the message ID from send output
-	messageID := strings.TrimSpace(sendStdout.String())
+	// Get the message ID from send output (format: "Message #ID sent")
+	messageID := extractMessageID(sendStdout.String())
 	if len(messageID) != 8 {
 		t.Fatalf("Expected 8-char message ID, got: %s", messageID)
 	}
@@ -116,7 +127,7 @@ func TestIntegration_FIFOOrdering(t *testing.T) {
 		if exitCode != 0 {
 			t.Fatalf("Send failed: %s", stderr.String())
 		}
-		messageIDs = append(messageIDs, strings.TrimSpace(stdout.String()))
+		messageIDs = append(messageIDs, extractMessageID(stdout.String()))
 	}
 
 	// Receive 3 messages and verify FIFO order

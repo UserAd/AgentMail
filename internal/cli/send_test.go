@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -93,15 +94,13 @@ func TestSendCommand_Success(t *testing.T) {
 		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
 	}
 
-	// Should output message ID
+	// Should output "Message #ID sent"
 	output := stdout.String()
-	if len(output) == 0 {
-		t.Error("Expected message ID in stdout")
+	if !strings.HasPrefix(output, "Message #") {
+		t.Errorf("Expected output to start with 'Message #', got: %s", output)
 	}
-
-	// ID should be 8 characters + newline
-	if len(output) != 9 { // 8 chars + \n
-		t.Errorf("Expected 8-char ID + newline, got %d chars: '%s'", len(output), output)
+	if !strings.HasSuffix(output, " sent\n") {
+		t.Errorf("Expected output to end with ' sent', got: %s", output)
 	}
 
 	// Verify file was created

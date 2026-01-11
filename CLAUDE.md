@@ -4,7 +4,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AgentMail is a Go project (currently in early development).
+AgentMail is a Go CLI tool for inter-agent communication within tmux sessions. Agents running in different tmux windows can send and receive messages through a simple mail system stored in `.git/mail/`.
+
+## AgentMail Usage
+
+**Requirements:** Must be running inside a tmux session.
+
+### Sending Messages
+```bash
+agentmail send <recipient> "<message>"
+```
+- `<recipient>` must be a valid tmux window name in the current session
+- Returns a message ID on success (e.g., `Message #ABC123 sent`)
+
+### Receiving Messages
+```bash
+agentmail receive
+```
+- Reads the oldest unread message addressed to the current tmux window
+- Marks the message as read after displaying
+- Returns "No unread messages" if mailbox is empty
+- Messages are delivered in FIFO order
+
+### Message Storage
+- Messages stored in `.git/mail/<recipient>.jsonl`
+- Each recipient has their own mailbox file
+- File locking ensures atomic operations
 
 ## Build Commands
 

@@ -47,13 +47,13 @@ This feature creates GitHub Actions workflow files:
 
 ### Implementation for User Story 1
 
-- [ ] T002 [US1] Create test workflow file at `.github/workflows/test.yml`
-- [ ] T003 [US1] Configure PR triggers (opened, synchronize, reopened) in `.github/workflows/test.yml`
-- [ ] T004 [US1] Add Go setup with `actions/setup-go@v5` in `.github/workflows/test.yml`
-- [ ] T005 [US1] Add `go fmt` check step in `.github/workflows/test.yml`
-- [ ] T006 [US1] Add `go vet` check step in `.github/workflows/test.yml`
-- [ ] T007 [US1] Add `go test -v -race -coverprofile=coverage.out ./...` step in `.github/workflows/test.yml`
-- [ ] T008 [US1] Set minimal permissions (`contents: read`) in `.github/workflows/test.yml`
+- [x] T002 [US1] Create test workflow file at `.github/workflows/test.yml`
+- [x] T003 [US1] Configure PR triggers (opened, synchronize, reopened) in `.github/workflows/test.yml`
+- [x] T004 [US1] Add Go setup with `actions/setup-go@v5` in `.github/workflows/test.yml`
+- [x] T005 [US1] Add `go fmt` check step in `.github/workflows/test.yml`
+- [x] T006 [US1] Add `go vet` check step in `.github/workflows/test.yml`
+- [x] T007 [US1] Add `go test -v -race -coverprofile=coverage.out ./...` step in `.github/workflows/test.yml`
+- [x] T008 [US1] Set minimal permissions (`contents: read`) in `.github/workflows/test.yml`
 
 **Checkpoint**: At this point, User Story 1 should be fully functional. Test by opening a PR.
 

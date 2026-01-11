@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"agentmail/internal/cli"
 )
 
 func main() {
@@ -17,8 +19,9 @@ func main() {
 
 	switch command {
 	case "send":
-		fmt.Fprintln(os.Stderr, "error: send command not implemented")
-		os.Exit(1)
+		// T024: Wire up send subcommand
+		exitCode := cli.Send(os.Args[2:], os.Stdout, os.Stderr, cli.SendOptions{})
+		os.Exit(exitCode)
 	case "receive":
 		fmt.Fprintln(os.Stderr, "error: receive command not implemented")
 		os.Exit(1)

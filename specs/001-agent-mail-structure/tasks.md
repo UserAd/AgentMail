@@ -67,20 +67,20 @@ Based on plan.md structure:
 
 ### Tests for User Story 1
 
-- [ ] T014 [P] [US1] Write tests for mailbox Append to recipient file in internal/mail/mailbox_test.go
-- [ ] T015 [P] [US1] Write tests for send command argument validation in internal/cli/send_test.go
-- [ ] T016 [P] [US1] Write tests for send command recipient validation in internal/cli/send_test.go
-- [ ] T017 [P] [US1] Write tests for send command success path (ID output) in internal/cli/send_test.go
+- [x] T014 [P] [US1] Write tests for mailbox Append to recipient file in internal/mail/mailbox_test.go
+- [x] T015 [P] [US1] Write tests for send command argument validation in internal/cli/send_test.go
+- [x] T016 [P] [US1] Write tests for send command recipient validation in internal/cli/send_test.go
+- [x] T017 [P] [US1] Write tests for send command success path (ID output) in internal/cli/send_test.go
 
 ### Implementation for User Story 1
 
-- [ ] T018 [US1] Implement EnsureMailDir (create .git/mail/ if missing) in internal/mail/mailbox.go
-- [ ] T019 [US1] Implement Append function (appends to .git/mail/<recipient>.jsonl with file locking) in internal/mail/mailbox.go
-- [ ] T020 [US1] Implement Send command structure in internal/cli/send.go
-- [ ] T021 [US1] Add tmux validation to Send (exit code 2 if not in tmux) in internal/cli/send.go
-- [ ] T022 [US1] Add recipient validation to Send (check WindowExists) in internal/cli/send.go
-- [ ] T023 [US1] Add message storage and ID output to Send in internal/cli/send.go
-- [ ] T024 [US1] Wire up send subcommand in cmd/agentmail/main.go
+- [x] T018 [US1] Implement EnsureMailDir (create .git/mail/ if missing) in internal/mail/mailbox.go
+- [x] T019 [US1] Implement Append function (appends to .git/mail/<recipient>.jsonl with file locking) in internal/mail/mailbox.go
+- [x] T020 [US1] Implement Send command structure in internal/cli/send.go
+- [x] T021 [US1] Add tmux validation to Send (exit code 2 if not in tmux) in internal/cli/send.go
+- [x] T022 [US1] Add recipient validation to Send (check WindowExists) in internal/cli/send.go
+- [x] T023 [US1] Add message storage and ID output to Send in internal/cli/send.go
+- [x] T024 [US1] Wire up send subcommand in cmd/agentmail/main.go
 
 **Checkpoint**: `agentmail send` is fully functional - can test independently by sending messages
 

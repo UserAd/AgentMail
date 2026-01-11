@@ -70,7 +70,9 @@ Given that feature description, do this:
 
 3. Load `.specify/templates/spec-template.md` to understand required sections.
 
-4. Follow this execution flow:
+4. **Load EARS Guidelines**: Read `.specify/memory/ears-guidelines.md` to understand requirement syntax patterns. All functional requirements and success criteria MUST follow EARS (Easy Approach to Requirements Syntax) patterns.
+
+5. Follow this execution flow:
 
     1. Parse user description from Input
        If empty: ERROR "No feature description provided"
@@ -86,8 +88,14 @@ Given that feature description, do this:
        - Prioritize clarifications by impact: scope > security/privacy > user experience > technical details
     4. Fill User Scenarios & Testing section
        If no clear user flow: ERROR "Cannot determine user scenarios"
-    5. Generate Functional Requirements
-       Each requirement must be testable
+    5. Generate Functional Requirements using EARS patterns
+       Each requirement MUST follow one of the five EARS patterns:
+       - Ubiquitous: The <system> shall <response>
+       - Event-Driven: When <trigger>, the <system> shall <response>
+       - State-Driven: While <condition>, the <system> shall <response>
+       - Unwanted Behavior: If <trigger>, then the <system> shall <response>
+       - Optional Feature: Where <feature>, the <system> shall <response>
+       Each requirement must be testable, measurable, and use active voice
        Use reasonable defaults for unspecified details (document assumptions in Assumptions section)
     6. Define Success Criteria
        Create measurable, technology-agnostic outcomes
@@ -96,9 +104,9 @@ Given that feature description, do this:
     7. Identify Key Entities (if data involved)
     8. Return: SUCCESS (spec ready for planning)
 
-5. Write the specification to SPEC_FILE using the template structure, replacing placeholders with concrete details derived from the feature description (arguments) while preserving section order and headings.
+6. Write the specification to SPEC_FILE using the template structure, replacing placeholders with concrete details derived from the feature description (arguments) while preserving section order and headings.
 
-6. **Specification Quality Validation**: After writing the initial spec, validate it against quality criteria:
+7. **Specification Quality Validation**: After writing the initial spec, validate it against quality criteria:
 
    a. **Create Spec Quality Checklist**: Generate a checklist file at `FEATURE_DIR/checklists/requirements.md` using the checklist template structure with these validation items:
 
@@ -117,7 +125,7 @@ Given that feature description, do this:
       - [ ] All mandatory sections completed
       
       ## Requirement Completeness
-      
+
       - [ ] No [NEEDS CLARIFICATION] markers remain
       - [ ] Requirements are testable and unambiguous
       - [ ] Success criteria are measurable
@@ -126,6 +134,16 @@ Given that feature description, do this:
       - [ ] Edge cases are identified
       - [ ] Scope is clearly bounded
       - [ ] Dependencies and assumptions identified
+
+      ## EARS Compliance
+
+      - [ ] All functional requirements follow EARS patterns (Ubiquitous/When/While/If-Then/Where)
+      - [ ] Each requirement has explicit system name
+      - [ ] All requirements use active voice
+      - [ ] Each requirement contains only one "shall"
+      - [ ] Numerical values include units (seconds, milliseconds, percent, etc.)
+      - [ ] No vague terms (fast, efficient, user-friendly, robust)
+      - [ ] No escape clauses (if possible, where appropriate)
       
       ## Feature Readiness
       
@@ -145,7 +163,7 @@ Given that feature description, do this:
 
    c. **Handle Validation Results**:
 
-      - **If all items pass**: Mark checklist complete and proceed to step 6
+      - **If all items pass**: Mark checklist complete and proceed to step 8
 
       - **If items fail (excluding [NEEDS CLARIFICATION])**:
         1. List the failing items and specific issues
@@ -156,41 +174,52 @@ Given that feature description, do this:
       - **If [NEEDS CLARIFICATION] markers remain**:
         1. Extract all [NEEDS CLARIFICATION: ...] markers from the spec
         2. **LIMIT CHECK**: If more than 3 markers exist, keep only the 3 most critical (by scope/security/UX impact) and make informed guesses for the rest
-        3. For each clarification needed (max 3), present options to user in this format:
+        3. **Use AskUserQuestion tool** to present clarifications (max 4 questions per tool call):
 
-           ```markdown
-           ## Question [N]: [Topic]
-           
-           **Context**: [Quote relevant spec section]
-           
-           **What we need to know**: [Specific question from NEEDS CLARIFICATION marker]
-           
-           **Suggested Answers**:
-           
-           | Option | Answer | Implications |
-           |--------|--------|--------------|
-           | A      | [First suggested answer] | [What this means for the feature] |
-           | B      | [Second suggested answer] | [What this means for the feature] |
-           | C      | [Third suggested answer] | [What this means for the feature] |
-           | Custom | Provide your own answer | [Explain how to provide custom input] |
-           
-           **Your choice**: _[Wait for user response]_
+           For each clarification needed, create a question object with:
+           - `question`: The specific question from NEEDS CLARIFICATION marker (include context)
+           - `header`: Short label (max 12 chars, e.g., "Auth Method", "Retention")
+           - `options`: 2-4 options, each with `label` and `description`
+             - First option should be the recommended choice with "(Recommended)" in label
+             - Each description explains implications of that choice
+           - `multiSelect`: false (clarifications are mutually exclusive)
+
+           Example AskUserQuestion call:
+           ```json
+           {
+             "questions": [
+               {
+                 "question": "Which authentication method should the system use?",
+                 "header": "Auth Method",
+                 "options": [
+                   {"label": "OAuth2 (Recommended)", "description": "Industry standard, supports SSO, good for enterprise"},
+                   {"label": "Email/Password", "description": "Simple to implement, familiar UX, requires password management"},
+                   {"label": "Magic Link", "description": "Passwordless, good UX, requires email delivery"}
+                 ],
+                 "multiSelect": false
+               },
+               {
+                 "question": "How long should user data be retained after account deletion?",
+                 "header": "Retention",
+                 "options": [
+                   {"label": "30 days (Recommended)", "description": "Allows recovery, meets most compliance requirements"},
+                   {"label": "Immediate deletion", "description": "Privacy-focused, no recovery possible"},
+                   {"label": "1 year", "description": "Extended retention for audit/legal requirements"}
+                 ],
+                 "multiSelect": false
+               }
+             ]
+           }
            ```
-
-        4. **CRITICAL - Table Formatting**: Ensure markdown tables are properly formatted:
-           - Use consistent spacing with pipes aligned
-           - Each cell should have spaces around content: `| Content |` not `|Content|`
-           - Header separator must have at least 3 dashes: `|--------|`
-           - Test that the table renders correctly in markdown preview
-        5. Number questions sequentially (Q1, Q2, Q3 - max 3 total)
-        6. Present all questions together before waiting for responses
-        7. Wait for user to respond with their choices for all questions (e.g., "Q1: A, Q2: Custom - [details], Q3: B")
-        8. Update the spec by replacing each [NEEDS CLARIFICATION] marker with the user's selected or provided answer
-        9. Re-run validation after all clarifications are resolved
+        4. Process user responses from AskUserQuestion tool
+        5. Update the spec by replacing each [NEEDS CLARIFICATION] marker with the user's selected answer
+        6. Re-run validation after all clarifications are resolved
 
    d. **Update Checklist**: After each validation iteration, update the checklist file with current pass/fail status
 
-7. Report completion with branch name, spec file path, checklist results, and readiness for the next phase (`/speckit.clarify` or `/speckit.plan`).
+   e. **EARS Non-Compliance**: If requirements fail EARS compliance checks, suggest using `/ears-translator` skill to convert them to proper EARS format before proceeding.
+
+8. Report completion with branch name, spec file path, checklist results, and readiness for the next phase (`/speckit.clarify` or `/speckit.plan`). If EARS compliance issues exist, recommend running `/ears-translator` skill.
 
 **NOTE:** The script creates and checks out the new branch and initializes the spec file before writing.
 

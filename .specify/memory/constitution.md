@@ -1,50 +1,108 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+==================
+Version change: 0.0.0 → 1.0.0 (MAJOR - initial ratification)
+
+Modified principles: N/A (new constitution)
+
+Added sections:
+- Core Principles (4 principles)
+- Technology Constraints
+- Quality Gates
+- Governance
+
+Removed sections: N/A
+
+Templates requiring updates:
+- .specify/templates/plan-template.md: ✅ Already has Constitution Check section
+- .specify/templates/spec-template.md: ✅ Compatible with principles
+- .specify/templates/tasks-template.md: ✅ Compatible with test-first approach
+
+Follow-up TODOs: None
+-->
+
+# AgentMail Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. CLI-First Design
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+AgentMail is a command-line tool. All functionality MUST be accessible via CLI commands with:
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+- Text-based input/output protocol: arguments → stdout, errors → stderr
+- Deterministic exit codes: 0 (success), 1 (error), 2 (environment error)
+- Human-readable output by default
+- No GUI, web interface, or daemon processes in MVP scope
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+**Rationale**: CLI tools are composable, scriptable, and testable. Agent-to-agent communication requires predictable, automatable interfaces.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### II. Simplicity (YAGNI)
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+Start with the minimum viable implementation. Features MUST be justified by immediate need:
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+- MVP scope: `send` and `receive` commands only
+- Standard library dependencies preferred over external packages
+- No premature abstractions or "future-proofing"
+- Complexity MUST be explicitly justified in plan.md
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+**Rationale**: AgentMail serves a focused purpose. Over-engineering creates maintenance burden and obscures core functionality.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### III. Test Coverage (NON-NEGOTIABLE)
+
+All code MUST achieve minimum 80% test coverage as measured by `go test -cover`:
+
+- Tests written before or alongside implementation (TDD encouraged)
+- Unit tests for all public functions
+- Integration tests for CLI command flows
+- Coverage gate enforced before merge
+
+**Rationale**: Inter-agent communication is infrastructure. Regressions break dependent agents silently.
+
+### IV. Standard Library Preference
+
+External dependencies MUST be justified. Prefer Go standard library:
+
+- `os/exec` for tmux integration
+- `encoding/json` for JSONL handling
+- `crypto/rand` for ID generation
+- `syscall` for file locking
+
+New dependencies require documented rationale in research.md with:
+- Why standard library is insufficient
+- Security/maintenance implications
+- Alternative approaches considered
+
+**Rationale**: Minimal dependencies reduce supply chain risk and simplify builds for a tool that may run in diverse agent environments.
+
+## Technology Constraints
+
+- **Language**: Go 1.21+ (per IC-001)
+- **Storage**: JSONL files in `.git/mail/` directory (per-recipient files)
+- **Platform**: macOS and Linux with tmux installed
+- **Build**: Standard `go build`, no CGO dependencies
+
+## Quality Gates
+
+Before any feature is considered complete:
+
+1. **Coverage**: `go test -cover ./...` reports >= 80%
+2. **Static Analysis**: `go vet ./...` passes with no errors
+3. **Formatting**: `go fmt ./...` produces no changes
+4. **Spec Compliance**: All acceptance scenarios from spec.md pass
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes all other development practices for AgentMail.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Amendment Process**:
+1. Propose change with rationale in PR description
+2. Update constitution version (MAJOR for principle changes, MINOR for additions, PATCH for clarifications)
+3. Update dependent templates if affected
+4. Document in Sync Impact Report
+
+**Compliance**:
+- All PRs MUST verify constitution compliance
+- Violations require explicit justification or constitution amendment
+- `/speckit.analyze` checks constitution alignment automatically
+
+**Version**: 1.0.0 | **Ratified**: 2026-01-11 | **Last Amended**: 2026-01-11

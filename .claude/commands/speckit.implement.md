@@ -36,10 +36,24 @@ You **MUST** consider the user input before proceeding (if not empty).
 
    - **If any checklist is incomplete**:
      - Display the table with incomplete item counts
-     - **STOP** and ask: "Some checklists are incomplete. Do you want to proceed with implementation anyway? (yes/no)"
-     - Wait for user response before continuing
-     - If user says "no" or "wait" or "stop", halt execution
-     - If user says "yes" or "proceed" or "continue", proceed to step 3
+     - **Use AskUserQuestion tool** to confirm:
+       ```json
+       {
+         "questions": [
+           {
+             "question": "Some checklists are incomplete. Do you want to proceed with implementation anyway?",
+             "header": "Proceed?",
+             "options": [
+               {"label": "Yes, proceed", "description": "Continue with implementation despite incomplete checklists"},
+               {"label": "No, stop (Recommended)", "description": "Halt to complete checklists first - reduces risk"}
+             ],
+             "multiSelect": false
+           }
+         ]
+       }
+       ```
+     - If user selects "No, stop", halt execution
+     - If user selects "Yes, proceed", continue to step 3
 
    - **If all checklists are complete**:
      - Display the table showing all checklists passed

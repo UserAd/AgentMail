@@ -33,3 +33,4 @@ go.work.sum
 
 # AgentMail mailbox storage (per-recipient JSONL files)
 .git/mail/
+/agentmail

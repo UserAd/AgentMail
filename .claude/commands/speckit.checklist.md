@@ -37,7 +37,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - All file paths must be absolute.
    - For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
-2. **Clarify intent (dynamic)**: Derive up to THREE initial contextual clarifying questions (no pre-baked catalog). They MUST:
+2. **Clarify intent using AskUserQuestion tool**: Derive up to THREE initial contextual clarifying questions (no pre-baked catalog). They MUST:
    - Be generated from the user's phrasing + extracted signals from spec/plan/tasks
    - Only ask about information that materially changes checklist content
    - Be skipped individually if already unambiguous in `$ARGUMENTS`
@@ -48,26 +48,70 @@ You **MUST** consider the user input before proceeding (if not empty).
    2. Cluster signals into candidate focus areas (max 4) ranked by relevance.
    3. Identify probable audience & timing (author, reviewer, QA, release) if not explicit.
    4. Detect missing dimensions: scope breadth, depth/rigor, risk emphasis, exclusion boundaries, measurable acceptance criteria.
-   5. Formulate questions chosen from these archetypes:
-      - Scope refinement (e.g., "Should this include integration touchpoints with X and Y or stay limited to local module correctness?")
-      - Risk prioritization (e.g., "Which of these potential risk areas should receive mandatory gating checks?")
-      - Depth calibration (e.g., "Is this a lightweight pre-commit sanity list or a formal release gate?")
-      - Audience framing (e.g., "Will this be used by the author only or peers during PR review?")
-      - Boundary exclusion (e.g., "Should we explicitly exclude performance tuning items this round?")
-      - Scenario class gap (e.g., "No recovery flows detected—are rollback / partial failure paths in scope?")
+   5. Formulate questions from these archetypes and present via **AskUserQuestion tool**:
 
-   Question formatting rules:
-   - If presenting options, generate a compact table with columns: Option | Candidate | Why It Matters
-   - Limit to A–E options maximum; omit table if a free-form answer is clearer
-   - Never ask the user to restate what they already said
-   - Avoid speculative categories (no hallucination). If uncertain, ask explicitly: "Confirm whether X belongs in scope."
+   **Use AskUserQuestion tool** to present clarifications (max 4 questions per call):
 
-   Defaults when interaction impossible:
+   For each question, create a question object with:
+   - `question`: Clear question text based on archetype
+   - `header`: Short category label (max 12 chars, e.g., "Scope", "Depth", "Audience")
+   - `options`: 2-4 options with `label` and `description`
+     - First option should be recommended with "(Recommended)" in label
+   - `multiSelect`: true/false depending on whether multiple selections make sense
+
+   Example AskUserQuestion call:
+   ```json
+   {
+     "questions": [
+       {
+         "question": "What depth level should this checklist have?",
+         "header": "Depth",
+         "options": [
+           {"label": "Standard (Recommended)", "description": "Balanced coverage for typical PR review"},
+           {"label": "Lightweight", "description": "Quick pre-commit sanity check"},
+           {"label": "Comprehensive", "description": "Formal release gate with full coverage"}
+         ],
+         "multiSelect": false
+       },
+       {
+         "question": "Who is the primary audience for this checklist?",
+         "header": "Audience",
+         "options": [
+           {"label": "PR Reviewer (Recommended)", "description": "Code review context, peer validation"},
+           {"label": "Author", "description": "Self-check before submission"},
+           {"label": "QA Team", "description": "Formal testing validation"}
+         ],
+         "multiSelect": false
+       },
+       {
+         "question": "Which risk areas should receive mandatory gating checks?",
+         "header": "Risk Focus",
+         "options": [
+           {"label": "Security", "description": "Auth, data protection, input validation"},
+           {"label": "Performance", "description": "Latency, throughput, resource usage"},
+           {"label": "Data Integrity", "description": "Validation, consistency, migrations"},
+           {"label": "UX/Accessibility", "description": "Usability, a11y compliance"}
+         ],
+         "multiSelect": true
+       }
+     ]
+   }
+   ```
+
+   Question archetypes to choose from:
+   - Scope refinement: "Should this include integration touchpoints with X and Y or stay limited to local module correctness?"
+   - Risk prioritization: "Which of these potential risk areas should receive mandatory gating checks?"
+   - Depth calibration: "Is this a lightweight pre-commit sanity list or a formal release gate?"
+   - Audience framing: "Will this be used by the author only or peers during PR review?"
+   - Boundary exclusion: "Should we explicitly exclude performance tuning items this round?"
+   - Scenario class gap: "No recovery flows detected—are rollback / partial failure paths in scope?"
+
+   Defaults when no questions needed (all clear from `$ARGUMENTS`):
    - Depth: Standard
    - Audience: Reviewer (PR) if code-related; Author otherwise
    - Focus: Top 2 relevance clusters
 
-   Output the questions (label Q1/Q2/Q3). After answers: if ≥2 scenario classes (Alternate / Exception / Recovery / Non-Functional domain) remain unclear, you MAY ask up to TWO more targeted follow‑ups (Q4/Q5) with a one-line justification each (e.g., "Unresolved recovery path risk"). Do not exceed five total questions. Skip escalation if user explicitly declines more.
+   After initial answers: if ≥2 scenario classes (Alternate / Exception / Recovery / Non-Functional domain) remain unclear, you MAY ask up to TWO more targeted follow‑ups via another AskUserQuestion call. Do not exceed five total questions. Skip escalation if user explicitly declines more.
 
 3. **Understand user request**: Combine `$ARGUMENTS` + clarifying answers:
    - Derive checklist theme (e.g., security, review, deploy, ux)
@@ -79,6 +123,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - spec.md: Feature requirements and scope
    - plan.md (if exists): Technical details, dependencies
    - tasks.md (if exists): Implementation tasks
+   - `.specify/memory/ears-guidelines.md`: EARS requirements syntax patterns (for requirements quality validation)
 
    **Context Loading Strategy**:
    - Load only necessary portions relevant to active focus areas (avoid full-file dumping)
@@ -107,6 +152,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **Requirement Completeness** (Are all necessary requirements documented?)
    - **Requirement Clarity** (Are requirements specific and unambiguous?)
    - **Requirement Consistency** (Do requirements align without conflicts?)
+   - **EARS Compliance** (Do requirements follow EARS patterns from `.specify/memory/ears-guidelines.md`?)
    - **Acceptance Criteria Quality** (Are success criteria measurable?)
    - **Scenario Coverage** (Are all flows/cases addressed?)
    - **Edge Case Coverage** (Are boundary conditions defined?)
@@ -162,6 +208,16 @@ You **MUST** consider the user input before proceeding (if not empty).
    Measurability:
    - "Are visual hierarchy requirements measurable/testable? [Acceptance Criteria, Spec §FR-1]"
    - "Can 'balanced visual weight' be objectively verified? [Measurability, Spec §FR-2]"
+
+   EARS Compliance (from .specify/memory/ears-guidelines.md):
+   - "Do all functional requirements follow EARS patterns (Ubiquitous/When/While/If-Then/Where)? [EARS, Gap]"
+   - "Does each requirement have an explicit system name? [EARS, Spec §FR-*]"
+   - "Are all requirements written in active voice? [EARS, Clarity]"
+   - "Does each requirement contain only one 'shall' statement? [EARS, Completeness]"
+   - "Do numerical values include units (seconds, milliseconds, percent)? [EARS, Clarity]"
+   - "Are vague terms (fast, efficient, user-friendly) replaced with measurable criteria? [EARS, Ambiguity]"
+   - "Are escape clauses (if possible, where appropriate) eliminated? [EARS, Gap]"
+   **Note**: If EARS compliance issues exist, recommend `/ears-translator` skill to convert requirements.
 
    **Scenario Classification & Coverage** (Requirements Quality Focus):
    - Check if requirements exist for: Primary, Alternate, Exception/Error, Recovery, Non-Functional scenarios

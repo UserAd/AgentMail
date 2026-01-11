@@ -34,6 +34,8 @@ Templates are stored in `.specify/templates/` and project constitution in `.spec
 ## Active Technologies
 - Go 1.21+ (per IC-001) + Standard library only (os/exec for tmux, encoding/json for JSONL) (001-agent-mail-structure)
 - JSONL file in `.git/mail/` directory (001-agent-mail-structure)
+- Go 1.21+ (project uses Go 1.25.3) + GitHub Actions (yaml workflows), PaulHatch/semantic-version action for version calculation (002-github-ci-cd)
+- N/A (CI/CD configuration files only) (002-github-ci-cd)
 
 ## Recent Changes
 - 001-agent-mail-structure: Added Go 1.21+ (per IC-001) + Standard library only (os/exec for tmux, encoding/json for JSONL)

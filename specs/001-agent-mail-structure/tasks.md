@@ -41,19 +41,19 @@ Based on plan.md structure:
 
 ### Tests for Foundational Components
 
-- [ ] T004 [P] Write tests for tmux detection (InTmux, GetCurrentWindow) in internal/tmux/tmux_test.go
-- [ ] T005 [P] Write tests for tmux window listing (ListWindows, WindowExists) in internal/tmux/tmux_test.go
-- [ ] T006 [P] Write tests for Message struct JSON marshaling in internal/mail/message_test.go
-- [ ] T007 [P] Write tests for unique ID generation (8-char base62) in internal/mail/message_test.go
+- [x] T004 [P] Write tests for tmux detection (InTmux, GetCurrentWindow) in internal/tmux/tmux_test.go
+- [x] T005 [P] Write tests for tmux window listing (ListWindows, WindowExists) in internal/tmux/tmux_test.go
+- [x] T006 [P] Write tests for Message struct JSON marshaling in internal/mail/message_test.go
+- [x] T007 [P] Write tests for unique ID generation (8-char base62) in internal/mail/message_test.go
 
 ### Implementation for Foundational Components
 
-- [ ] T008 [P] Implement Message struct with JSON tags in internal/mail/message.go
-- [ ] T009 [P] Implement GenerateID function (crypto/rand, base62) in internal/mail/message.go
-- [ ] T010 Implement InTmux detection (check $TMUX env var) in internal/tmux/tmux.go
-- [ ] T011 Implement GetCurrentWindow (tmux display-message -p '#W') in internal/tmux/tmux.go
-- [ ] T012 Implement ListWindows (tmux list-windows -F '#{window_name}') in internal/tmux/tmux.go
-- [ ] T013 Implement WindowExists helper function in internal/tmux/tmux.go
+- [x] T008 [P] Implement Message struct with JSON tags in internal/mail/message.go
+- [x] T009 [P] Implement GenerateID function (crypto/rand, base62) in internal/mail/message.go
+- [x] T010 Implement InTmux detection (check $TMUX env var) in internal/tmux/tmux.go
+- [x] T011 Implement GetCurrentWindow (tmux display-message -p '#W') in internal/tmux/tmux.go
+- [x] T012 Implement ListWindows (tmux list-windows -F '#{window_name}') in internal/tmux/tmux.go
+- [x] T013 Implement WindowExists helper function in internal/tmux/tmux.go
 
 **Checkpoint**: tmux integration and message types ready - user story implementation can begin
 

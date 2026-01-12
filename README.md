@@ -15,11 +15,13 @@ A Go CLI tool for inter-agent communication within tmux sessions. Agents running
 - **Minimal dependencies** - Built with Go standard library + lightweight CLI framework
 - **Ignore lists** - Filter out windows you don't want to communicate with
 - **Stdin support** - Pipe messages from other commands
-- **Claude Code hooks** - Integration with Claude Code for mail notifications
+- **Daemon notifications** - Background mailman daemon monitors mailboxes and notifies agents
+- **Agent status tracking** - Agents can set status (ready/work/offline) for smart notifications
+- **Claude Code integration** - Plugin and hooks for AI agent orchestration
 
 ## Requirements
 
-- Go 1.21 or later
+- Go 1.23 or later
 - tmux (must be running inside a tmux session)
 - Linux or macOS
 
@@ -47,7 +49,7 @@ brew install agentmail
 Download the latest binary for your platform from the [Releases](https://github.com/UserAd/AgentMail/releases) page.
 
 Available platforms:
-- Linux (amd64)
+- Linux (amd64, arm64)
 - macOS (amd64, arm64)
 
 ### From Source
@@ -177,6 +179,79 @@ The current window is marked with `[you]`.
 - `0` - Success
 - `1` - Error listing windows
 - `2` - Not running inside tmux
+
+### status
+
+Set your agent's availability status for daemon notifications.
+
+```bash
+agentmail status <ready|work|offline>
+```
+
+**Statuses:**
+- `ready` - Available to receive notifications (daemon will alert you of new mail)
+- `work` - Busy working (notifications suppressed until you return to ready)
+- `offline` - Not available (notifications suppressed)
+
+**Examples:**
+```bash
+# Mark yourself as ready to receive notifications
+agentmail status ready
+
+# Mark yourself as busy (no notifications until ready again)
+agentmail status work
+
+# Go offline
+agentmail status offline
+```
+
+**Exit codes:**
+- `0` - Status updated successfully
+- `1` - Invalid status value
+
+### mailman
+
+Start the mailman daemon to monitor mailboxes and notify agents.
+
+```bash
+agentmail mailman [--daemon]
+```
+
+**Flags:**
+- `--daemon` - Run in background (daemonize)
+
+**Behavior:**
+- Monitors all mailboxes every 10 seconds
+- Sends notifications to agents with `ready` status that have unread mail
+- Notifications sent via tmux: `tmux send-keys -t <window> "Check your agentmail"`
+- Stores PID in `.git/mail/mailman.pid`
+- Gracefully shuts down on SIGTERM/SIGINT
+
+**Examples:**
+```bash
+# Run in foreground (useful for debugging)
+agentmail mailman
+
+# Run as background daemon
+agentmail mailman --daemon
+```
+
+**Exit codes:**
+- `0` - Daemon started/stopped successfully
+- `2` - Daemon already running
+
+### onboard
+
+Output AI-optimized onboarding context about AgentMail.
+
+```bash
+agentmail onboard
+```
+
+This command outputs a quick reference for AI agents to understand AgentMail's capabilities. Used by Claude Code SessionStart hooks for agent initialization.
+
+**Exit codes:**
+- `0` - Success
 
 ### help
 
@@ -342,6 +417,35 @@ Each message gets a unique 8-character base62 ID (a-z, A-Z, 0-9) generated using
 
 AgentMail uses POSIX file locking (`flock`) to ensure atomic read-modify-write operations. Multiple agents can safely send and receive messages concurrently.
 
+### Daemon System
+
+The mailman daemon provides proactive notifications for agents:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Mailman Daemon                          │
+│                                                             │
+│  1. Read recipient states from .git/mail-recipients.jsonl  │
+│  2. For each "ready" agent:                                 │
+│     - Check if unread messages exist                        │
+│     - If yes and not already notified: send notification    │
+│  3. Sleep 10 seconds, repeat                                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Recipient State File** (`.git/mail-recipients.jsonl`):
+```json
+{"recipient":"agent-1","status":"ready","updated_at":"2024-01-12T10:00:00Z","notified":false}
+{"recipient":"agent-2","status":"work","updated_at":"2024-01-12T10:05:00Z","notified":false}
+```
+
+**Notification Flow:**
+1. Agent sets status to `ready` using `agentmail status ready`
+2. Mailman daemon detects unread messages for agent
+3. Daemon sends notification via tmux: `Check your agentmail`
+4. Agent's `notified` flag is set to prevent duplicate notifications
+5. When agent changes to `work` or `offline`, `notified` resets
+
 ## Development
 
 ### Build
@@ -375,10 +479,10 @@ go vet ./...
 
 ### Testing in CI Environment
 
-To match the CI environment (Go 1.21, Linux):
+To match the CI environment (Go 1.23, Linux):
 
 ```bash
-docker run --rm -v $(pwd):/app -w /app golang:1.21 go test -v -race ./...
+docker run --rm -v $(pwd):/app -w /app golang:1.23 go test -v -race ./...
 ```
 
 ## Project Structure
@@ -389,13 +493,26 @@ AgentMail/
 │   └── agentmail/          # CLI entry point
 ├── internal/
 │   ├── cli/                # Command implementations
+│   ├── daemon/             # Mailman daemon and notification loop
 │   ├── mail/               # Message and mailbox logic
 │   └── tmux/               # tmux integration
+├── claude-plugin/          # Claude Code plugin
 ├── .github/workflows/      # CI/CD automation
 ├── specs/                  # Feature specifications
 ├── go.mod                  # Go module definition
 └── LICENSE                 # MIT License
 ```
+
+## Security
+
+AgentMail includes several security measures:
+
+- **Path traversal protection** - All file paths are validated to prevent directory traversal attacks
+- **Command injection prevention** - tmux pane IDs are validated with regex patterns
+- **Atomic file operations** - POSIX file locking prevents race conditions
+- **Input validation** - Recipients and status values are validated against whitelists
+- **Self-send prevention** - Agents cannot send messages to themselves
+- **Local-only operation** - No network communication; purely file-based
 
 ## Use Cases
 

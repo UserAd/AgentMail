@@ -84,17 +84,17 @@ Based on plan.md structure:
 
 ### Tests for User Story 2
 
-- [ ] T018 [P] [US2] Write test: excludes windows listed in .agentmailignore
-- [ ] T019 [P] [US2] Write test: handles missing .agentmailignore gracefully (shows all windows)
-- [ ] T020 [P] [US2] Write test: ignores empty and whitespace-only lines in ignore file
-- [ ] T021 [P] [US2] Write test: handles unreadable ignore file (per FR-013)
+- [X] T018 [P] [US2] Write test: excludes windows listed in .agentmailignore
+- [X] T019 [P] [US2] Write test: handles missing .agentmailignore gracefully (shows all windows)
+- [X] T020 [P] [US2] Write test: ignores empty and whitespace-only lines in ignore file
+- [X] T021 [P] [US2] Write test: handles unreadable ignore file (per FR-013)
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Integrate LoadIgnoreList() into Recipients() function in internal/cli/recipients.go
-- [ ] T023 [US2] Filter windows against ignore list before output
-- [ ] T024 [US2] Current window shown with "[you]" even if in ignore list (per FR-004)
-- [ ] T025 [US2] Verify tests pass: `go test -v ./internal/cli/... -run Recipients`
+- [X] T022 [US2] Integrate LoadIgnoreList() into Recipients() function in internal/cli/recipients.go
+- [X] T023 [US2] Filter windows against ignore list before output
+- [X] T024 [US2] Current window shown with "[you]" even if in ignore list (per FR-004)
+- [X] T025 [US2] Verify tests pass: `go test -v ./internal/cli/... -run Recipients`
 
 **Checkpoint**: Recipients list correctly filters ignored windows
 

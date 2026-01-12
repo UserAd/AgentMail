@@ -232,3 +232,202 @@ func TestRecipientsCommand_OutputFormat(t *testing.T) {
 		}
 	}
 }
+
+// T018: Test that excludes windows listed in .agentmailignore
+func TestRecipientsCommand_ExcludesIgnoredWindows(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+
+	exitCode := Recipients(&stdout, &stderr, RecipientsOptions{
+		SkipTmuxCheck:  true,
+		MockWindows:    []string{"main", "agent1", "agent2", "worker"},
+		MockCurrent:    "main",
+		MockIgnoreList: map[string]bool{"agent1": true, "worker": true},
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	output := stdout.String()
+
+	// Check that ignored windows are NOT in output
+	if strings.Contains(output, "agent1") {
+		t.Errorf("Ignored window 'agent1' should not appear in output, got: %s", output)
+	}
+	if strings.Contains(output, "worker") {
+		t.Errorf("Ignored window 'worker' should not appear in output, got: %s", output)
+	}
+
+	// Check that non-ignored windows ARE in output
+	if !strings.Contains(output, "main [you]") {
+		t.Errorf("Current window 'main' should appear with [you], got: %s", output)
+	}
+	if !strings.Contains(output, "agent2") {
+		t.Errorf("Non-ignored window 'agent2' should appear in output, got: %s", output)
+	}
+
+	// Verify only 2 lines in output
+	lines := strings.Split(strings.TrimSuffix(output, "\n"), "\n")
+	if len(lines) != 2 {
+		t.Errorf("Expected 2 lines (main and agent2), got %d: %v", len(lines), lines)
+	}
+}
+
+// T019: Test that handles missing .agentmailignore gracefully (shows all windows)
+func TestRecipientsCommand_HandlesMissingIgnoreFile(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+
+	// Use a mock git root that doesn't have an ignore file
+	tempDir := t.TempDir()
+
+	exitCode := Recipients(&stdout, &stderr, RecipientsOptions{
+		SkipTmuxCheck: true,
+		MockWindows:   []string{"main", "agent1", "agent2"},
+		MockCurrent:   "main",
+		MockGitRoot:   tempDir, // Directory without .agentmailignore
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	output := stdout.String()
+
+	// All windows should be shown when ignore file is missing
+	if !strings.Contains(output, "main [you]") {
+		t.Errorf("Expected 'main [you]' in output, got: %s", output)
+	}
+	if !strings.Contains(output, "agent1") {
+		t.Errorf("Expected 'agent1' in output, got: %s", output)
+	}
+	if !strings.Contains(output, "agent2") {
+		t.Errorf("Expected 'agent2' in output, got: %s", output)
+	}
+
+	// Verify 3 lines in output
+	lines := strings.Split(strings.TrimSuffix(output, "\n"), "\n")
+	if len(lines) != 3 {
+		t.Errorf("Expected 3 lines, got %d: %v", len(lines), lines)
+	}
+}
+
+// T020: Test that ignores empty and whitespace-only lines in ignore file
+func TestRecipientsCommand_IgnoresEmptyLinesInIgnoreFile(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+
+	// Create a temp directory with an ignore file containing empty lines
+	tempDir := t.TempDir()
+	ignoreContent := "agent1\n\n  \n\t\nworker\n"
+	if err := os.WriteFile(tempDir+"/.agentmailignore", []byte(ignoreContent), 0o644); err != nil {
+		t.Fatalf("Failed to create ignore file: %v", err)
+	}
+
+	exitCode := Recipients(&stdout, &stderr, RecipientsOptions{
+		SkipTmuxCheck: true,
+		MockWindows:   []string{"main", "agent1", "agent2", "worker"},
+		MockCurrent:   "main",
+		MockGitRoot:   tempDir,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	output := stdout.String()
+
+	// Check that explicitly ignored windows are NOT in output
+	if strings.Contains(output, "agent1\n") || strings.Contains(output, "agent1 [you]") {
+		// agent1 could appear if it's the current window, but here main is current
+		if !strings.Contains(output, "agent1 [you]") && strings.Contains(output, "agent1") {
+			t.Errorf("Ignored window 'agent1' should not appear in output, got: %s", output)
+		}
+	}
+	if strings.Contains(output, "worker") {
+		t.Errorf("Ignored window 'worker' should not appear in output, got: %s", output)
+	}
+
+	// Check that non-ignored windows ARE in output
+	if !strings.Contains(output, "main [you]") {
+		t.Errorf("Current window 'main' should appear with [you], got: %s", output)
+	}
+	if !strings.Contains(output, "agent2") {
+		t.Errorf("Non-ignored window 'agent2' should appear in output, got: %s", output)
+	}
+}
+
+// T021: Test that handles unreadable ignore file (per FR-013)
+func TestRecipientsCommand_HandlesUnreadableIgnoreFile(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+
+	// Create a temp directory with an unreadable ignore file
+	tempDir := t.TempDir()
+	ignorePath := tempDir + "/.agentmailignore"
+	if err := os.WriteFile(ignorePath, []byte("agent1\n"), 0o000); err != nil {
+		t.Fatalf("Failed to create ignore file: %v", err)
+	}
+	// Ensure cleanup even if test fails
+	defer os.Chmod(ignorePath, 0o644)
+
+	exitCode := Recipients(&stdout, &stderr, RecipientsOptions{
+		SkipTmuxCheck: true,
+		MockWindows:   []string{"main", "agent1", "agent2"},
+		MockCurrent:   "main",
+		MockGitRoot:   tempDir,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	output := stdout.String()
+
+	// When ignore file is unreadable, all windows should be shown (per FR-013)
+	if !strings.Contains(output, "main [you]") {
+		t.Errorf("Expected 'main [you]' in output, got: %s", output)
+	}
+	if !strings.Contains(output, "agent1") {
+		t.Errorf("Expected 'agent1' in output when ignore file unreadable, got: %s", output)
+	}
+	if !strings.Contains(output, "agent2") {
+		t.Errorf("Expected 'agent2' in output, got: %s", output)
+	}
+}
+
+// T024: Test that current window is shown with "[you]" even if in ignore list (per FR-004)
+func TestRecipientsCommand_CurrentWindowShownEvenIfIgnored(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+
+	exitCode := Recipients(&stdout, &stderr, RecipientsOptions{
+		SkipTmuxCheck:  true,
+		MockWindows:    []string{"main", "agent1", "agent2"},
+		MockCurrent:    "agent1", // Current window is in ignore list
+		MockIgnoreList: map[string]bool{"agent1": true, "agent2": true},
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	output := stdout.String()
+
+	// Current window should ALWAYS be shown with [you], even if in ignore list
+	if !strings.Contains(output, "agent1 [you]") {
+		t.Errorf("Current window 'agent1' should appear with [you] even if in ignore list, got: %s", output)
+	}
+
+	// Other ignored windows should NOT be shown
+	if strings.Contains(output, "agent2") {
+		t.Errorf("Ignored window 'agent2' should not appear in output, got: %s", output)
+	}
+
+	// Non-ignored windows should be shown
+	if !strings.Contains(output, "main") {
+		t.Errorf("Non-ignored window 'main' should appear in output, got: %s", output)
+	}
+
+	// Verify only 2 lines in output (main and agent1 [you])
+	lines := strings.Split(strings.TrimSuffix(output, "\n"), "\n")
+	if len(lines) != 2 {
+		t.Errorf("Expected 2 lines (main and agent1 [you]), got %d: %v", len(lines), lines)
+	}
+}

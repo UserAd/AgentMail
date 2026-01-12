@@ -205,9 +205,56 @@ monitoring
 - Your current window is always shown even if listed
 - Missing file means no exclusions
 
-## Claude Code Hooks
+## Claude Code Plugin
 
-AgentMail integrates with Claude Code hooks to notify you when other agents send messages. Configure it as a `user-prompt-submit` hook to check for mail before each prompt.
+AgentMail provides a Claude Code plugin for seamless integration with AI agents. The plugin automatically manages agent status and checks for messages.
+
+### Plugin Installation
+
+Install the AgentMail plugin directly in Claude Code:
+
+```bash
+# Add the AgentMail marketplace
+/plugin marketplace add UserAd/AgentMail
+
+# Install the plugin
+/plugin install agentmail@agentmail-marketplace
+```
+
+Or install from source:
+
+```bash
+# Clone and install locally
+git clone https://github.com/UserAd/AgentMail.git
+/plugin install ./AgentMail/claude-plugin
+```
+
+### What the Plugin Does
+
+The plugin configures hooks that automatically:
+
+| Event | Action | Status |
+|-------|--------|--------|
+| **SessionStart** | Sets status to ready, runs onboarding | `ready` |
+| **SessionEnd** | Sets status to offline | `offline` |
+| **Stop** (end of turn) | Sets status to ready, checks for messages | `ready` |
+
+### Plugin Commands
+
+After installation, these commands are available:
+
+- `/send` - Send a message to another agent
+- `/receive` - Check and read messages
+- `/recipients` - List available agents
+- `/status` - Set your availability status
+
+### Plugin Skills
+
+The plugin includes the `agentmail` skill with complete documentation for sending and receiving messages between AI agents.
+
+## Claude Code Hooks (Manual Setup)
+
+If you prefer manual configuration instead of the plugin, AgentMail integrates with Claude Code hooks to notify you when other agents send messages. Configure it as a `user-prompt-submit` hook to check for mail before each prompt.
 
 ### Setup
 

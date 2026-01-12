@@ -97,3 +97,128 @@ jobs:
           files: artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update-homebrew:
+    name: Update Homebrew Formula
+    runs-on: ubuntu-latest
+    needs: [version, release]
+    steps:
+      - name: Checkout homebrew-agentmail
+        uses: actions/checkout@v4
+        with:
+          repository: UserAd/homebrew-agentmail
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Wait for release assets to be available
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          # Wait for release assets to propagate (can take a few seconds)
+          for i in {1..12}; do
+            HTTP_CODE=$(curl -sL -o /dev/null -w '%{http_code}' "https://github.com/UserAd/AgentMail/releases/download/v${VERSION}/agentmail-darwin-arm64")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Release assets are available"
+              break
+            fi
+            echo "Waiting for release assets... attempt $i (HTTP $HTTP_CODE)"
+            sleep 10
+          done
+
+      - name: Download release binaries and calculate checksums
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          # Download release binaries with error handling
+          curl -fsSL --retry 3 --retry-delay 5 "https://github.com/UserAd/AgentMail/releases/download/v${VERSION}/agentmail-darwin-amd64" -o darwin-amd64
+          curl -fsSL --retry 3 --retry-delay 5 "https://github.com/UserAd/AgentMail/releases/download/v${VERSION}/agentmail-darwin-arm64" -o darwin-arm64
+          curl -fsSL --retry 3 --retry-delay 5 "https://github.com/UserAd/AgentMail/releases/download/v${VERSION}/agentmail-linux-amd64" -o linux-amd64
+
+          # Verify downloads are non-empty
+          for f in darwin-amd64 darwin-arm64 linux-amd64; do
+            if [ ! -s "$f" ]; then
+              echo "ERROR: $f is empty or missing"
+              exit 1
+            fi
+          done
+
+          # Calculate SHA256 checksums
+          echo "SHA_DARWIN_AMD64=$(sha256sum darwin-amd64 | cut -d' ' -f1)" >> $GITHUB_ENV
+          echo "SHA_DARWIN_ARM64=$(sha256sum darwin-arm64 | cut -d' ' -f1)" >> $GITHUB_ENV
+          echo "SHA_LINUX_AMD64=$(sha256sum linux-amd64 | cut -d' ' -f1)" >> $GITHUB_ENV
+
+      - name: Update formula
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          cat > Formula/agentmail.rb << 'FORMULA_EOF'
+          class Agentmail < Formula
+            desc "Inter-agent communication for tmux sessions"
+            homepage "https://github.com/UserAd/AgentMail"
+            version "VERSION_PLACEHOLDER"
+            license "MIT"
+
+            on_macos do
+              on_arm do
+                url "https://github.com/UserAd/AgentMail/releases/download/vVERSION_PLACEHOLDER/agentmail-darwin-arm64"
+                sha256 "SHA_ARM64_PLACEHOLDER"
+              end
+              on_intel do
+                url "https://github.com/UserAd/AgentMail/releases/download/vVERSION_PLACEHOLDER/agentmail-darwin-amd64"
+                sha256 "SHA_AMD64_PLACEHOLDER"
+              end
+            end
+
+            on_linux do
+              on_intel do
+                url "https://github.com/UserAd/AgentMail/releases/download/vVERSION_PLACEHOLDER/agentmail-linux-amd64"
+                sha256 "SHA_LINUX_PLACEHOLDER"
+              end
+            end
+
+            def install
+              if OS.mac?
+                bin.install "agentmail-darwin-arm64" => "agentmail" if Hardware::CPU.arm?
+                bin.install "agentmail-darwin-amd64" => "agentmail" if Hardware::CPU.intel?
+              else
+                bin.install "agentmail-linux-amd64" => "agentmail"
+              end
+            end
+
+            test do
+              assert_match "agentmail", shell_output("#{bin}/agentmail --help")
+            end
+          end
+          FORMULA_EOF
+
+          # Remove leading whitespace and substitute placeholders
+          sed -i 's/^          //' Formula/agentmail.rb
+          sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" Formula/agentmail.rb
+          sed -i "s/SHA_ARM64_PLACEHOLDER/${SHA_DARWIN_ARM64}/g" Formula/agentmail.rb
+          sed -i "s/SHA_AMD64_PLACEHOLDER/${SHA_DARWIN_AMD64}/g" Formula/agentmail.rb
+          sed -i "s/SHA_LINUX_PLACEHOLDER/${SHA_LINUX_AMD64}/g" Formula/agentmail.rb
+
+      - name: Validate formula
+        run: |
+          # Ensure no placeholders remain
+          if grep -q 'PLACEHOLDER' Formula/agentmail.rb; then
+            echo "ERROR: Formula still contains unsubstituted placeholders"
+            cat Formula/agentmail.rb
+            exit 1
+          fi
+          # Verify Ruby syntax
+          ruby -c Formula/agentmail.rb
+
+      - name: Commit and push
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/agentmail.rb
+          # Only commit if there are changes
+          if git diff --cached --quiet; then
+            echo "No changes to commit - formula already up to date"
+          else
+            git commit -m "Update agentmail to v${VERSION}"
+            git push
+          fi

@@ -11,25 +11,25 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    container:
-      image: golang:1.21
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Create non-root user
-        run: |
-          useradd -m testuser
-          chown -R testuser:testuser .
-          chown -R testuser:testuser /go
-          mkdir -p /home/testuser/.cache
-          chown -R testuser:testuser /home/testuser
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
 
       - name: Check formatting
-        run: su testuser -c 'gofmt -l . | grep . && exit 1 || exit 0'
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "The following files are not formatted correctly:"
+            gofmt -l .
+            exit 1
+          fi
 
       - name: Run vet
-        run: su testuser -c 'HOME=/home/testuser go vet ./...'
+        run: go vet ./...
 
       - name: Run tests
-        run: su testuser -c 'HOME=/home/testuser go test -v -race -coverprofile=coverage.out ./...'
+        run: go test -v -race -coverprofile=coverage.out ./...

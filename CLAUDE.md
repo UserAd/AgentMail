@@ -43,6 +43,15 @@ Once Go source files are added:
 - `go vet ./...` - Run static analysis
 - `go fmt ./...` - Format code
 
+## Testing in CI Environment
+
+To run tests in a container matching CI (Go 1.21, Linux):
+```bash
+docker run --rm -v $(pwd):/app -w /app golang:1.21 go test -v -race ./...
+```
+
+This helps catch issues that only manifest in the CI environment (e.g., running as root, different Go version).
+
 ## Specification Workflow
 
 This project uses speckit for feature specification and planning. Available commands in `.claude/commands/`:

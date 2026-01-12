@@ -42,8 +42,9 @@ func Recipients(stdout, stderr io.Writer, opts RecipientsOptions) int {
 	}
 
 	// Get current window
+	// In mock mode (MockWindows is set), use MockCurrent even if empty
 	var currentWindow string
-	if opts.MockCurrent != "" {
+	if opts.MockWindows != nil {
 		currentWindow = opts.MockCurrent
 	} else {
 		var err error

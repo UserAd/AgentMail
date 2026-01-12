@@ -204,6 +204,11 @@ agent-2
 }
 
 func TestLoadIgnoreList_HandlesUnreadableFileGracefully(t *testing.T) {
+	// Skip on systems where root can read any file (e.g., GitHub Actions containers)
+	if os.Getuid() == 0 {
+		t.Skip("Skipping unreadable file test when running as root")
+	}
+
 	tmpDir, err := os.MkdirTemp("", "agentmail-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)

@@ -110,15 +110,15 @@ Based on plan.md structure:
 
 ### Tests for User Story 3
 
-- [ ] T026 [P] [US3] Write test: send to ignored recipient returns "recipient not found" error
-- [ ] T027 [P] [US3] Write test: send to valid recipient (not ignored) succeeds
-- [ ] T028 [P] [US3] Write test: send to self returns "recipient not found" error
+- [X] T026 [P] [US3] Write test: send to ignored recipient returns "recipient not found" error
+- [X] T027 [P] [US3] Write test: send to valid recipient (not ignored) succeeds
+- [X] T028 [P] [US3] Write test: send to self returns "recipient not found" error
 
 ### Implementation for User Story 3
 
-- [ ] T029 [US3] Add ignore list validation to Send() function in internal/cli/send.go
-- [ ] T030 [US3] Return exit code 1 with "recipient not found" for ignored recipients
-- [ ] T031 [US3] Verify tests pass: `go test -v ./internal/cli/... -run Send`
+- [X] T029 [US3] Add ignore list validation to Send() function in internal/cli/send.go
+- [X] T030 [US3] Return exit code 1 with "recipient not found" for ignored recipients
+- [X] T031 [US3] Verify tests pass: `go test -v ./internal/cli/... -run Send`
 
 **Checkpoint**: Sending to ignored windows fails with proper error
 

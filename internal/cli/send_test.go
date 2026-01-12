@@ -60,8 +60,8 @@ func TestSendCommand_RecipientNotFound(t *testing.T) {
 	}
 
 	stderrStr := stderr.String()
-	if stderrStr == "" {
-		t.Error("Expected error message about recipient not found")
+	if stderrStr != "error: recipient not found\n" {
+		t.Errorf("Expected 'error: recipient not found\\n', got: %q", stderrStr)
 	}
 }
 
@@ -125,5 +125,142 @@ func TestSendCommand_NotInTmux(t *testing.T) {
 
 	if exitCode != 2 {
 		t.Errorf("Expected exit code 2 (not in tmux), got %d", exitCode)
+	}
+}
+
+// T026: Test sending to ignored recipient returns "recipient not found" error
+func TestSendCommand_IgnoredRecipient(t *testing.T) {
+	// Create temp directory for test
+	tmpDir, err := os.MkdirTemp("", "agentmail-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create .git/mail directory
+	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+
+	// Send to agent-2 which is in the ignore list
+	exitCode := Send([]string{"agent-2", "Hello from agent-1"}, &stdout, &stderr, SendOptions{
+		SkipTmuxCheck:  true,
+		MockWindows:    []string{"agent-1", "agent-2", "agent-3"},
+		MockSender:     "agent-1",
+		MockIgnoreList: map[string]bool{"agent-2": true, "monitor": true},
+		RepoRoot:       tmpDir,
+	})
+
+	if exitCode != 1 {
+		t.Errorf("Expected exit code 1, got %d", exitCode)
+	}
+
+	stderrStr := stderr.String()
+	if stderrStr != "error: recipient not found\n" {
+		t.Errorf("Expected 'error: recipient not found\\n', got: %q", stderrStr)
+	}
+
+	if stdout.String() != "" {
+		t.Errorf("Expected empty stdout, got: %s", stdout.String())
+	}
+
+	// Verify no file was created
+	filePath := filepath.Join(mailDir, "agent-2.jsonl")
+	if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+		t.Error("Message file should NOT have been created for ignored recipient")
+	}
+}
+
+// T027: Test sending to valid (non-ignored) recipient succeeds
+func TestSendCommand_ValidRecipient(t *testing.T) {
+	// Create temp directory for test
+	tmpDir, err := os.MkdirTemp("", "agentmail-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create .git/mail directory
+	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+
+	// Send to agent-3 which is NOT in the ignore list
+	exitCode := Send([]string{"agent-3", "Hello from agent-1"}, &stdout, &stderr, SendOptions{
+		SkipTmuxCheck:  true,
+		MockWindows:    []string{"agent-1", "agent-2", "agent-3"},
+		MockSender:     "agent-1",
+		MockIgnoreList: map[string]bool{"agent-2": true, "monitor": true},
+		RepoRoot:       tmpDir,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	// Should output "Message #ID sent"
+	output := stdout.String()
+	if !strings.HasPrefix(output, "Message #") {
+		t.Errorf("Expected output to start with 'Message #', got: %s", output)
+	}
+	if !strings.HasSuffix(output, " sent\n") {
+		t.Errorf("Expected output to end with ' sent', got: %s", output)
+	}
+
+	// Verify file was created
+	filePath := filepath.Join(mailDir, "agent-3.jsonl")
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		t.Error("Message file should have been created")
+	}
+}
+
+// T028: Test sending to self returns "recipient not found" error
+func TestSendCommand_SendToSelf(t *testing.T) {
+	// Create temp directory for test
+	tmpDir, err := os.MkdirTemp("", "agentmail-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create .git/mail directory
+	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+
+	// Send to self (agent-1 sending to agent-1)
+	exitCode := Send([]string{"agent-1", "Hello to myself"}, &stdout, &stderr, SendOptions{
+		SkipTmuxCheck: true,
+		MockWindows:   []string{"agent-1", "agent-2", "agent-3"},
+		MockSender:    "agent-1",
+		RepoRoot:      tmpDir,
+	})
+
+	if exitCode != 1 {
+		t.Errorf("Expected exit code 1, got %d", exitCode)
+	}
+
+	stderrStr := stderr.String()
+	if stderrStr != "error: recipient not found\n" {
+		t.Errorf("Expected 'error: recipient not found\\n', got: %q", stderrStr)
+	}
+
+	if stdout.String() != "" {
+		t.Errorf("Expected empty stdout, got: %s", stdout.String())
+	}
+
+	// Verify no file was created
+	filePath := filepath.Join(mailDir, "agent-1.jsonl")
+	if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+		t.Error("Message file should NOT have been created for self-send")
 	}
 }

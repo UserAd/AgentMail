@@ -12,10 +12,12 @@ import (
 // SendOptions configures the Send command behavior.
 // Used for testing to mock tmux and file system operations.
 type SendOptions struct {
-	SkipTmuxCheck bool     // Skip tmux environment check
-	MockWindows   []string // Mock list of tmux windows
-	MockSender    string   // Mock sender window name
-	RepoRoot      string   // Repository root (defaults to current directory)
+	SkipTmuxCheck  bool            // Skip tmux environment check
+	MockWindows    []string        // Mock list of tmux windows
+	MockSender     string          // Mock sender window name
+	RepoRoot       string          // Repository root (defaults to current directory)
+	MockIgnoreList map[string]bool // Mock ignore list (nil = load from file)
+	MockGitRoot    string          // Mock git root (for testing)
 }
 
 // Send implements the agentmail send command.
@@ -77,7 +79,38 @@ func Send(args []string, stdout, stderr io.Writer, opts SendOptions) int {
 	}
 
 	if !recipientExists {
-		fmt.Fprintf(stderr, "error: recipient '%s' not found in tmux session\n", recipient)
+		fmt.Fprintln(stderr, "error: recipient not found")
+		return 1
+	}
+
+	// T029: Check if recipient is the sender (self-send not allowed)
+	if recipient == sender {
+		fmt.Fprintln(stderr, "error: recipient not found")
+		return 1
+	}
+
+	// T029: Load and check ignore list
+	var ignoreList map[string]bool
+	if opts.MockIgnoreList != nil {
+		ignoreList = opts.MockIgnoreList
+	} else {
+		// Load from .agentmailignore file
+		var gitRoot string
+		if opts.MockGitRoot != "" {
+			gitRoot = opts.MockGitRoot
+		} else {
+			gitRoot, _ = mail.FindGitRoot()
+			// Errors from FindGitRoot mean not in a git repo - proceed without ignore list
+		}
+		if gitRoot != "" {
+			ignoreList, _ = mail.LoadIgnoreList(gitRoot)
+			// Errors from LoadIgnoreList are treated as no ignore file
+		}
+	}
+
+	// T030: Check if recipient is in ignore list
+	if ignoreList != nil && ignoreList[recipient] {
+		fmt.Fprintln(stderr, "error: recipient not found")
 		return 1
 	}
 

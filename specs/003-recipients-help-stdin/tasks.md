@@ -132,18 +132,18 @@ Based on plan.md structure:
 
 ### Tests for User Story 4
 
-- [ ] T032 [P] [US4] Write unit tests for Help() in internal/cli/help_test.go
-- [ ] T033 [P] [US4] Write test: help output includes send command with syntax
-- [ ] T034 [P] [US4] Write test: help output includes receive command with syntax
-- [ ] T035 [P] [US4] Write test: help output includes recipients command with syntax
-- [ ] T036 [P] [US4] Write test: help output includes examples section
+- [X] T032 [P] [US4] Write unit tests for Help() in internal/cli/help_test.go
+- [X] T033 [P] [US4] Write test: help output includes send command with syntax
+- [X] T034 [P] [US4] Write test: help output includes receive command with syntax
+- [X] T035 [P] [US4] Write test: help output includes recipients command with syntax
+- [X] T036 [P] [US4] Write test: help output includes examples section
 
 ### Implementation for User Story 4
 
-- [ ] T037 [US4] Create Help() function in internal/cli/help.go with help text (per research.md)
-- [ ] T038 [US4] Add --help and -h flag handling in cmd/agentmail/main.go (before command parsing)
-- [ ] T039 [US4] Ensure help returns exit code 0
-- [ ] T040 [US4] Verify tests pass: `go test -v ./internal/cli/... -run Help`
+- [X] T037 [US4] Create Help() function in internal/cli/help.go with help text (per research.md)
+- [X] T038 [US4] Add --help and -h flag handling in cmd/agentmail/main.go (before command parsing)
+- [X] T039 [US4] Ensure help returns exit code 0
+- [X] T040 [US4] Verify tests pass: `go test -v ./internal/cli/... -run Help`
 
 **Checkpoint**: `agentmail --help` displays complete usage information
 

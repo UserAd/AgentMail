@@ -2,7 +2,7 @@
 name: agentmail
 description: Inter-agent communication for tmux sessions. Send and receive messages between AI agents.
 version: 1.0.0
-author: AgentMail
+author: Konstantin Tumalevich
 license: MIT
 ---
 

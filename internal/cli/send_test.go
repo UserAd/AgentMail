@@ -115,10 +115,8 @@ func TestSendCommand_Success(t *testing.T) {
 }
 
 func TestSendCommand_NotInTmux(t *testing.T) {
-	// Save and restore TMUX env var
-	original := os.Getenv("TMUX")
-	defer os.Setenv("TMUX", original)
-	os.Unsetenv("TMUX")
+	// Use t.Setenv for thread-safe environment variable manipulation
+	t.Setenv("TMUX", "")
 
 	var stdout, stderr bytes.Buffer
 

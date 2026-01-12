@@ -98,10 +98,8 @@ func TestRecipientsCommand_MarksCurrentWindow(t *testing.T) {
 
 // T011: Test that returns exit code 2 when not in tmux
 func TestRecipientsCommand_NotInTmux(t *testing.T) {
-	// Save and restore TMUX env var
-	original := os.Getenv("TMUX")
-	defer os.Setenv("TMUX", original)
-	os.Unsetenv("TMUX")
+	// Use t.Setenv for thread-safe environment variable manipulation
+	t.Setenv("TMUX", "")
 
 	var stdout, stderr bytes.Buffer
 

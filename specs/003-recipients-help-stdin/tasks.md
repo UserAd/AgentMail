@@ -56,19 +56,19 @@ Based on plan.md structure:
 
 ### Tests for User Story 1
 
-- [ ] T008 [P] [US1] Write unit tests for Recipients() in internal/cli/recipients_test.go
-- [ ] T009 [P] [US1] Write test: lists all windows one per line
-- [ ] T010 [P] [US1] Write test: marks current window with "[you]" suffix
-- [ ] T011 [P] [US1] Write test: returns exit code 2 when not in tmux
+- [X] T008 [P] [US1] Write unit tests for Recipients() in internal/cli/recipients_test.go
+- [X] T009 [P] [US1] Write test: lists all windows one per line
+- [X] T010 [P] [US1] Write test: marks current window with "[you]" suffix
+- [X] T011 [P] [US1] Write test: returns exit code 2 when not in tmux
 
 ### Implementation for User Story 1
 
-- [ ] T012 [US1] Create Recipients() function in internal/cli/recipients.go
-- [ ] T013 [US1] Implement window listing using tmux.ListWindows()
-- [ ] T014 [US1] Implement current window detection using tmux.GetCurrentWindow()
-- [ ] T015 [US1] Add "[you]" marker formatting for current window
-- [ ] T016 [US1] Add `recipients` command routing in cmd/agentmail/main.go
-- [ ] T017 [US1] Verify tests pass: `go test -v ./internal/cli/... -run Recipients`
+- [X] T012 [US1] Create Recipients() function in internal/cli/recipients.go
+- [X] T013 [US1] Implement window listing using tmux.ListWindows()
+- [X] T014 [US1] Implement current window detection using tmux.GetCurrentWindow()
+- [X] T015 [US1] Add "[you]" marker formatting for current window
+- [X] T016 [US1] Add `recipients` command routing in cmd/agentmail/main.go
+- [X] T017 [US1] Verify tests pass: `go test -v ./internal/cli/... -run Recipients`
 
 **Checkpoint**: `agentmail recipients` shows all windows with "[you]" marker
 

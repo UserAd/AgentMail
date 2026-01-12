@@ -26,6 +26,10 @@ func main() {
 		// T038: Wire up receive subcommand
 		exitCode := cli.Receive(os.Stdout, os.Stderr, cli.ReceiveOptions{})
 		os.Exit(exitCode)
+	case "recipients":
+		// T016: Wire up recipients subcommand
+		exitCode := cli.Recipients(os.Stdout, os.Stderr, cli.RecipientsOptions{})
+		os.Exit(exitCode)
 	default:
 		fmt.Fprintf(os.Stderr, "error: unknown command '%s'\n", command)
 		fmt.Fprintln(os.Stderr, "usage: agentmail <command> [arguments]")

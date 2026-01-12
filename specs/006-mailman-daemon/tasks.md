@@ -39,17 +39,17 @@ This project uses Go standard structure:
 
 ### RecipientState Data Model
 
-- [ ] T004 [P] Define RecipientState struct in internal/mail/recipients.go per data-model.md
-- [ ] T005 [P] Implement ReadAllRecipients() to parse .git/mail-recipients.jsonl in internal/mail/recipients.go
-- [ ] T006 [P] Implement WriteAllRecipients() with file locking in internal/mail/recipients.go
-- [ ] T007 Implement UpdateRecipientState() for atomic read-modify-write in internal/mail/recipients.go
-- [ ] T008 [P] Write unit tests for recipients.go in internal/mail/recipients_test.go
+- [x] T004 [P] Define RecipientState struct in internal/mail/recipients.go per data-model.md
+- [x] T005 [P] Implement ReadAllRecipients() to parse .git/mail-recipients.jsonl in internal/mail/recipients.go
+- [x] T006 [P] Implement WriteAllRecipients() with file locking in internal/mail/recipients.go
+- [x] T007 Implement UpdateRecipientState() for atomic read-modify-write in internal/mail/recipients.go
+- [x] T008 [P] Write unit tests for recipients.go in internal/mail/recipients_test.go
 
 ### Tmux SendKeys Wrapper
 
-- [ ] T009 [P] Implement SendKeys(window, text string) in internal/tmux/sendkeys.go
-- [ ] T010 [P] Implement SendEnter(window string) in internal/tmux/sendkeys.go
-- [ ] T011 [P] Write unit tests for sendkeys.go in internal/tmux/sendkeys_test.go
+- [x] T009 [P] Implement SendKeys(window, text string) in internal/tmux/sendkeys.go
+- [x] T010 [P] Implement SendEnter(window string) in internal/tmux/sendkeys.go
+- [x] T011 [P] Write unit tests for sendkeys.go in internal/tmux/sendkeys_test.go
 
 **Checkpoint**: Foundation ready - RecipientState and SendKeys available for all user stories
 

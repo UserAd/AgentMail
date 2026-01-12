@@ -16,8 +16,8 @@ func main() {
 
 	if len(os.Args) < 2 {
 		fmt.Fprintln(os.Stderr, "error: missing command")
-		fmt.Fprintln(os.Stderr, "usage: agentmail <command> [arguments]")
-		fmt.Fprintln(os.Stderr, "commands: send, receive, recipients")
+		fmt.Fprintln(os.Stderr)
+		cli.Help(os.Stderr)
 		os.Exit(1)
 	}
 
@@ -39,8 +39,8 @@ func main() {
 		os.Exit(exitCode)
 	default:
 		fmt.Fprintf(os.Stderr, "error: unknown command '%s'\n", command)
-		fmt.Fprintln(os.Stderr, "usage: agentmail <command> [arguments]")
-		fmt.Fprintln(os.Stderr, "commands: send, receive, recipients")
+		fmt.Fprintln(os.Stderr)
+		cli.Help(os.Stderr)
 		os.Exit(1)
 	}
 }

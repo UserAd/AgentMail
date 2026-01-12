@@ -207,6 +207,38 @@ Examples:
 		},
 	}
 
+	// Onboard command (no flags)
+	onboardFlagSet := flag.NewFlagSet("agentmail onboard", flag.ContinueOnError)
+
+	onboardCmd := &ffcli.Command{
+		Name:       "onboard",
+		ShortUsage: "agentmail onboard",
+		ShortHelp:  "Output agent onboarding context",
+		LongHelp: `Output AI-optimized context for agent onboarding.
+
+This command outputs information to help AI agents understand
+AgentMail and their environment:
+- Agent identity (current tmux window name)
+- Available recipients (other agents)
+- Command quick reference
+
+Designed for use with Claude Code hooks (SessionStart) to
+automatically onboard agents at the start of each session.
+
+Outside of a tmux session, this command is a silent no-op (exit 0).
+
+Examples:
+  agentmail onboard`,
+		FlagSet: onboardFlagSet,
+		Exec: func(ctx context.Context, args []string) error {
+			exitCode := cli.Onboard(os.Stdout, os.Stderr, cli.OnboardOptions{})
+			if exitCode != 0 {
+				os.Exit(exitCode)
+			}
+			return nil
+		},
+	}
+
 	// Root command help text
 	rootHelp := `agentmail - Inter-agent communication for tmux sessions
 
@@ -219,6 +251,7 @@ Commands:
   recipients  List available message recipients
   status      Set agent availability status
   mailman     Start the mailman daemon
+  onboard     Output agent onboarding context
 
 Use "agentmail <command> --help" for more information about a command.`
 
@@ -228,7 +261,7 @@ Use "agentmail <command> --help" for more information about a command.`
 		ShortHelp:   "Inter-agent communication for tmux sessions",
 		LongHelp:    rootHelp,
 		FlagSet:     rootFlagSet,
-		Subcommands: []*ffcli.Command{sendCmd, receiveCmd, recipientsCmd, statusCmd, mailmanCmd},
+		Subcommands: []*ffcli.Command{sendCmd, receiveCmd, recipientsCmd, statusCmd, mailmanCmd, onboardCmd},
 		Exec: func(ctx context.Context, args []string) error {
 			// No subcommand provided, show help
 			fmt.Fprintln(os.Stderr, rootHelp)

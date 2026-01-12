@@ -88,7 +88,7 @@ func Append(repoRoot string, msg Message) error {
 
 	// Unlock before close (correct order)
 	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
-	_ = file.Close()                                    // G104: close errors don't affect the write result
+	_ = file.Close()                                   // G104: close errors don't affect the write result
 	return err
 }
 
@@ -215,7 +215,7 @@ func WriteAll(repoRoot string, recipient string, messages []Message) error {
 
 	// Unlock before close (correct order)
 	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
-	_ = file.Close()                                    // G104: close errors don't affect the write result
+	_ = file.Close()                                   // G104: close errors don't affect the write result
 	return writeErr
 }
 
@@ -286,6 +286,6 @@ func MarkAsRead(repoRoot string, recipient string, messageID string) error {
 
 	// Unlock before close (correct order)
 	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
-	_ = file.Close()                                    // G104: close errors don't affect the write result
+	_ = file.Close()                                   // G104: close errors don't affect the write result
 	return writeErr
 }

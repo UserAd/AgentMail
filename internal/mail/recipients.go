@@ -108,7 +108,7 @@ func WriteAllRecipients(repoRoot string, recipients []RecipientState) error {
 
 	// Unlock before close (correct order)
 	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
-	_ = file.Close()                                    // G104: close errors don't affect the write result
+	_ = file.Close()                                   // G104: close errors don't affect the write result
 	return writeErr
 }
 
@@ -191,7 +191,7 @@ func UpdateRecipientState(repoRoot string, recipient string, status string, rese
 
 	// Unlock before close (correct order)
 	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
-	_ = file.Close()                                    // G104: close errors don't affect the write result
+	_ = file.Close()                                   // G104: close errors don't affect the write result
 	return writeErr
 }
 
@@ -285,7 +285,7 @@ func CleanStaleStates(repoRoot string, threshold time.Duration) error {
 
 	// Unlock before close (correct order)
 	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
-	_ = file.Close()                                    // G104: close errors don't affect the write result
+	_ = file.Close()                                   // G104: close errors don't affect the write result
 	return writeErr
 }
 
@@ -356,6 +356,6 @@ func SetNotifiedFlag(repoRoot string, recipient string, notified bool) error {
 
 	// Unlock before close (correct order)
 	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
-	_ = file.Close()                                    // G104: close errors don't affect the write result
+	_ = file.Close()                                   // G104: close errors don't affect the write result
 	return writeErr
 }

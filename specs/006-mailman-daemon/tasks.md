@@ -142,22 +142,22 @@ This project uses Go standard structure:
 
 ### Tests for User Story 4
 
-- [ ] T043 [P] [US4] Write test for notification loop interval (10s) in internal/daemon/loop_test.go
-- [ ] T044 [P] [US4] Write test for ready agent notification in internal/daemon/loop_test.go
-- [ ] T045 [P] [US4] Write test for work/offline agent skip in internal/daemon/loop_test.go
-- [ ] T046 [P] [US4] Write test for notified flag prevents duplicate in internal/daemon/loop_test.go
-- [ ] T047 [P] [US4] Write test for stale state cleanup (>1hr) in internal/daemon/loop_test.go
+- [x] T043 [P] [US4] Write test for notification loop interval (10s) in internal/daemon/loop_test.go
+- [x] T044 [P] [US4] Write test for ready agent notification in internal/daemon/loop_test.go
+- [x] T045 [P] [US4] Write test for work/offline agent skip in internal/daemon/loop_test.go
+- [x] T046 [P] [US4] Write test for notified flag prevents duplicate in internal/daemon/loop_test.go
+- [x] T047 [P] [US4] Write test for stale state cleanup (>1hr) in internal/daemon/loop_test.go
 
 ### Implementation for User Story 4
 
-- [ ] T048 [US4] Implement ListMailboxRecipients() to find all .jsonl files in internal/mail/recipients.go
-- [ ] T049 [US4] Implement CleanStaleStates() for >1hr old entries in internal/mail/recipients.go
-- [ ] T050 [US4] Implement CheckAndNotify() single cycle logic in internal/daemon/loop.go
-- [ ] T051 [US4] Implement NotifyAgent() with send-keys + 1s delay + Enter in internal/daemon/loop.go
-- [ ] T052 [US4] Implement RunLoop() with 10-second interval in internal/daemon/loop.go
-- [ ] T053 [US4] Integrate loop into StartDaemon() in internal/daemon/daemon.go
-- [ ] T054 [US4] Update notified flag after successful notification in internal/daemon/loop.go
-- [ ] T055 [P] [US4] Write integration test for notification delivery in internal/daemon/loop_test.go
+- [x] T048 [US4] Implement ListMailboxRecipients() to find all .jsonl files in internal/mail/recipients.go
+- [x] T049 [US4] Implement CleanStaleStates() for >1hr old entries in internal/mail/recipients.go
+- [x] T050 [US4] Implement CheckAndNotify() single cycle logic in internal/daemon/loop.go
+- [x] T051 [US4] Implement NotifyAgent() with send-keys + 1s delay + Enter in internal/daemon/loop.go
+- [x] T052 [US4] Implement RunLoop() with 10-second interval in internal/daemon/loop.go
+- [x] T053 [US4] Integrate loop into StartDaemon() in internal/daemon/daemon.go
+- [x] T054 [US4] Update notified flag after successful notification in internal/daemon/loop.go
+- [x] T055 [P] [US4] Write integration test for notification delivery in internal/daemon/loop_test.go
 
 **Checkpoint**: Full notification flow works - daemon monitors and notifies ready agents
 

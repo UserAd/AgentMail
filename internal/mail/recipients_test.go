@@ -531,3 +531,367 @@ func TestRecipientsFile(t *testing.T) {
 		t.Errorf("RecipientsFile should be '%s', got %s", expected, RecipientsFile)
 	}
 }
+
+// =============================================================================
+// T048: Tests for ListMailboxRecipients
+// =============================================================================
+
+// TestListMailboxRecipients_EmptyDir - returns empty slice when no mailbox files exist
+func TestListMailboxRecipients_EmptyDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .git/mail directory
+	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	recipients, err := ListMailboxRecipients(tmpDir)
+	if err != nil {
+		t.Fatalf("ListMailboxRecipients failed: %v", err)
+	}
+
+	if len(recipients) != 0 {
+		t.Errorf("Expected 0 recipients for empty dir, got %d", len(recipients))
+	}
+}
+
+// TestListMailboxRecipients_FindsMailboxes - finds all .jsonl mailbox files
+func TestListMailboxRecipients_FindsMailboxes(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .git/mail directory
+	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	// Create some mailbox files
+	for _, name := range []string{"agent-1", "agent-2", "agent-3"} {
+		file := filepath.Join(mailDir, name+".jsonl")
+		if err := os.WriteFile(file, []byte{}, 0644); err != nil {
+			t.Fatalf("Failed to create mailbox file: %v", err)
+		}
+	}
+
+	recipients, err := ListMailboxRecipients(tmpDir)
+	if err != nil {
+		t.Fatalf("ListMailboxRecipients failed: %v", err)
+	}
+
+	if len(recipients) != 3 {
+		t.Errorf("Expected 3 recipients, got %d", len(recipients))
+	}
+
+	// Check all names are present
+	expected := map[string]bool{"agent-1": false, "agent-2": false, "agent-3": false}
+	for _, r := range recipients {
+		if _, ok := expected[r]; !ok {
+			t.Errorf("Unexpected recipient: %s", r)
+		}
+		expected[r] = true
+	}
+	for name, found := range expected {
+		if !found {
+			t.Errorf("Expected recipient %s not found", name)
+		}
+	}
+}
+
+// TestListMailboxRecipients_IgnoresNonJSONLFiles - only returns .jsonl files
+func TestListMailboxRecipients_IgnoresNonJSONLFiles(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .git/mail directory
+	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	// Create a .jsonl mailbox file
+	mailboxFile := filepath.Join(mailDir, "agent-1.jsonl")
+	if err := os.WriteFile(mailboxFile, []byte{}, 0644); err != nil {
+		t.Fatalf("Failed to create mailbox file: %v", err)
+	}
+
+	// Create non-.jsonl files (PID file, other files)
+	pidFile := filepath.Join(mailDir, "mailman.pid")
+	if err := os.WriteFile(pidFile, []byte("12345\n"), 0644); err != nil {
+		t.Fatalf("Failed to create PID file: %v", err)
+	}
+	otherFile := filepath.Join(mailDir, "config.json")
+	if err := os.WriteFile(otherFile, []byte("{}"), 0644); err != nil {
+		t.Fatalf("Failed to create other file: %v", err)
+	}
+
+	recipients, err := ListMailboxRecipients(tmpDir)
+	if err != nil {
+		t.Fatalf("ListMailboxRecipients failed: %v", err)
+	}
+
+	if len(recipients) != 1 {
+		t.Errorf("Expected 1 recipient (ignoring non-.jsonl files), got %d", len(recipients))
+	}
+
+	if len(recipients) > 0 && recipients[0] != "agent-1" {
+		t.Errorf("Expected agent-1, got %s", recipients[0])
+	}
+}
+
+// TestListMailboxRecipients_NoMailDir - returns empty slice when .git/mail doesn't exist
+func TestListMailboxRecipients_NoMailDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Don't create .git/mail directory
+
+	recipients, err := ListMailboxRecipients(tmpDir)
+	if err != nil {
+		t.Fatalf("ListMailboxRecipients should not error for missing dir: %v", err)
+	}
+
+	if len(recipients) != 0 {
+		t.Errorf("Expected 0 recipients for missing dir, got %d", len(recipients))
+	}
+}
+
+// =============================================================================
+// T049: Tests for CleanStaleStates
+// =============================================================================
+
+// TestCleanStaleStates_RemovesOldStates - removes states older than threshold
+func TestCleanStaleStates_RemovesOldStates(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .git directory
+	gitDir := filepath.Join(tmpDir, ".git")
+	if err := os.Mkdir(gitDir, 0755); err != nil {
+		t.Fatalf("Failed to create .git dir: %v", err)
+	}
+
+	now := time.Now()
+
+	// Create states with different ages
+	recipients := []RecipientState{
+		{Recipient: "fresh-agent", Status: StatusReady, UpdatedAt: now, Notified: false},
+		{Recipient: "old-agent", Status: StatusReady, UpdatedAt: now.Add(-2 * time.Hour), Notified: false},
+	}
+	if err := WriteAllRecipients(tmpDir, recipients); err != nil {
+		t.Fatalf("WriteAllRecipients failed: %v", err)
+	}
+
+	// Clean stale states (older than 1 hour)
+	err := CleanStaleStates(tmpDir, time.Hour)
+	if err != nil {
+		t.Fatalf("CleanStaleStates failed: %v", err)
+	}
+
+	// Verify old agent was removed
+	readBack, err := ReadAllRecipients(tmpDir)
+	if err != nil {
+		t.Fatalf("ReadAllRecipients failed: %v", err)
+	}
+
+	if len(readBack) != 1 {
+		t.Fatalf("Expected 1 recipient after cleanup, got %d", len(readBack))
+	}
+
+	if readBack[0].Recipient != "fresh-agent" {
+		t.Errorf("Expected fresh-agent to remain, got %s", readBack[0].Recipient)
+	}
+}
+
+// TestCleanStaleStates_KeepsRecentStates - keeps states newer than threshold
+func TestCleanStaleStates_KeepsRecentStates(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .git directory
+	gitDir := filepath.Join(tmpDir, ".git")
+	if err := os.Mkdir(gitDir, 0755); err != nil {
+		t.Fatalf("Failed to create .git dir: %v", err)
+	}
+
+	now := time.Now()
+
+	// Create states that are less than 1 hour old
+	recipients := []RecipientState{
+		{Recipient: "agent-1", Status: StatusReady, UpdatedAt: now, Notified: false},
+		{Recipient: "agent-2", Status: StatusWork, UpdatedAt: now.Add(-30 * time.Minute), Notified: false},
+		{Recipient: "agent-3", Status: StatusOffline, UpdatedAt: now.Add(-59 * time.Minute), Notified: false},
+	}
+	if err := WriteAllRecipients(tmpDir, recipients); err != nil {
+		t.Fatalf("WriteAllRecipients failed: %v", err)
+	}
+
+	// Clean stale states
+	err := CleanStaleStates(tmpDir, time.Hour)
+	if err != nil {
+		t.Fatalf("CleanStaleStates failed: %v", err)
+	}
+
+	// Verify all agents remain
+	readBack, err := ReadAllRecipients(tmpDir)
+	if err != nil {
+		t.Fatalf("ReadAllRecipients failed: %v", err)
+	}
+
+	if len(readBack) != 3 {
+		t.Errorf("Expected 3 recipients to remain, got %d", len(readBack))
+	}
+}
+
+// TestCleanStaleStates_EmptyFile - handles empty/non-existent file gracefully
+func TestCleanStaleStates_EmptyFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .git directory but no recipients file
+	gitDir := filepath.Join(tmpDir, ".git")
+	if err := os.Mkdir(gitDir, 0755); err != nil {
+		t.Fatalf("Failed to create .git dir: %v", err)
+	}
+
+	// Clean stale states on empty/non-existent file
+	err := CleanStaleStates(tmpDir, time.Hour)
+	if err != nil {
+		t.Fatalf("CleanStaleStates should not error on empty file: %v", err)
+	}
+}
+
+// =============================================================================
+// T054: Tests for SetNotifiedFlag
+// =============================================================================
+
+// TestSetNotifiedFlag_UpdatesExistingRecipient - updates notified flag for existing recipient
+func TestSetNotifiedFlag_UpdatesExistingRecipient(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .git directory
+	gitDir := filepath.Join(tmpDir, ".git")
+	if err := os.Mkdir(gitDir, 0755); err != nil {
+		t.Fatalf("Failed to create .git dir: %v", err)
+	}
+
+	now := time.Now()
+
+	// Create a recipient with Notified=false
+	recipients := []RecipientState{
+		{Recipient: "agent-1", Status: StatusReady, UpdatedAt: now, Notified: false},
+	}
+	if err := WriteAllRecipients(tmpDir, recipients); err != nil {
+		t.Fatalf("WriteAllRecipients failed: %v", err)
+	}
+
+	// Set notified flag to true
+	err := SetNotifiedFlag(tmpDir, "agent-1", true)
+	if err != nil {
+		t.Fatalf("SetNotifiedFlag failed: %v", err)
+	}
+
+	// Verify
+	readBack, err := ReadAllRecipients(tmpDir)
+	if err != nil {
+		t.Fatalf("ReadAllRecipients failed: %v", err)
+	}
+
+	if len(readBack) != 1 {
+		t.Fatalf("Expected 1 recipient, got %d", len(readBack))
+	}
+
+	if !readBack[0].Notified {
+		t.Error("Expected Notified to be true")
+	}
+}
+
+// TestSetNotifiedFlag_NoOpForNonExistent - does nothing for non-existent recipient
+func TestSetNotifiedFlag_NoOpForNonExistent(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .git directory
+	gitDir := filepath.Join(tmpDir, ".git")
+	if err := os.Mkdir(gitDir, 0755); err != nil {
+		t.Fatalf("Failed to create .git dir: %v", err)
+	}
+
+	now := time.Now()
+
+	// Create a recipient
+	recipients := []RecipientState{
+		{Recipient: "agent-1", Status: StatusReady, UpdatedAt: now, Notified: false},
+	}
+	if err := WriteAllRecipients(tmpDir, recipients); err != nil {
+		t.Fatalf("WriteAllRecipients failed: %v", err)
+	}
+
+	// Try to set notified flag for non-existent recipient
+	err := SetNotifiedFlag(tmpDir, "non-existent", true)
+	if err != nil {
+		t.Fatalf("SetNotifiedFlag should not error for non-existent recipient: %v", err)
+	}
+
+	// Verify agent-1 is unchanged and no new agent was created
+	readBack, err := ReadAllRecipients(tmpDir)
+	if err != nil {
+		t.Fatalf("ReadAllRecipients failed: %v", err)
+	}
+
+	if len(readBack) != 1 {
+		t.Errorf("Expected 1 recipient (non-existent not created), got %d", len(readBack))
+	}
+
+	if readBack[0].Recipient != "agent-1" {
+		t.Errorf("Expected agent-1, got %s", readBack[0].Recipient)
+	}
+}
+
+// TestSetNotifiedFlag_NoRecipientsFile - handles missing recipients file gracefully
+func TestSetNotifiedFlag_NoRecipientsFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .git directory but no recipients file
+	gitDir := filepath.Join(tmpDir, ".git")
+	if err := os.Mkdir(gitDir, 0755); err != nil {
+		t.Fatalf("Failed to create .git dir: %v", err)
+	}
+
+	// Try to set notified flag when file doesn't exist
+	err := SetNotifiedFlag(tmpDir, "agent-1", true)
+	if err != nil {
+		t.Fatalf("SetNotifiedFlag should not error for missing file: %v", err)
+	}
+}
+
+// TestSetNotifiedFlag_SetToFalse - can reset notified flag to false
+func TestSetNotifiedFlag_SetToFalse(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .git directory
+	gitDir := filepath.Join(tmpDir, ".git")
+	if err := os.Mkdir(gitDir, 0755); err != nil {
+		t.Fatalf("Failed to create .git dir: %v", err)
+	}
+
+	now := time.Now()
+
+	// Create a recipient with Notified=true
+	recipients := []RecipientState{
+		{Recipient: "agent-1", Status: StatusReady, UpdatedAt: now, Notified: true},
+	}
+	if err := WriteAllRecipients(tmpDir, recipients); err != nil {
+		t.Fatalf("WriteAllRecipients failed: %v", err)
+	}
+
+	// Set notified flag to false
+	err := SetNotifiedFlag(tmpDir, "agent-1", false)
+	if err != nil {
+		t.Fatalf("SetNotifiedFlag failed: %v", err)
+	}
+
+	// Verify
+	readBack, err := ReadAllRecipients(tmpDir)
+	if err != nil {
+		t.Fatalf("ReadAllRecipients failed: %v", err)
+	}
+
+	if readBack[0].Notified {
+		t.Error("Expected Notified to be false")
+	}
+}

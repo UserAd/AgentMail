@@ -181,6 +181,7 @@ func StartDaemon(repoRoot string, daemonize bool, stdout, stderr io.Writer) int 
 // runForeground runs the daemon in foreground mode.
 // Writes PID file and outputs startup message.
 // Sets up signal handling for graceful shutdown on SIGTERM/SIGINT.
+// Runs the notification loop to monitor mailboxes and notify ready agents.
 func runForeground(repoRoot string, stdout, stderr io.Writer) int {
 	currentPID := os.Getpid()
 
@@ -197,9 +198,23 @@ func runForeground(repoRoot string, stdout, stderr io.Writer) int {
 	// Output startup message
 	fmt.Fprintf(stdout, "Mailman daemon started (PID: %d)\n", currentPID)
 
+	// Create a stop channel for the notification loop
+	loopStopChan := make(chan struct{})
+
+	// Start the notification loop in a goroutine
+	loopDone := make(chan struct{})
+	go func() {
+		opts := LoopOptions{
+			RepoRoot:      repoRoot,
+			Interval:      DefaultLoopInterval,
+			StopChan:      loopStopChan,
+			SkipTmuxCheck: false, // Production mode: use real tmux
+		}
+		RunLoop(opts)
+		close(loopDone)
+	}()
+
 	// Wait for shutdown signal or test stop
-	// In Phase 3, we wait for signal and then clean up.
-	// The actual event loop will be added in Phase 6.
 	if stopChan != nil {
 		// Test mode: wait on either signal or stop channel
 		select {
@@ -210,6 +225,10 @@ func runForeground(repoRoot string, stdout, stderr io.Writer) int {
 		// Production mode: wait only on signals
 		<-sigChan
 	}
+
+	// Stop the notification loop
+	close(loopStopChan)
+	<-loopDone // Wait for loop to finish
 
 	// Clean up PID file on shutdown
 	DeletePID(repoRoot)

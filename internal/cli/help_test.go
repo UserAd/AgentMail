@@ -233,6 +233,7 @@ COMMANDS:
     recipients                    List available message recipients
     mailman [--daemon]            Start the notification daemon
     status <ready|work|offline>   Set agent availability status
+    onboard                       Output agent onboarding context
 
 EXAMPLES:
     agentmail send agent2 "Hello"
@@ -242,6 +243,7 @@ EXAMPLES:
     agentmail mailman              # Start daemon in foreground
     agentmail mailman --daemon     # Start daemon in background
     agentmail status ready         # Mark agent as ready for notifications
+    agentmail onboard              # Output onboarding context for AI agents
 `
 
 	if output != expectedContent {

@@ -12,9 +12,10 @@ A Go CLI tool for inter-agent communication within tmux sessions. Agents running
 - **FIFO message queue** - Messages delivered in order, oldest first
 - **Simple file-based storage** - Messages stored in `.git/mail/` as JSONL files
 - **Concurrent-safe** - File locking ensures atomic operations between agents
-- **Zero dependencies** - Built with Go standard library only
+- **Minimal dependencies** - Built with Go standard library + lightweight CLI framework
 - **Ignore lists** - Filter out windows you don't want to communicate with
 - **Stdin support** - Pipe messages from other commands
+- **Claude Code hooks** - Integration with Claude Code for mail notifications
 
 ## Requirements
 
@@ -90,20 +91,31 @@ agentmail receive
 Send a message to another agent (tmux window).
 
 ```bash
-agentmail send <recipient> [message]
+agentmail send [flags] [<recipient>] [<message>]
 ```
 
-**Arguments:**
+**Arguments (positional or flags):**
 - `<recipient>` - Target tmux window name (required)
-- `[message]` - Message content (optional if using stdin)
+- `<message>` - Message content (optional if using stdin)
+
+**Flags:**
+- `-r, --recipient <name>` - Recipient tmux window name
+- `-m, --message <text>` - Message content
+
+Flags take precedence over positional arguments.
 
 **Examples:**
 ```bash
-# Send with inline message
+# Send with positional arguments
 agentmail send agent-2 "Task completed successfully"
+
+# Send with flags (equivalent)
+agentmail send -r agent-2 -m "Task completed successfully"
+agentmail send --recipient agent-2 --message "Task completed"
 
 # Send via stdin
 echo "Results from analysis" | agentmail send agent-2
+echo "Results" | agentmail send -r agent-2
 
 # Send multi-line content
 cat report.txt | agentmail send agent-2
@@ -119,10 +131,13 @@ cat report.txt | agentmail send agent-2
 Read the oldest unread message from your mailbox.
 
 ```bash
-agentmail receive
+agentmail receive [--hook]
 ```
 
-**Output format:**
+**Flags:**
+- `--hook` - Enable hook mode for Claude Code integration (see [Claude Code Hooks](#claude-code-hooks))
+
+**Output format (normal mode):**
 ```
 From: <sender>
 ID: <message-id>
@@ -132,10 +147,14 @@ ID: <message-id>
 
 Returns "No unread messages" if the mailbox is empty.
 
-**Exit codes:**
+**Exit codes (normal mode):**
 - `0` - Success (message displayed or no messages)
 - `1` - Error reading mailbox
 - `2` - Not running inside tmux
+
+**Exit codes (hook mode):**
+- `0` - No messages, not in tmux, or error (silent)
+- `2` - New message available (output to STDERR)
 
 ### recipients
 
@@ -185,6 +204,57 @@ monitoring
 - Whitespace is trimmed
 - Your current window is always shown even if listed
 - Missing file means no exclusions
+
+## Claude Code Hooks
+
+AgentMail integrates with Claude Code hooks to notify you when other agents send messages. Configure it as a `user-prompt-submit` hook to check for mail before each prompt.
+
+### Setup
+
+Add to your Claude Code settings (`.claude/settings.json` in your project or `~/.claude/settings.json` globally):
+
+```json
+{
+  "hooks": {
+    "user-prompt-submit": {
+      "command": "agentmail receive --hook"
+    }
+  }
+}
+```
+
+### How It Works
+
+1. Before each prompt submission, Claude Code runs `agentmail receive --hook`
+2. If you have unread mail:
+   - The message appears in Claude Code's output (via STDERR)
+   - Exit code 2 signals a notification
+3. If no mail or not in tmux:
+   - Silent exit (no output, exit code 0)
+   - Your workflow continues uninterrupted
+
+### Hook Mode Behavior
+
+| Condition | Output | Exit Code |
+|-----------|--------|-----------|
+| Unread messages exist | Message to STDERR with "You got new mail" | 2 |
+| No unread messages | None | 0 |
+| Not in tmux session | None | 0 |
+| Any error | None | 0 |
+
+Hook mode is designed to be non-disruptive: errors exit silently rather than interrupting your workflow.
+
+### Example Output
+
+When you have mail, Claude Code will display:
+
+```
+You got new mail
+From: agent-1
+ID: xK7mN2pQ
+
+Task completed! Results are in /tmp/output.json
+```
 
 ## How It Works
 

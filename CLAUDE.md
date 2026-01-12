@@ -78,6 +78,8 @@ Templates are stored in `.specify/templates/` and project constitution in `.spec
 - N/A (formula hosted in separate GitHub repo) (004-homebrew-distribution)
 - Go 1.21+ (per constitution IC-001, project uses Go 1.25.3) + Standard library only (os, fmt, io - already used) (005-claude-hooks-integration)
 - JSONL files in `.git/mail/` directory (existing infrastructure) (005-claude-hooks-integration)
+- Go 1.21+ (per constitution IC-001, project uses Go 1.25.3) + Standard library only (os/exec, encoding/json, syscall, time, os/signal) (006-mailman-daemon)
+- JSONL files - `.git/mail/mailman.pid` (PID), `.git/mail-recipients.jsonl` (state) (006-mailman-daemon)
 
 ## Recent Changes
 - 001-agent-mail-structure: Added Go 1.21+ (per IC-001) + Standard library only (os/exec for tmux, encoding/json for JSONL)

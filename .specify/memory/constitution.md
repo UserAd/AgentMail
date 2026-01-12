@@ -1,22 +1,20 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 0.0.0 → 1.0.0 (MAJOR - initial ratification)
+Version change: 1.0.0 → 1.1.0 (MINOR - scope expansion beyond MVP)
 
-Modified principles: N/A (new constitution)
+Modified principles:
+- I. CLI-First Design: Removed "No daemon processes in MVP scope" restriction
+- II. Simplicity (YAGNI): Updated to reflect post-MVP stage, removed "MVP scope: send and receive commands only"
 
-Added sections:
-- Core Principles (4 principles)
-- Technology Constraints
-- Quality Gates
-- Governance
+Added sections: None
 
-Removed sections: N/A
+Removed sections: None
 
 Templates requiring updates:
-- .specify/templates/plan-template.md: ✅ Already has Constitution Check section
-- .specify/templates/spec-template.md: ✅ Compatible with principles
-- .specify/templates/tasks-template.md: ✅ Compatible with test-first approach
+- .specify/templates/plan-template.md: ✅ No changes needed (generic constitution check)
+- .specify/templates/spec-template.md: ✅ No changes needed (compatible)
+- .specify/templates/tasks-template.md: ✅ No changes needed (compatible)
 
 Follow-up TODOs: None
 -->
@@ -32,18 +30,19 @@ AgentMail is a command-line tool. All functionality MUST be accessible via CLI c
 - Text-based input/output protocol: arguments → stdout, errors → stderr
 - Deterministic exit codes: 0 (success), 1 (error), 2 (environment error)
 - Human-readable output by default
-- No GUI, web interface, or daemon processes in MVP scope
+- No GUI or web interface
+- Daemon processes are permitted when they enhance CLI workflows (e.g., background notifications)
 
-**Rationale**: CLI tools are composable, scriptable, and testable. Agent-to-agent communication requires predictable, automatable interfaces.
+**Rationale**: CLI tools are composable, scriptable, and testable. Agent-to-agent communication requires predictable, automatable interfaces. Daemon processes extend CLI capabilities without replacing them.
 
 ### II. Simplicity (YAGNI)
 
-Start with the minimum viable implementation. Features MUST be justified by immediate need:
+Build only what is needed. Features MUST be justified by demonstrated need:
 
-- MVP scope: `send` and `receive` commands only
 - Standard library dependencies preferred over external packages
 - No premature abstractions or "future-proofing"
 - Complexity MUST be explicitly justified in plan.md
+- New commands/features require clear use cases
 
 **Rationale**: AgentMail serves a focused purpose. Over-engineering creates maintenance burden and obscures core functionality.
 
@@ -66,6 +65,8 @@ External dependencies MUST be justified. Prefer Go standard library:
 - `encoding/json` for JSONL handling
 - `crypto/rand` for ID generation
 - `syscall` for file locking
+- `os/signal` for daemon signal handling
+- `time` for scheduling and timeouts
 
 New dependencies require documented rationale in research.md with:
 - Why standard library is insufficient
@@ -77,7 +78,7 @@ New dependencies require documented rationale in research.md with:
 ## Technology Constraints
 
 - **Language**: Go 1.21+ (per IC-001)
-- **Storage**: JSONL files in `.git/mail/` directory (per-recipient files)
+- **Storage**: JSONL files in `.git/mail/` directory (per-recipient files, state files)
 - **Platform**: macOS and Linux with tmux installed
 - **Build**: Standard `go build`, no CGO dependencies
 
@@ -105,4 +106,4 @@ This constitution supersedes all other development practices for AgentMail.
 - Violations require explicit justification or constitution amendment
 - `/speckit.analyze` checks constitution alignment automatically
 
-**Version**: 1.0.0 | **Ratified**: 2026-01-11 | **Last Amended**: 2026-01-11
+**Version**: 1.1.0 | **Ratified**: 2026-01-11 | **Last Amended**: 2026-01-12

@@ -28,6 +28,9 @@ jobs:
             exit 1
           fi
 
+      - name: Verify dependencies
+        run: go mod verify
+
       - name: Run vet
         run: go vet ./...
 

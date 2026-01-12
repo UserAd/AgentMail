@@ -2,6 +2,7 @@ package mail
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -63,11 +64,24 @@ func Append(repoRoot string, msg Message) error {
 func ReadAll(repoRoot string, recipient string) ([]Message, error) {
 	filePath := filepath.Join(repoRoot, MailDir, recipient+".jsonl")
 
-	data, err := os.ReadFile(filePath)
+	// Open file for reading
+	file, err := os.Open(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return []Message{}, nil
 		}
+		return nil, err
+	}
+	defer file.Close()
+
+	// Acquire shared lock
+	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_SH); err != nil {
+		return nil, err
+	}
+	defer syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
+
+	data, err := io.ReadAll(file)
+	if err != nil {
 		return nil, err
 	}
 

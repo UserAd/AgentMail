@@ -187,14 +187,14 @@ Based on plan.md structure:
 
 ### Tests for User Story 6
 
-- [ ] T051 [P] [US6] Write test: argument-based send still works after stdin changes
-- [ ] T052 [P] [US6] Write test: no message argument and no stdin returns usage error (FR-011)
+- [X] T051 [P] [US6] Write test: argument-based send still works after stdin changes
+- [X] T052 [P] [US6] Write test: no message argument and no stdin returns usage error (FR-011)
 
 ### Implementation for User Story 6
 
-- [ ] T053 [US6] Verify existing send tests still pass
-- [ ] T054 [US6] Add regression test for argument-only send path
-- [ ] T055 [US6] Verify tests pass: `go test -v ./internal/cli/... -run Send`
+- [X] T053 [US6] Verify existing send tests still pass
+- [X] T054 [US6] Add regression test for argument-only send path
+- [X] T055 [US6] Verify tests pass: `go test -v ./internal/cli/... -run Send`
 
 **Checkpoint**: Existing send behavior unchanged
 

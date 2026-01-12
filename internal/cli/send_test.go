@@ -460,3 +460,95 @@ func TestSendCommand_FallbackToArgument(t *testing.T) {
 		t.Errorf("Message file should contain 'Argument message', got: %s", string(data))
 	}
 }
+
+// =============================================================================
+// US6 Backward Compatibility Regression Tests (Phase 8)
+// =============================================================================
+
+// T051: Regression test - argument-based send still works after stdin changes
+// This explicitly verifies backward compatibility per US6: "existing argument-based
+// send command continues to work unchanged"
+func TestSendCommand_ArgumentBasedSend_Regression(t *testing.T) {
+	// Create temp directory for test
+	tmpDir, err := os.MkdirTemp("", "agentmail-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create .git/mail directory
+	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+
+	// US6 Backward Compatibility: Original argument-based send must work
+	// Command: agentmail send <recipient> <message>
+	// No stdin involved (StdinIsPipe: false by default)
+	exitCode := Send([]string{"agent-2", "Hello via argument"}, nil, &stdout, &stderr, SendOptions{
+		SkipTmuxCheck: true,
+		MockWindows:   []string{"agent-1", "agent-2"},
+		MockSender:    "agent-1",
+		RepoRoot:      tmpDir,
+		// StdinIsPipe defaults to false - simulating terminal input (not a pipe)
+	})
+
+	if exitCode != 0 {
+		t.Errorf("US6 Regression: Expected exit code 0 for argument-based send, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	// Should output "Message #ID sent"
+	output := stdout.String()
+	if !strings.HasPrefix(output, "Message #") {
+		t.Errorf("US6 Regression: Expected output to start with 'Message #', got: %s", output)
+	}
+	if !strings.HasSuffix(output, " sent\n") {
+		t.Errorf("US6 Regression: Expected output to end with ' sent', got: %s", output)
+	}
+
+	// Verify file was created with correct content
+	filePath := filepath.Join(mailDir, "agent-2.jsonl")
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("US6 Regression: Failed to read message file: %v", err)
+	}
+
+	if !strings.Contains(string(data), "Hello via argument") {
+		t.Errorf("US6 Regression: Message file should contain 'Hello via argument', got: %s", string(data))
+	}
+}
+
+// T052: Regression test - no message argument and no stdin returns usage error (FR-011)
+// Verifies that when neither argument nor stdin provides a message, the proper
+// error is returned per FR-011
+func TestSendCommand_NoMessageProvided_Regression(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+
+	// FR-011: No message argument AND no stdin content should error
+	// This simulates: agentmail send agent-2 (with no stdin pipe)
+	exitCode := Send([]string{"agent-2"}, nil, &stdout, &stderr, SendOptions{
+		SkipTmuxCheck: true,
+		MockWindows:   []string{"agent-1", "agent-2"},
+		MockSender:    "agent-1",
+		// StdinIsPipe defaults to false - no stdin available
+	})
+
+	// Verify exit code 1
+	if exitCode != 1 {
+		t.Errorf("FR-011 Regression: Expected exit code 1 for missing message, got %d", exitCode)
+	}
+
+	// Verify exact error message format per FR-011
+	expectedErr := "error: no message provided\nusage: agentmail send <recipient> <message>\n"
+	stderrStr := stderr.String()
+	if stderrStr != expectedErr {
+		t.Errorf("FR-011 Regression: Expected stderr %q, got: %q", expectedErr, stderrStr)
+	}
+
+	// Verify no stdout output
+	if stdout.String() != "" {
+		t.Errorf("FR-011 Regression: Expected empty stdout, got: %s", stdout.String())
+	}
+}

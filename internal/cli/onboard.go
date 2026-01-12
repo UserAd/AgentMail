@@ -38,77 +38,75 @@ type OnboardOptions struct {
 //   - Available recipients
 //   - Command quick reference
 func Onboard(stdout, stderr io.Writer, opts OnboardOptions) int {
-	// Silent exit if not in tmux (hook-friendly behavior)
-	if !opts.SkipTmuxCheck {
-		if !tmux.InTmux() {
-			return 0
-		}
-	}
+	// Check if in tmux
+	inTmux := opts.SkipTmuxCheck || tmux.InTmux()
 
-	// Get current window name (agent identity)
 	var currentWindow string
-	if opts.MockWindows != nil {
-		currentWindow = opts.MockCurrent
-	} else {
-		var err error
-		currentWindow, err = tmux.GetCurrentWindow()
-		if err != nil {
-			// Silent failure for hook integration
-			return 0
-		}
-	}
-
-	// Get list of windows
-	var windows []string
-	if opts.MockWindows != nil {
-		windows = opts.MockWindows
-	} else {
-		var err error
-		windows, err = tmux.ListWindows()
-		if err != nil {
-			// Silent failure for hook integration
-			return 0
-		}
-	}
-
-	// Load ignore list
-	var ignoreList map[string]bool
-	if opts.MockIgnoreList != nil {
-		ignoreList = opts.MockIgnoreList
-	} else {
-		var gitRoot string
-		if opts.MockGitRoot != "" {
-			gitRoot = opts.MockGitRoot
-		} else {
-			gitRoot, _ = mail.FindGitRoot()
-		}
-		if gitRoot != "" {
-			ignoreList, _ = mail.LoadIgnoreList(gitRoot)
-		}
-	}
-
-	// Build list of other agents (excluding current window and ignored)
 	var otherAgents []string
-	for _, window := range windows {
-		if window != currentWindow && (ignoreList == nil || !ignoreList[window]) {
-			otherAgents = append(otherAgents, window)
+
+	if inTmux {
+		// Get current window name (agent identity)
+		if opts.MockWindows != nil {
+			currentWindow = opts.MockCurrent
+		} else {
+			var err error
+			currentWindow, err = tmux.GetCurrentWindow()
+			if err != nil {
+				currentWindow = ""
+			}
+		}
+
+		// Get list of windows
+		var windows []string
+		if opts.MockWindows != nil {
+			windows = opts.MockWindows
+		} else {
+			windows, _ = tmux.ListWindows()
+		}
+
+		// Load ignore list
+		var ignoreList map[string]bool
+		if opts.MockIgnoreList != nil {
+			ignoreList = opts.MockIgnoreList
+		} else {
+			var gitRoot string
+			if opts.MockGitRoot != "" {
+				gitRoot = opts.MockGitRoot
+			} else {
+				gitRoot, _ = mail.FindGitRoot()
+			}
+			if gitRoot != "" {
+				ignoreList, _ = mail.LoadIgnoreList(gitRoot)
+			}
+		}
+
+		// Build list of other agents (excluding current window and ignored)
+		for _, window := range windows {
+			if window != currentWindow && (ignoreList == nil || !ignoreList[window]) {
+				otherAgents = append(otherAgents, window)
+			}
 		}
 	}
 
 	// Output onboarding context
 	fmt.Fprintln(stdout, "## AgentMail")
 	fmt.Fprintln(stdout)
-	fmt.Fprintf(stdout, "You are **%s**. ", currentWindow)
-	fmt.Fprintln(stdout, "AgentMail enables inter-agent communication within this tmux session.")
+
+	if inTmux && currentWindow != "" {
+		fmt.Fprintf(stdout, "You are **%s**. ", currentWindow)
+	}
+	fmt.Fprintln(stdout, "AgentMail enables inter-agent communication within tmux sessions.")
 	fmt.Fprintln(stdout)
 
-	// Other agents section
-	if len(otherAgents) > 0 {
-		fmt.Fprintf(stdout, "Other agents: %s\n", strings.Join(otherAgents, ", "))
-	} else {
-		fmt.Fprintln(stdout, "No other agents currently available.")
+	// Other agents section (only show if in tmux)
+	if inTmux {
+		if len(otherAgents) > 0 {
+			fmt.Fprintf(stdout, "Other agents: %s\n", strings.Join(otherAgents, ", "))
+		} else {
+			fmt.Fprintln(stdout, "No other agents currently available.")
+		}
+		fmt.Fprintln(stdout)
 	}
-	fmt.Fprintln(stdout)
 
 	// Command reference with descriptions and examples
 	fmt.Fprintln(stdout, "### Commands")

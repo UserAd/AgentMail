@@ -107,7 +107,7 @@ func TestOnboardCommand_ExcludesCurrentFromOthers(t *testing.T) {
 	}
 }
 
-// Test silent exit when not in tmux (hook-friendly behavior)
+// Test output when not in tmux (shows generic help)
 func TestOnboardCommand_NotInTmux(t *testing.T) {
 	t.Setenv("TMUX", "")
 
@@ -117,17 +117,31 @@ func TestOnboardCommand_NotInTmux(t *testing.T) {
 		SkipTmuxCheck: false, // Don't skip - test real check
 	})
 
-	// Should exit 0 silently (hook-friendly)
+	// Should exit 0
 	if exitCode != 0 {
-		t.Errorf("Expected exit code 0 (silent no-op outside tmux), got %d", exitCode)
+		t.Errorf("Expected exit code 0, got %d", exitCode)
 	}
 
-	if stdout.String() != "" {
-		t.Errorf("Expected empty stdout when not in tmux, got: %s", stdout.String())
+	output := stdout.String()
+
+	// Should still show header and commands (generic help)
+	if !strings.Contains(output, "## AgentMail") {
+		t.Errorf("Expected '## AgentMail' header, got: %s", output)
+	}
+	if !strings.Contains(output, "### Commands") {
+		t.Errorf("Expected '### Commands' section, got: %s", output)
+	}
+
+	// Should NOT show agent identity or other agents when not in tmux
+	if strings.Contains(output, "You are **") {
+		t.Errorf("Should not show agent identity outside tmux, got: %s", output)
+	}
+	if strings.Contains(output, "Other agents:") {
+		t.Errorf("Should not show other agents outside tmux, got: %s", output)
 	}
 
 	if stderr.String() != "" {
-		t.Errorf("Expected empty stderr when not in tmux, got: %s", stderr.String())
+		t.Errorf("Expected empty stderr, got: %s", stderr.String())
 	}
 }
 

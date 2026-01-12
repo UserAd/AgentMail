@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"agentmail/internal/mail"
 	"agentmail/internal/tmux"
@@ -18,6 +19,8 @@ type SendOptions struct {
 	RepoRoot       string          // Repository root (defaults to current directory)
 	MockIgnoreList map[string]bool // Mock ignore list (nil = load from file)
 	MockGitRoot    string          // Mock git root (for testing)
+	StdinContent   string          // Mock stdin content (empty = no stdin)
+	StdinIsPipe    bool            // Mock whether stdin is a pipe
 }
 
 // Send implements the agentmail send command.
@@ -25,7 +28,8 @@ type SendOptions struct {
 // T021: Add tmux validation (exit code 2 if not in tmux)
 // T022: Add recipient validation (check WindowExists)
 // T023: Add message storage and ID output
-func Send(args []string, stdout, stderr io.Writer, opts SendOptions) int {
+// T045: Accept io.Reader for stdin
+func Send(args []string, stdin io.Reader, stdout, stderr io.Writer, opts SendOptions) int {
 	// T021: Validate running inside tmux
 	if !opts.SkipTmuxCheck {
 		if !tmux.InTmux() {
@@ -34,18 +38,53 @@ func Send(args []string, stdout, stderr io.Writer, opts SendOptions) int {
 		}
 	}
 
-	// Validate required arguments
-	if len(args) < 2 {
-		if len(args) == 0 {
-			fmt.Fprintln(stderr, "error: missing required arguments: recipient message")
-		} else {
-			fmt.Fprintln(stderr, "error: missing required argument: message")
-		}
+	// Validate recipient argument is provided
+	if len(args) == 0 {
+		fmt.Fprintln(stderr, "error: missing required arguments: recipient message")
 		return 1
 	}
 
 	recipient := args[0]
-	message := args[1]
+
+	// T046-T048: Get message from stdin or argument
+	var message string
+
+	// Check if stdin is a pipe
+	isStdinPipe := opts.StdinIsPipe
+	if !opts.SkipTmuxCheck { // If not mocking, use real detection
+		isStdinPipe = IsStdinPipe()
+	}
+
+	if isStdinPipe {
+		// T047: Read from stdin (use mock or real)
+		var stdinContent []byte
+		if opts.StdinContent != "" {
+			stdinContent = []byte(opts.StdinContent)
+		} else if stdin != nil {
+			var err error
+			stdinContent, err = io.ReadAll(stdin)
+			if err != nil {
+				fmt.Fprintf(stderr, "error: failed to read stdin: %v\n", err)
+				return 1
+			}
+		}
+		if len(stdinContent) > 0 {
+			// Trim trailing newline only (preserve internal newlines for multi-line messages)
+			message = strings.TrimSuffix(string(stdinContent), "\n")
+		}
+	}
+
+	// T048: Fall back to argument if no stdin content
+	if message == "" && len(args) >= 2 {
+		message = args[1]
+	}
+
+	// Error if no message provided
+	if message == "" {
+		fmt.Fprintln(stderr, "error: no message provided")
+		fmt.Fprintln(stderr, "usage: agentmail send <recipient> <message>")
+		return 1
+	}
 
 	// Get sender identity
 	var sender string

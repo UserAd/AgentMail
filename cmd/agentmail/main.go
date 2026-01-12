@@ -26,7 +26,8 @@ func main() {
 	switch command {
 	case "send":
 		// T024: Wire up send subcommand
-		exitCode := cli.Send(os.Args[2:], os.Stdout, os.Stderr, cli.SendOptions{})
+		// T049: Pass os.Stdin to Send()
+		exitCode := cli.Send(os.Args[2:], os.Stdin, os.Stdout, os.Stderr, cli.SendOptions{})
 		os.Exit(exitCode)
 	case "receive":
 		// T038: Wire up receive subcommand

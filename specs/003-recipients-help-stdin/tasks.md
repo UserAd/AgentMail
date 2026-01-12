@@ -159,19 +159,19 @@ Based on plan.md structure:
 
 ### Tests for User Story 5
 
-- [ ] T041 [P] [US5] Write test: message from stdin is used when piped
-- [ ] T042 [P] [US5] Write test: multi-line stdin content sent as single message
-- [ ] T043 [P] [US5] Write test: stdin takes precedence over argument (per FR-010)
-- [ ] T044 [P] [US5] Write test: falls back to argument when no stdin data
+- [X] T041 [P] [US5] Write test: message from stdin is used when piped
+- [X] T042 [P] [US5] Write test: multi-line stdin content sent as single message
+- [X] T043 [P] [US5] Write test: stdin takes precedence over argument (per FR-010)
+- [X] T044 [P] [US5] Write test: falls back to argument when no stdin data
 
 ### Implementation for User Story 5
 
-- [ ] T045 [US5] Modify Send() in internal/cli/send.go to accept io.Reader for stdin
-- [ ] T046 [US5] Implement stdin detection using IsStdinPipe() helper
-- [ ] T047 [US5] Read stdin content with io.ReadAll when pipe detected
-- [ ] T048 [US5] Implement stdin precedence logic (stdin > argument)
-- [ ] T049 [US5] Update main.go to pass os.Stdin to Send()
-- [ ] T050 [US5] Verify tests pass: `go test -v ./internal/cli/... -run Send`
+- [X] T045 [US5] Modify Send() in internal/cli/send.go to accept io.Reader for stdin
+- [X] T046 [US5] Implement stdin detection using IsStdinPipe() helper
+- [X] T047 [US5] Read stdin content with io.ReadAll when pipe detected
+- [X] T048 [US5] Implement stdin precedence logic (stdin > argument)
+- [X] T049 [US5] Update main.go to pass os.Stdin to Send()
+- [X] T050 [US5] Verify tests pass: `go test -v ./internal/cli/... -run Send`
 
 **Checkpoint**: `echo "msg" | agentmail send recipient` works correctly
 

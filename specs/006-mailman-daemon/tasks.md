@@ -167,12 +167,12 @@ This project uses Go standard structure:
 
 **Purpose**: Final validation and cleanup
 
-- [ ] T056 Run go vet ./... and fix any issues
-- [ ] T057 Run go fmt ./... and verify no changes
-- [ ] T058 Run go test -cover ./... and verify >= 80% coverage
-- [ ] T059 Run go test -race ./... to check for race conditions
-- [ ] T060 Update help text in internal/cli/help.go for mailman and status commands
-- [ ] T061 Validate all acceptance scenarios from spec.md pass
+- [x] T056 Run go vet ./... and fix any issues
+- [x] T057 Run go fmt ./... and verify no changes
+- [x] T058 Run go test -cover ./... and verify >= 80% coverage
+- [x] T059 Run go test -race ./... to check for race conditions
+- [x] T060 Update help text in internal/cli/help.go for mailman and status commands
+- [x] T061 Validate all acceptance scenarios from spec.md pass
 - [ ] T062 Run quickstart.md validation manually
 
 ---

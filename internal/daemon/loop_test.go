@@ -601,10 +601,10 @@ func TestIntegration_FullNotificationCycle(t *testing.T) {
 	// Note: Stale agents that are "ready" and have unread messages WILL be notified
 	// before stale cleanup runs. This is expected behavior - stale cleanup is
 	// a separate concern from notification eligibility.
-	createRecipientState(t, repoRoot, "ready-notme", mail.StatusReady, true, now)        // Already notified
-	createRecipientState(t, repoRoot, "ready-agent", mail.StatusReady, false, now)       // Should be notified
-	createRecipientState(t, repoRoot, "work-agent", mail.StatusWork, false, now)         // Skip (work)
-	createRecipientState(t, repoRoot, "offline-agent", mail.StatusOffline, false, now)   // Skip (offline)
+	createRecipientState(t, repoRoot, "ready-notme", mail.StatusReady, true, now)      // Already notified
+	createRecipientState(t, repoRoot, "ready-agent", mail.StatusReady, false, now)     // Should be notified
+	createRecipientState(t, repoRoot, "work-agent", mail.StatusWork, false, now)       // Skip (work)
+	createRecipientState(t, repoRoot, "offline-agent", mail.StatusOffline, false, now) // Skip (offline)
 	// Stale agent is offline - won't be notified and will be cleaned up
 	createRecipientState(t, repoRoot, "stale-agent", mail.StatusOffline, false, now.Add(-2*time.Hour)) // Should be cleaned
 

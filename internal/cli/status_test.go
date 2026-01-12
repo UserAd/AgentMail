@@ -238,13 +238,13 @@ func TestValidateStatus(t *testing.T) {
 		{"ready", true},
 		{"work", true},
 		{"offline", true},
-		{"Ready", false},   // case sensitive
-		{"WORK", false},    // case sensitive
-		{"busy", false},    // invalid
-		{"online", false},  // invalid
-		{"", false},        // empty
-		{"ready ", false},  // trailing space
-		{" ready", false},  // leading space
+		{"Ready", false},  // case sensitive
+		{"WORK", false},   // case sensitive
+		{"busy", false},   // invalid
+		{"online", false}, // invalid
+		{"", false},       // empty
+		{"ready ", false}, // trailing space
+		{" ready", false}, // leading space
 	}
 
 	for _, tt := range tests {

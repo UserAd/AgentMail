@@ -355,11 +355,6 @@ func TestRecipientsCommand_IgnoresEmptyLinesInIgnoreFile(t *testing.T) {
 
 // T021: Test that handles unreadable ignore file (per FR-013)
 func TestRecipientsCommand_HandlesUnreadableIgnoreFile(t *testing.T) {
-	// Skip on systems where root can read any file (e.g., GitHub Actions containers)
-	if os.Getuid() == 0 {
-		t.Skip("Skipping unreadable file test when running as root")
-	}
-
 	var stdout, stderr bytes.Buffer
 
 	// Create a temp directory with an unreadable ignore file

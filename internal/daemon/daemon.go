@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -16,6 +17,28 @@ import (
 
 // PIDFile is the filename for the mailman daemon PID file within .git/mail/
 const PIDFile = "mailman.pid"
+
+// DaemonStatus represents the status of an existing daemon process.
+type DaemonStatus int
+
+const (
+	// DaemonNone indicates no daemon is running and no PID file exists.
+	DaemonNone DaemonStatus = iota
+	// DaemonRunning indicates a daemon is currently running.
+	DaemonRunning
+	// DaemonStale indicates a PID file exists but the process is not running.
+	DaemonStale
+)
+
+// stopChan is used for testing to allow stopping the daemon without signals.
+// When this is non-nil, the daemon will select on both signals and this channel.
+var stopChan chan struct{}
+
+// SetStopChannel sets a channel that can be used to stop the daemon for testing.
+// Pass nil to disable test mode. This is only for testing purposes.
+func SetStopChannel(ch chan struct{}) {
+	stopChan = ch
+}
 
 // PIDFilePath returns the full path to the PID file for a given repository root.
 func PIDFilePath(repoRoot string) string {
@@ -95,24 +118,56 @@ func IsRunning(pid int) bool {
 	return err == nil
 }
 
+// CheckExistingDaemon checks if a daemon is already running.
+// Returns:
+//   - DaemonStatus: Running, Stale, or None
+//   - int: PID (if found, otherwise 0)
+//   - error: if file read/parse fails
+func CheckExistingDaemon(repoRoot string) (DaemonStatus, int, error) {
+	pid, err := ReadPID(repoRoot)
+	if err != nil {
+		return DaemonNone, 0, err
+	}
+
+	if pid == 0 {
+		// No PID file exists
+		return DaemonNone, 0, nil
+	}
+
+	if IsRunning(pid) {
+		return DaemonRunning, pid, nil
+	}
+
+	// PID file exists but process is not running - stale
+	return DaemonStale, pid, nil
+}
+
 // StartDaemon starts the mailman daemon.
 // If daemonize is false, runs in foreground mode and writes PID file.
 // If daemonize is true, forks to background and parent exits immediately.
 // Returns exit code: 0 on success, 2 if daemon already running.
 func StartDaemon(repoRoot string, daemonize bool, stdout, stderr io.Writer) int {
 	// Check if daemon is already running
-	existingPID, err := ReadPID(repoRoot)
+	status, pid, err := CheckExistingDaemon(repoRoot)
 	if err != nil {
 		fmt.Fprintf(stderr, "error: failed to read PID file: %v\n", err)
 		return 1
 	}
 
-	if existingPID > 0 && IsRunning(existingPID) {
-		fmt.Fprintf(stderr, "error: mailman daemon already running (PID: %d)\n", existingPID)
+	switch status {
+	case DaemonRunning:
+		fmt.Fprintf(stderr, "error: mailman daemon already running (PID: %d)\n", pid)
 		return 2
+	case DaemonStale:
+		// Clean up stale PID file with warning
+		fmt.Fprintf(stderr, "Warning: Stale PID file found, cleaning up\n")
+		if err := DeletePID(repoRoot); err != nil {
+			fmt.Fprintf(stderr, "error: failed to clean up stale PID file: %v\n", err)
+			return 1
+		}
+	case DaemonNone:
+		// No existing daemon, proceed with startup
 	}
-
-	// If we got here, either no PID file or stale PID - we can start
 
 	if daemonize {
 		// Background mode: fork and let parent exit
@@ -125,6 +180,7 @@ func StartDaemon(repoRoot string, daemonize bool, stdout, stderr io.Writer) int 
 
 // runForeground runs the daemon in foreground mode.
 // Writes PID file and outputs startup message.
+// Sets up signal handling for graceful shutdown on SIGTERM/SIGINT.
 func runForeground(repoRoot string, stdout, stderr io.Writer) int {
 	currentPID := os.Getpid()
 
@@ -134,11 +190,30 @@ func runForeground(repoRoot string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
+	// Set up signal handling for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
+
 	// Output startup message
 	fmt.Fprintf(stdout, "Mailman daemon started (PID: %d)\n", currentPID)
 
-	// In Phase 3, we just write PID and return.
+	// Wait for shutdown signal or test stop
+	// In Phase 3, we wait for signal and then clean up.
 	// The actual event loop will be added in Phase 6.
+	if stopChan != nil {
+		// Test mode: wait on either signal or stop channel
+		select {
+		case <-sigChan:
+		case <-stopChan:
+		}
+	} else {
+		// Production mode: wait only on signals
+		<-sigChan
+	}
+
+	// Clean up PID file on shutdown
+	DeletePID(repoRoot)
+
 	return 0
 }
 

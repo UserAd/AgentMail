@@ -6,7 +6,22 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
 )
+
+// =============================================================================
+// Test helper functions
+// =============================================================================
+
+// setupTestStopChannel creates a stop channel for testing and ensures cleanup.
+// Returns the stop channel and a cleanup function.
+func setupTestStopChannel() (chan struct{}, func()) {
+	stopCh := make(chan struct{})
+	SetStopChannel(stopCh)
+	return stopCh, func() {
+		SetStopChannel(nil)
+	}
+}
 
 // =============================================================================
 // T012: Tests for PID file operations (ReadPID, WritePID, DeletePID)
@@ -228,14 +243,22 @@ func TestStartDaemon_ForegroundMode_WritesPID(t *testing.T) {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
 
+	// Set up test stop channel
+	stopCh, cleanup := setupTestStopChannel()
+	defer cleanup()
+
 	var stdout, stderr bytes.Buffer
+	var exitCode int
 
-	// Start daemon in foreground mode (daemonize=false)
-	exitCode := StartDaemon(tmpDir, false, &stdout, &stderr)
+	// Start daemon in foreground mode (daemonize=false) in goroutine
+	done := make(chan struct{})
+	go func() {
+		exitCode = StartDaemon(tmpDir, false, &stdout, &stderr)
+		close(done)
+	}()
 
-	if exitCode != 0 {
-		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
-	}
+	// Give daemon time to start and write PID file
+	time.Sleep(50 * time.Millisecond)
 
 	// Verify PID file was created
 	pidFile := filepath.Join(mailDir, "mailman.pid")
@@ -254,6 +277,14 @@ func TestStartDaemon_ForegroundMode_WritesPID(t *testing.T) {
 	if pid != currentPID {
 		t.Errorf("PID file should contain current PID %d, got %d", currentPID, pid)
 	}
+
+	// Stop the daemon
+	close(stopCh)
+	<-done
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
 }
 
 func TestStartDaemon_ForegroundMode_OutputsStartupMessage(t *testing.T) {
@@ -269,13 +300,26 @@ func TestStartDaemon_ForegroundMode_OutputsStartupMessage(t *testing.T) {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
 
+	// Set up test stop channel
+	stopCh, cleanup := setupTestStopChannel()
+	defer cleanup()
+
 	var stdout, stderr bytes.Buffer
+	var exitCode int
 
-	exitCode := StartDaemon(tmpDir, false, &stdout, &stderr)
+	// Start daemon in goroutine
+	done := make(chan struct{})
+	go func() {
+		exitCode = StartDaemon(tmpDir, false, &stdout, &stderr)
+		close(done)
+	}()
 
-	if exitCode != 0 {
-		t.Errorf("Expected exit code 0, got %d", exitCode)
-	}
+	// Give daemon time to start
+	time.Sleep(50 * time.Millisecond)
+
+	// Stop the daemon first to avoid race when reading stdout
+	close(stopCh)
+	<-done
 
 	// Verify startup message format: "Mailman daemon started (PID: 12345)"
 	output := stdout.String()
@@ -284,6 +328,10 @@ func TestStartDaemon_ForegroundMode_OutputsStartupMessage(t *testing.T) {
 
 	if output != expected {
 		t.Errorf("Expected output %q, got %q", expected, output)
+	}
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d", exitCode)
 	}
 }
 
@@ -343,15 +391,24 @@ func TestStartDaemon_StalePID_OverwritesAndStarts(t *testing.T) {
 		t.Fatalf("Failed to create PID file: %v", err)
 	}
 
+	// Set up test stop channel
+	stopCh, cleanup := setupTestStopChannel()
+	defer cleanup()
+
 	var stdout, stderr bytes.Buffer
+	var exitCode int
 
-	exitCode := StartDaemon(tmpDir, false, &stdout, &stderr)
+	// Start daemon in goroutine
+	done := make(chan struct{})
+	go func() {
+		exitCode = StartDaemon(tmpDir, false, &stdout, &stderr)
+		close(done)
+	}()
 
-	if exitCode != 0 {
-		t.Errorf("Expected exit code 0 for stale PID, got %d. Stderr: %s", exitCode, stderr.String())
-	}
+	// Give daemon time to start
+	time.Sleep(50 * time.Millisecond)
 
-	// Verify PID file was overwritten with current PID
+	// Read PID file while daemon is running (this is safe - file not being written)
 	content, err := os.ReadFile(pidFile)
 	if err != nil {
 		t.Fatalf("PID file should exist: %v", err)
@@ -361,6 +418,20 @@ func TestStartDaemon_StalePID_OverwritesAndStarts(t *testing.T) {
 	expected := strconv.Itoa(currentPID) + "\n"
 	if string(content) != expected {
 		t.Errorf("PID file should be overwritten with current PID. Expected %q, got %q", expected, string(content))
+	}
+
+	// Stop the daemon first to avoid race when reading stderr
+	close(stopCh)
+	<-done
+
+	// Verify stale PID warning was output (safe to read after daemon stopped)
+	errOutput := stderr.String()
+	if !bytes.Contains([]byte(errOutput), []byte("Stale PID file found")) {
+		t.Errorf("Expected warning about stale PID file, got: %s", errOutput)
+	}
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0 for stale PID, got %d. Stderr: %s", exitCode, errOutput)
 	}
 }
 
@@ -415,5 +486,216 @@ func TestPIDFilePath(t *testing.T) {
 	result := PIDFilePath("/test/repo")
 	if result != expected {
 		t.Errorf("Expected %q, got %q", expected, result)
+	}
+}
+
+// =============================================================================
+// T025: Test for corrupted PID file handling
+// =============================================================================
+
+func TestStartDaemon_CorruptedPIDFile_ReturnsError(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-daemon-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create .git/mail directory
+	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	// Create PID file with invalid content
+	pidFile := filepath.Join(mailDir, "mailman.pid")
+	if err := os.WriteFile(pidFile, []byte("not-a-number\n"), 0644); err != nil {
+		t.Fatalf("Failed to create PID file: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+
+	exitCode := StartDaemon(tmpDir, false, &stdout, &stderr)
+
+	// Should return exit code 1 (error reading PID file)
+	if exitCode != 1 {
+		t.Errorf("Expected exit code 1 for corrupted PID file, got %d", exitCode)
+	}
+
+	// Verify error message mentions PID file
+	errOutput := stderr.String()
+	if !bytes.Contains([]byte(errOutput), []byte("PID")) {
+		t.Errorf("Expected error message about PID file, got: %s", errOutput)
+	}
+}
+
+// =============================================================================
+// T027: Tests for CheckExistingDaemon function
+// =============================================================================
+
+func TestCheckExistingDaemon_NoPIDFile_ReturnsNone(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-daemon-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create .git/mail directory but no PID file
+	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	status, pid, err := CheckExistingDaemon(tmpDir)
+	if err != nil {
+		t.Fatalf("CheckExistingDaemon should not error: %v", err)
+	}
+	if status != DaemonNone {
+		t.Errorf("Expected DaemonNone, got %v", status)
+	}
+	if pid != 0 {
+		t.Errorf("Expected pid 0, got %d", pid)
+	}
+}
+
+func TestCheckExistingDaemon_RunningProcess_ReturnsRunning(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-daemon-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create .git/mail directory
+	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	// Create PID file with current process PID (simulating running daemon)
+	currentPID := os.Getpid()
+	pidFile := filepath.Join(mailDir, "mailman.pid")
+	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(currentPID)+"\n"), 0644); err != nil {
+		t.Fatalf("Failed to create PID file: %v", err)
+	}
+
+	status, pid, err := CheckExistingDaemon(tmpDir)
+	if err != nil {
+		t.Fatalf("CheckExistingDaemon should not error: %v", err)
+	}
+	if status != DaemonRunning {
+		t.Errorf("Expected DaemonRunning, got %v", status)
+	}
+	if pid != currentPID {
+		t.Errorf("Expected pid %d, got %d", currentPID, pid)
+	}
+}
+
+func TestCheckExistingDaemon_StaleProcess_ReturnsStale(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-daemon-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create .git/mail directory
+	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	// Create PID file with non-existent PID
+	stalePID := 99999999
+	pidFile := filepath.Join(mailDir, "mailman.pid")
+	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(stalePID)+"\n"), 0644); err != nil {
+		t.Fatalf("Failed to create PID file: %v", err)
+	}
+
+	status, pid, err := CheckExistingDaemon(tmpDir)
+	if err != nil {
+		t.Fatalf("CheckExistingDaemon should not error: %v", err)
+	}
+	if status != DaemonStale {
+		t.Errorf("Expected DaemonStale, got %v", status)
+	}
+	if pid != stalePID {
+		t.Errorf("Expected pid %d, got %d", stalePID, pid)
+	}
+}
+
+func TestCheckExistingDaemon_CorruptedPIDFile_ReturnsError(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-daemon-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create .git/mail directory
+	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	// Create PID file with invalid content
+	pidFile := filepath.Join(mailDir, "mailman.pid")
+	if err := os.WriteFile(pidFile, []byte("invalid\n"), 0644); err != nil {
+		t.Fatalf("Failed to create PID file: %v", err)
+	}
+
+	_, _, err = CheckExistingDaemon(tmpDir)
+	if err == nil {
+		t.Error("CheckExistingDaemon should error for corrupted PID file")
+	}
+}
+
+// =============================================================================
+// T030: Test for signal handling and PID cleanup
+// =============================================================================
+
+func TestStartDaemon_Shutdown_DeletesPIDFile(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-daemon-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create .git/mail directory
+	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	// Set up test stop channel
+	stopCh, cleanup := setupTestStopChannel()
+	defer cleanup()
+
+	var stdout, stderr bytes.Buffer
+	var exitCode int
+
+	// Start daemon in goroutine
+	done := make(chan struct{})
+	go func() {
+		exitCode = StartDaemon(tmpDir, false, &stdout, &stderr)
+		close(done)
+	}()
+
+	// Give daemon time to start and write PID file
+	time.Sleep(50 * time.Millisecond)
+
+	// Verify PID file exists
+	pidFile := filepath.Join(mailDir, "mailman.pid")
+	if _, err := os.Stat(pidFile); os.IsNotExist(err) {
+		t.Fatal("PID file should exist after daemon start")
+	}
+
+	// Stop the daemon (simulating SIGTERM/SIGINT)
+	close(stopCh)
+	<-done
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d", exitCode)
+	}
+
+	// Verify PID file was deleted on shutdown
+	if _, err := os.Stat(pidFile); !os.IsNotExist(err) {
+		t.Error("PID file should be deleted after shutdown")
 	}
 }

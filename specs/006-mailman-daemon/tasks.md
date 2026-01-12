@@ -90,18 +90,18 @@ This project uses Go standard structure:
 
 ### Tests for User Story 2
 
-- [ ] T023 [P] [US2] Write test for duplicate daemon detection in internal/daemon/daemon_test.go
-- [ ] T024 [P] [US2] Write test for stale PID detection in internal/daemon/daemon_test.go
-- [ ] T025 [P] [US2] Write test for corrupted PID file handling in internal/daemon/daemon_test.go
+- [x] T023 [P] [US2] Write test for duplicate daemon detection in internal/daemon/daemon_test.go
+- [x] T024 [P] [US2] Write test for stale PID detection in internal/daemon/daemon_test.go
+- [x] T025 [P] [US2] Write test for corrupted PID file handling in internal/daemon/daemon_test.go
 
 ### Implementation for User Story 2
 
-- [ ] T026 [US2] Implement IsProcessRunning(pid int) using signal 0 in internal/daemon/daemon.go
-- [ ] T027 [US2] Implement CheckExistingDaemon() that returns running/stale/none in internal/daemon/daemon.go
-- [ ] T028 [US2] Update StartDaemon() to check for existing daemon before starting in internal/daemon/daemon.go
-- [ ] T029 [US2] Add stale PID cleanup logic with warning output in internal/daemon/daemon.go
-- [ ] T030 [US2] Implement signal handling for SIGTERM/SIGINT cleanup in internal/daemon/daemon.go
-- [ ] T031 [P] [US2] Write integration test for singleton behavior in internal/cli/mailman_test.go
+- [x] T026 [US2] Implement IsProcessRunning(pid int) using signal 0 in internal/daemon/daemon.go
+- [x] T027 [US2] Implement CheckExistingDaemon() that returns running/stale/none in internal/daemon/daemon.go
+- [x] T028 [US2] Update StartDaemon() to check for existing daemon before starting in internal/daemon/daemon.go
+- [x] T029 [US2] Add stale PID cleanup logic with warning output in internal/daemon/daemon.go
+- [x] T030 [US2] Implement signal handling for SIGTERM/SIGINT cleanup in internal/daemon/daemon.go
+- [x] T031 [P] [US2] Write integration test for singleton behavior in internal/cli/mailman_test.go
 
 **Checkpoint**: Only one daemon can run, stale PIDs detected and cleaned
 

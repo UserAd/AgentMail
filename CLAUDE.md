@@ -10,6 +10,8 @@ AgentMail is a Go CLI tool for inter-agent communication within tmux sessions. A
 
 **Requirements:** Must be running inside a tmux session.
 
+Use `agentmail --help` to get information about agentmail usage.
+
 ### Sending Messages
 ```bash
 agentmail send <recipient> "<message>"
@@ -61,6 +63,8 @@ Templates are stored in `.specify/templates/` and project constitution in `.spec
 - JSONL file in `.git/mail/` directory (001-agent-mail-structure)
 - Go 1.21+ (project uses Go 1.25.3) + GitHub Actions (yaml workflows), PaulHatch/semantic-version action for version calculation (002-github-ci-cd)
 - N/A (CI/CD configuration files only) (002-github-ci-cd)
+- Go 1.21+ (per constitution IC-001, project uses Go 1.25.3) + Standard library only (os/exec, encoding/json, bufio, os) (003-recipients-help-stdin)
+- JSONL files in `.git/mail/` directory (existing) (003-recipients-help-stdin)
 
 ## Recent Changes
 - 001-agent-mail-structure: Added Go 1.21+ (per IC-001) + Standard library only (os/exec for tmux, encoding/json for JSONL)

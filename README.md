@@ -24,6 +24,31 @@ A Go CLI tool for inter-agent communication within tmux sessions. Agents running
 
 ## Installation
 
+### Homebrew (macOS/Linux)
+
+The easiest way to install AgentMail is via Homebrew:
+
+```bash
+brew install UserAd/agentmail/agentmail
+```
+
+Or add the tap first, then install:
+
+```bash
+brew tap UserAd/agentmail
+brew install agentmail
+```
+
+> **Note:** If you have another package named `agentmail` installed, use the full tap path: `brew install UserAd/agentmail/agentmail`
+
+### From Releases
+
+Download the latest binary for your platform from the [Releases](https://github.com/UserAd/AgentMail/releases) page.
+
+Available platforms:
+- Linux (amd64)
+- macOS (amd64, arm64)
+
 ### From Source
 
 ```bash
@@ -37,14 +62,6 @@ go build -o agentmail ./cmd/agentmail
 # Or install to $GOPATH/bin
 go install ./cmd/agentmail
 ```
-
-### From Releases
-
-Download the latest binary for your platform from the [Releases](https://github.com/UserAd/AgentMail/releases) page.
-
-Available platforms:
-- Linux (amd64)
-- macOS (amd64, arm64)
 
 ## Quick Start
 

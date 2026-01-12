@@ -103,10 +103,10 @@ This feature spans two repositories:
 
 ### Implementation for User Story 3
 
-- [ ] T023 [US3] Add "Homebrew (macOS/Linux)" subsection under Installation in `README.md`
-- [ ] T024 [US3] Add single-command install example `brew install UserAd/agentmail/agentmail` in `README.md`
-- [ ] T025 [US3] Add two-step tap + install example in `README.md`
-- [ ] T026 [US3] Add note about using full tap path if name conflict exists in `README.md`
+- [X] T023 [US3] Add "Homebrew (macOS/Linux)" subsection under Installation in `README.md`
+- [X] T024 [US3] Add single-command install example `brew install UserAd/agentmail/agentmail` in `README.md`
+- [X] T025 [US3] Add two-step tap + install example in `README.md`
+- [X] T026 [US3] Add note about using full tap path if name conflict exists in `README.md`
 
 **Checkpoint**: User Story 3 complete - README documents Homebrew installation
 

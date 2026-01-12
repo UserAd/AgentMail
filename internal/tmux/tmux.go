@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 )
 
@@ -12,6 +13,12 @@ var ErrNotInTmux = errors.New("not running inside a tmux session")
 
 // ErrNoPaneID is returned when TMUX_PANE environment variable is not set.
 var ErrNoPaneID = errors.New("TMUX_PANE environment variable not set")
+
+// ErrInvalidPaneID is returned when TMUX_PANE contains an invalid format.
+var ErrInvalidPaneID = errors.New("TMUX_PANE contains invalid format")
+
+// validPaneIDPattern matches valid tmux pane IDs (e.g., "%0", "%123").
+var validPaneIDPattern = regexp.MustCompile(`^%\d+$`)
 
 // InTmux checks if the current process is running inside a tmux session.
 // T010: Check $TMUX env var
@@ -33,6 +40,11 @@ func GetCurrentPaneID() (string, error) {
 		return "", ErrNoPaneID
 	}
 
+	// Validate pane ID format to prevent command injection (G204)
+	if !validPaneIDPattern.MatchString(paneID) {
+		return "", ErrInvalidPaneID
+	}
+
 	return paneID, nil
 }
 
@@ -46,7 +58,7 @@ func GetCurrentWindow() (string, error) {
 		return "", err
 	}
 
-	cmd := exec.Command("tmux", "display-message", "-t", paneID, "-p", "#W")
+	cmd := exec.Command("tmux", "display-message", "-t", paneID, "-p", "#W") // #nosec G204 - paneID validated by GetCurrentPaneID
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err

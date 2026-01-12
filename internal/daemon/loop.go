@@ -124,7 +124,7 @@ func RunLoop(opts LoopOptions) {
 	defer ticker.Stop()
 
 	// Run initial check immediately
-	CheckAndNotify(opts)
+	_ = CheckAndNotify(opts) // G104: errors are logged but don't stop the loop
 
 	// Also clean stale states periodically
 	cleanStaleStates(opts.RepoRoot)
@@ -136,7 +136,7 @@ func RunLoop(opts LoopOptions) {
 			return
 		case <-ticker.C:
 			// Perform notification check
-			CheckAndNotify(opts)
+			_ = CheckAndNotify(opts) // G104: errors are logged but don't stop the loop
 
 			// Clean stale states periodically
 			cleanStaleStates(opts.RepoRoot)
@@ -146,5 +146,5 @@ func RunLoop(opts LoopOptions) {
 
 // cleanStaleStates removes recipient states older than the threshold.
 func cleanStaleStates(repoRoot string) {
-	mail.CleanStaleStates(repoRoot, DefaultStaleThreshold)
+	_ = mail.CleanStaleStates(repoRoot, DefaultStaleThreshold) // G104: best-effort cleanup, errors don't stop the daemon
 }

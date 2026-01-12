@@ -115,20 +115,20 @@ This project uses Go standard structure:
 
 ### Tests for User Story 3
 
-- [ ] T032 [P] [US3] Write test for status ready command in internal/cli/status_test.go
-- [ ] T033 [P] [US3] Write test for status work command in internal/cli/status_test.go
-- [ ] T034 [P] [US3] Write test for status offline command in internal/cli/status_test.go
-- [ ] T035 [P] [US3] Write test for non-tmux silent exit in internal/cli/status_test.go
-- [ ] T036 [P] [US3] Write test for invalid status name error in internal/cli/status_test.go
+- [x] T032 [P] [US3] Write test for status ready command in internal/cli/status_test.go
+- [x] T033 [P] [US3] Write test for status work command in internal/cli/status_test.go
+- [x] T034 [P] [US3] Write test for status offline command in internal/cli/status_test.go
+- [x] T035 [P] [US3] Write test for non-tmux silent exit in internal/cli/status_test.go
+- [x] T036 [P] [US3] Write test for invalid status name error in internal/cli/status_test.go
 
 ### Implementation for User Story 3
 
-- [ ] T037 [US3] Add status command to CLI dispatch in cmd/agentmail/main.go
-- [ ] T038 [US3] Implement RunStatus() command handler in internal/cli/status.go
-- [ ] T039 [US3] Implement ValidateStatus() for ready/work/offline enum in internal/cli/status.go
-- [ ] T040 [US3] Handle non-tmux case (silent exit 0) in internal/cli/status.go
-- [ ] T041 [US3] Implement notified flag reset on work/offline transition in internal/cli/status.go
-- [ ] T042 [P] [US3] Write integration test for status command in internal/cli/status_test.go
+- [x] T037 [US3] Add status command to CLI dispatch in cmd/agentmail/main.go
+- [x] T038 [US3] Implement RunStatus() command handler in internal/cli/status.go
+- [x] T039 [US3] Implement ValidateStatus() for ready/work/offline enum in internal/cli/status.go
+- [x] T040 [US3] Handle non-tmux case (silent exit 0) in internal/cli/status.go
+- [x] T041 [US3] Implement notified flag reset on work/offline transition in internal/cli/status.go
+- [x] T042 [P] [US3] Write integration test for status command in internal/cli/status_test.go
 
 **Checkpoint**: Status command works, state persisted to JSONL, hooks-compatible (silent)
 

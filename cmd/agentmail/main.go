@@ -135,6 +135,42 @@ Examples:
 		},
 	}
 
+	// Status command (no flags)
+	statusFlagSet := flag.NewFlagSet("agentmail status", flag.ContinueOnError)
+
+	statusCmd := &ffcli.Command{
+		Name:       "status",
+		ShortUsage: "agentmail status <ready|work|offline>",
+		ShortHelp:  "Set agent availability status",
+		LongHelp: `Set the agent's availability status for hooks integration.
+
+Valid statuses:
+  ready    Agent is ready to receive messages
+  work     Agent is busy working (resets notification flag)
+  offline  Agent is offline (resets notification flag)
+
+The status is stored in .git/mail-recipients.jsonl and used by the
+mailman daemon for notification decisions.
+
+When transitioning to 'work' or 'offline', the notified flag is reset
+to false, allowing future notifications when returning to 'ready'.
+
+Outside of a tmux session, this command is a silent no-op (exit 0).
+
+Examples:
+  agentmail status ready
+  agentmail status work
+  agentmail status offline`,
+		FlagSet: statusFlagSet,
+		Exec: func(ctx context.Context, args []string) error {
+			exitCode := cli.Status(args, os.Stdout, os.Stderr, cli.StatusOptions{})
+			if exitCode != 0 {
+				os.Exit(exitCode)
+			}
+			return nil
+		},
+	}
+
 	// Mailman command flags
 	mailmanFlagSet := flag.NewFlagSet("agentmail mailman", flag.ContinueOnError)
 	var daemonMode bool
@@ -181,6 +217,7 @@ Commands:
   send        Send a message to a tmux window
   receive     Read the oldest unread message
   recipients  List available message recipients
+  status      Set agent availability status
   mailman     Start the mailman daemon
 
 Use "agentmail <command> --help" for more information about a command.`
@@ -191,7 +228,7 @@ Use "agentmail <command> --help" for more information about a command.`
 		ShortHelp:   "Inter-agent communication for tmux sessions",
 		LongHelp:    rootHelp,
 		FlagSet:     rootFlagSet,
-		Subcommands: []*ffcli.Command{sendCmd, receiveCmd, recipientsCmd, mailmanCmd},
+		Subcommands: []*ffcli.Command{sendCmd, receiveCmd, recipientsCmd, statusCmd, mailmanCmd},
 		Exec: func(ctx context.Context, args []string) error {
 			// No subcommand provided, show help
 			fmt.Fprintln(os.Stderr, rootHelp)

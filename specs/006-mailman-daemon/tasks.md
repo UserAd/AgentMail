@@ -63,20 +63,20 @@ This project uses Go standard structure:
 
 ### Tests for User Story 1
 
-- [ ] T012 [P] [US1] Write test for PID file creation in internal/daemon/daemon_test.go
-- [ ] T013 [P] [US1] Write test for foreground mode startup in internal/daemon/daemon_test.go
-- [ ] T014 [P] [US1] Write test for background mode (--daemon flag) in internal/daemon/daemon_test.go
+- [x] T012 [P] [US1] Write test for PID file creation in internal/daemon/daemon_test.go
+- [x] T013 [P] [US1] Write test for foreground mode startup in internal/daemon/daemon_test.go
+- [x] T014 [P] [US1] Write test for background mode (--daemon flag) in internal/daemon/daemon_test.go
 
 ### Implementation for User Story 1
 
-- [ ] T015 [P] [US1] Implement ReadPID() to read .git/mail/mailman.pid in internal/daemon/daemon.go
-- [ ] T016 [P] [US1] Implement WritePID() to write current PID in internal/daemon/daemon.go
-- [ ] T017 [P] [US1] Implement DeletePID() to remove PID file in internal/daemon/daemon.go
-- [ ] T018 [US1] Implement StartDaemon() with foreground mode in internal/daemon/daemon.go
-- [ ] T019 [US1] Implement daemonize logic for --daemon flag in internal/daemon/daemon.go
-- [ ] T020 [US1] Add mailman command to CLI dispatch in cmd/agentmail/main.go
-- [ ] T021 [US1] Implement RunMailman() command handler in internal/cli/mailman.go
-- [ ] T022 [P] [US1] Write integration test for mailman command in internal/cli/mailman_test.go
+- [x] T015 [P] [US1] Implement ReadPID() to read .git/mail/mailman.pid in internal/daemon/daemon.go
+- [x] T016 [P] [US1] Implement WritePID() to write current PID in internal/daemon/daemon.go
+- [x] T017 [P] [US1] Implement DeletePID() to remove PID file in internal/daemon/daemon.go
+- [x] T018 [US1] Implement StartDaemon() with foreground mode in internal/daemon/daemon.go
+- [x] T019 [US1] Implement daemonize logic for --daemon flag in internal/daemon/daemon.go
+- [x] T020 [US1] Add mailman command to CLI dispatch in cmd/agentmail/main.go
+- [x] T021 [US1] Implement RunMailman() command handler in internal/cli/mailman.go
+- [x] T022 [P] [US1] Write integration test for mailman command in internal/cli/mailman_test.go
 
 **Checkpoint**: Daemon can start in foreground/background, PID file created
 

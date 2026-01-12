@@ -135,6 +135,42 @@ Examples:
 		},
 	}
 
+	// Mailman command flags
+	mailmanFlagSet := flag.NewFlagSet("agentmail mailman", flag.ContinueOnError)
+	var daemonMode bool
+	mailmanFlagSet.BoolVar(&daemonMode, "daemon", false, "run in background (daemonize)")
+
+	mailmanCmd := &ffcli.Command{
+		Name:       "mailman",
+		ShortUsage: "agentmail mailman [--daemon]",
+		ShortHelp:  "Start the mailman daemon",
+		LongHelp: `Start the mailman daemon for message delivery notifications.
+
+The mailman daemon monitors mailboxes and can notify agents when new
+messages arrive.
+
+Flags:
+  --daemon    Run in background (daemonize)
+
+Exit codes:
+  0  Success
+  2  Daemon already running
+
+Examples:
+  agentmail mailman           # Run in foreground
+  agentmail mailman --daemon  # Run in background`,
+		FlagSet: mailmanFlagSet,
+		Exec: func(ctx context.Context, args []string) error {
+			exitCode := cli.Mailman(os.Stdout, os.Stderr, cli.MailmanOptions{
+				Daemonize: daemonMode,
+			})
+			if exitCode != 0 {
+				os.Exit(exitCode)
+			}
+			return nil
+		},
+	}
+
 	// Root command help text
 	rootHelp := `agentmail - Inter-agent communication for tmux sessions
 
@@ -145,6 +181,7 @@ Commands:
   send        Send a message to a tmux window
   receive     Read the oldest unread message
   recipients  List available message recipients
+  mailman     Start the mailman daemon
 
 Use "agentmail <command> --help" for more information about a command.`
 
@@ -154,7 +191,7 @@ Use "agentmail <command> --help" for more information about a command.`
 		ShortHelp:   "Inter-agent communication for tmux sessions",
 		LongHelp:    rootHelp,
 		FlagSet:     rootFlagSet,
-		Subcommands: []*ffcli.Command{sendCmd, receiveCmd, recipientsCmd},
+		Subcommands: []*ffcli.Command{sendCmd, receiveCmd, recipientsCmd, mailmanCmd},
 		Exec: func(ctx context.Context, args []string) error {
 			// No subcommand provided, show help
 			fmt.Fprintln(os.Stderr, rootHelp)

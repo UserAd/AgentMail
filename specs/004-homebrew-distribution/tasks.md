@@ -82,11 +82,11 @@ This feature spans two repositories:
 
 ### Implementation for User Story 2
 
-- [ ] T017 [US2] Add `update-homebrew` job to `.github/workflows/release.yml` with `needs: [version, release]`
-- [ ] T018 [US2] Add checkout step for `UserAd/homebrew-agentmail` using `HOMEBREW_TAP_TOKEN` secret in `.github/workflows/release.yml`
-- [ ] T019 [US2] Add step to download release binaries and calculate SHA256 checksums in `.github/workflows/release.yml`
-- [ ] T020 [US2] Add step to generate updated formula with version and checksums in `.github/workflows/release.yml`
-- [ ] T021 [US2] Add step to commit and push formula update in `.github/workflows/release.yml`
+- [X] T017 [US2] Add `update-homebrew` job to `.github/workflows/release.yml` with `needs: [version, release]`
+- [X] T018 [US2] Add checkout step for `UserAd/homebrew-agentmail` using `HOMEBREW_TAP_TOKEN` secret in `.github/workflows/release.yml`
+- [X] T019 [US2] Add step to download release binaries and calculate SHA256 checksums in `.github/workflows/release.yml`
+- [X] T020 [US2] Add step to generate updated formula with version and checksums in `.github/workflows/release.yml`
+- [X] T021 [US2] Add step to commit and push formula update in `.github/workflows/release.yml`
 - [ ] T022 [US2] Test workflow by triggering a test release (or dry-run validation)
 
 **Checkpoint**: User Story 2 complete - formula auto-updates on release

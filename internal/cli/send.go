@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"agentmail/internal/mail"
 	"agentmail/internal/tmux"
@@ -12,10 +13,14 @@ import (
 // SendOptions configures the Send command behavior.
 // Used for testing to mock tmux and file system operations.
 type SendOptions struct {
-	SkipTmuxCheck bool     // Skip tmux environment check
-	MockWindows   []string // Mock list of tmux windows
-	MockSender    string   // Mock sender window name
-	RepoRoot      string   // Repository root (defaults to current directory)
+	SkipTmuxCheck  bool            // Skip tmux environment check
+	MockWindows    []string        // Mock list of tmux windows
+	MockSender     string          // Mock sender window name
+	RepoRoot       string          // Repository root (defaults to current directory)
+	MockIgnoreList map[string]bool // Mock ignore list (nil = load from file)
+	MockGitRoot    string          // Mock git root (for testing)
+	StdinContent   string          // Mock stdin content (empty = no stdin)
+	StdinIsPipe    bool            // Mock whether stdin is a pipe
 }
 
 // Send implements the agentmail send command.
@@ -23,7 +28,8 @@ type SendOptions struct {
 // T021: Add tmux validation (exit code 2 if not in tmux)
 // T022: Add recipient validation (check WindowExists)
 // T023: Add message storage and ID output
-func Send(args []string, stdout, stderr io.Writer, opts SendOptions) int {
+// T045: Accept io.Reader for stdin
+func Send(args []string, stdin io.Reader, stdout, stderr io.Writer, opts SendOptions) int {
 	// T021: Validate running inside tmux
 	if !opts.SkipTmuxCheck {
 		if !tmux.InTmux() {
@@ -32,18 +38,53 @@ func Send(args []string, stdout, stderr io.Writer, opts SendOptions) int {
 		}
 	}
 
-	// Validate required arguments
-	if len(args) < 2 {
-		if len(args) == 0 {
-			fmt.Fprintln(stderr, "error: missing required arguments: recipient message")
-		} else {
-			fmt.Fprintln(stderr, "error: missing required argument: message")
-		}
+	// Validate recipient argument is provided
+	if len(args) == 0 {
+		fmt.Fprintln(stderr, "error: missing required arguments: recipient message")
 		return 1
 	}
 
 	recipient := args[0]
-	message := args[1]
+
+	// T046-T048: Get message from stdin or argument
+	var message string
+
+	// Check if stdin is a pipe
+	isStdinPipe := opts.StdinIsPipe
+	if !opts.SkipTmuxCheck { // If not mocking, use real detection
+		isStdinPipe = IsStdinPipe()
+	}
+
+	if isStdinPipe {
+		// T047: Read from stdin (use mock or real)
+		var stdinContent []byte
+		if opts.StdinContent != "" {
+			stdinContent = []byte(opts.StdinContent)
+		} else if stdin != nil {
+			var err error
+			stdinContent, err = io.ReadAll(stdin)
+			if err != nil {
+				fmt.Fprintf(stderr, "error: failed to read stdin: %v\n", err)
+				return 1
+			}
+		}
+		if len(stdinContent) > 0 {
+			// Trim trailing newline only (preserve internal newlines for multi-line messages)
+			message = strings.TrimSuffix(string(stdinContent), "\n")
+		}
+	}
+
+	// T048: Fall back to argument if no stdin content
+	if message == "" && len(args) >= 2 {
+		message = args[1]
+	}
+
+	// Error if no message provided
+	if message == "" {
+		fmt.Fprintln(stderr, "error: no message provided")
+		fmt.Fprintln(stderr, "usage: agentmail send <recipient> <message>")
+		return 1
+	}
 
 	// Get sender identity
 	var sender string
@@ -77,7 +118,38 @@ func Send(args []string, stdout, stderr io.Writer, opts SendOptions) int {
 	}
 
 	if !recipientExists {
-		fmt.Fprintf(stderr, "error: recipient '%s' not found in tmux session\n", recipient)
+		fmt.Fprintln(stderr, "error: recipient not found")
+		return 1
+	}
+
+	// T029: Check if recipient is the sender (self-send not allowed)
+	if recipient == sender {
+		fmt.Fprintln(stderr, "error: recipient not found")
+		return 1
+	}
+
+	// T029: Load and check ignore list
+	var ignoreList map[string]bool
+	if opts.MockIgnoreList != nil {
+		ignoreList = opts.MockIgnoreList
+	} else {
+		// Load from .agentmailignore file
+		var gitRoot string
+		if opts.MockGitRoot != "" {
+			gitRoot = opts.MockGitRoot
+		} else {
+			gitRoot, _ = mail.FindGitRoot()
+			// Errors from FindGitRoot mean not in a git repo - proceed without ignore list
+		}
+		if gitRoot != "" {
+			ignoreList, _ = mail.LoadIgnoreList(gitRoot)
+			// Errors from LoadIgnoreList are treated as no ignore file
+		}
+	}
+
+	// T030: Check if recipient is in ignore list
+	if ignoreList != nil && ignoreList[recipient] {
+		fmt.Fprintln(stderr, "error: recipient not found")
 		return 1
 	}
 

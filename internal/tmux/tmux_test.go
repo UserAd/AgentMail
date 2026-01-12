@@ -1,19 +1,14 @@
 package tmux
 
 import (
-	"os"
 	"testing"
 )
 
 // T004: Tests for tmux detection (InTmux, GetCurrentWindow)
 
 func TestInTmux_WhenTMUXEnvSet(t *testing.T) {
-	// Save original value
-	original := os.Getenv("TMUX")
-	defer os.Setenv("TMUX", original)
-
-	// Set TMUX env var
-	os.Setenv("TMUX", "/tmp/tmux-501/default,12345,0")
+	// Use t.Setenv for thread-safe environment variable manipulation
+	t.Setenv("TMUX", "/tmp/tmux-501/default,12345,0")
 
 	if !InTmux() {
 		t.Error("InTmux() should return true when TMUX env var is set")
@@ -21,12 +16,8 @@ func TestInTmux_WhenTMUXEnvSet(t *testing.T) {
 }
 
 func TestInTmux_WhenTMUXEnvNotSet(t *testing.T) {
-	// Save original value
-	original := os.Getenv("TMUX")
-	defer os.Setenv("TMUX", original)
-
-	// Unset TMUX env var
-	os.Unsetenv("TMUX")
+	// Use t.Setenv for thread-safe environment variable manipulation
+	t.Setenv("TMUX", "")
 
 	if InTmux() {
 		t.Error("InTmux() should return false when TMUX env var is not set")
@@ -34,12 +25,8 @@ func TestInTmux_WhenTMUXEnvNotSet(t *testing.T) {
 }
 
 func TestInTmux_WhenTMUXEnvEmpty(t *testing.T) {
-	// Save original value
-	original := os.Getenv("TMUX")
-	defer os.Setenv("TMUX", original)
-
-	// Set TMUX to empty string
-	os.Setenv("TMUX", "")
+	// Use t.Setenv for thread-safe environment variable manipulation
+	t.Setenv("TMUX", "")
 
 	if InTmux() {
 		t.Error("InTmux() should return false when TMUX env var is empty")
@@ -49,12 +36,8 @@ func TestInTmux_WhenTMUXEnvEmpty(t *testing.T) {
 // T005: Tests for tmux window listing (ListWindows, WindowExists)
 
 func TestListWindows_NotInTmux(t *testing.T) {
-	// Save original value
-	original := os.Getenv("TMUX")
-	defer os.Setenv("TMUX", original)
-
-	// Unset TMUX env var
-	os.Unsetenv("TMUX")
+	// Use t.Setenv for thread-safe environment variable manipulation
+	t.Setenv("TMUX", "")
 
 	_, err := ListWindows()
 	if err == nil {
@@ -63,12 +46,8 @@ func TestListWindows_NotInTmux(t *testing.T) {
 }
 
 func TestWindowExists_NotInTmux(t *testing.T) {
-	// Save original value
-	original := os.Getenv("TMUX")
-	defer os.Setenv("TMUX", original)
-
-	// Unset TMUX env var
-	os.Unsetenv("TMUX")
+	// Use t.Setenv for thread-safe environment variable manipulation
+	t.Setenv("TMUX", "")
 
 	_, err := WindowExists("agent-1")
 	if err == nil {
@@ -77,12 +56,8 @@ func TestWindowExists_NotInTmux(t *testing.T) {
 }
 
 func TestGetCurrentWindow_NotInTmux(t *testing.T) {
-	// Save original value
-	original := os.Getenv("TMUX")
-	defer os.Setenv("TMUX", original)
-
-	// Unset TMUX env var
-	os.Unsetenv("TMUX")
+	// Use t.Setenv for thread-safe environment variable manipulation
+	t.Setenv("TMUX", "")
 
 	_, err := GetCurrentWindow()
 	if err == nil {

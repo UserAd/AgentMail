@@ -36,7 +36,7 @@ func TestIntegration_SendReceiveRoundTrip(t *testing.T) {
 
 	// Agent-1 sends a message to Agent-2
 	var sendStdout, sendStderr bytes.Buffer
-	sendExit := Send([]string{"agent-2", "Hello from agent-1!"}, &sendStdout, &sendStderr, SendOptions{
+	sendExit := Send([]string{"agent-2", "Hello from agent-1!"}, nil, &sendStdout, &sendStderr, SendOptions{
 		SkipTmuxCheck: true,
 		MockWindows:   []string{"agent-1", "agent-2"},
 		MockSender:    "agent-1",
@@ -117,7 +117,7 @@ func TestIntegration_FIFOOrdering(t *testing.T) {
 
 	for _, msg := range messages {
 		var stdout, stderr bytes.Buffer
-		exitCode := Send([]string{"agent-2", msg}, &stdout, &stderr, SendOptions{
+		exitCode := Send([]string{"agent-2", msg}, nil, &stdout, &stderr, SendOptions{
 			SkipTmuxCheck: true,
 			MockWindows:   []string{"agent-1", "agent-2"},
 			MockSender:    "agent-1",
@@ -189,7 +189,7 @@ func TestIntegration_MultiAgentFileIsolation(t *testing.T) {
 
 	// Agent-1 sends to Agent-2
 	var stdout1, stderr1 bytes.Buffer
-	Send([]string{"agent-2", "Message for agent-2"}, &stdout1, &stderr1, SendOptions{
+	Send([]string{"agent-2", "Message for agent-2"}, nil, &stdout1, &stderr1, SendOptions{
 		SkipTmuxCheck: true,
 		MockWindows:   windows,
 		MockSender:    "agent-1",
@@ -198,7 +198,7 @@ func TestIntegration_MultiAgentFileIsolation(t *testing.T) {
 
 	// Agent-1 sends to Agent-3
 	var stdout2, stderr2 bytes.Buffer
-	Send([]string{"agent-3", "Message for agent-3"}, &stdout2, &stderr2, SendOptions{
+	Send([]string{"agent-3", "Message for agent-3"}, nil, &stdout2, &stderr2, SendOptions{
 		SkipTmuxCheck: true,
 		MockWindows:   windows,
 		MockSender:    "agent-1",

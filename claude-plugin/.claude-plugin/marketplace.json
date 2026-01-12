@@ -1,15 +1,31 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "agentmail-marketplace",
-  "description": "Local marketplace for agentmail plugin development",
+  "description": "Marketplace for AgentMail - inter-agent communication plugin for tmux sessions",
   "owner": {
-    "name": "Konstantin Tumalevich"
+    "name": "Konstantin Tumalevich",
+    "email": "userad@gmail.com"
   },
   "plugins": [
     {
       "name": "agentmail",
+      "description": "Inter-agent communication for tmux sessions. Send and receive messages between AI agents running in different tmux windows.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Konstantin Tumalevich",
+        "email": "userad@gmail.com"
+      },
       "source": "./claude-plugin",
-      "description": "Inter-agent communication for tmux sessions",
-      "version": "1.0.0"
+      "category": "productivity",
+      "homepage": "https://github.com/UserAd/AgentMail",
+      "keywords": [
+        "agent-communication",
+        "tmux",
+        "inter-agent",
+        "messaging",
+        "ai-workflow",
+        "multi-agent"
+      ]
     }
   ]
 }

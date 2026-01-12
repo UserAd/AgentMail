@@ -1,0 +1,15 @@
+{
+  "name": "agentmail-marketplace",
+  "description": "Local marketplace for agentmail plugin development",
+  "owner": {
+    "name": "Konstantin Tumalevich"
+  },
+  "plugins": [
+    {
+      "name": "agentmail",
+      "source": "./claude-plugin",
+      "description": "Inter-agent communication for tmux sessions",
+      "version": "1.0.0"
+    }
+  ]
+}

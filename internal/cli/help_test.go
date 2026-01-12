@@ -231,15 +231,58 @@ COMMANDS:
                                   Message can be piped via stdin
     receive                       Read the oldest unread message
     recipients                    List available message recipients
+    mailman [--daemon]            Start the notification daemon
+    status <ready|work|offline>   Set agent availability status
 
 EXAMPLES:
     agentmail send agent2 "Hello"
     echo "Hello" | agentmail send agent2
     agentmail receive
     agentmail recipients
+    agentmail mailman              # Start daemon in foreground
+    agentmail mailman --daemon     # Start daemon in background
+    agentmail status ready         # Mark agent as ready for notifications
 `
 
 	if output != expectedContent {
 		t.Errorf("Help output does not match expected format.\nExpected:\n%s\nGot:\n%s", expectedContent, output)
+	}
+}
+
+// Test that help output includes mailman command
+func TestHelpCommand_IncludesMailmanCommand(t *testing.T) {
+	var stdout bytes.Buffer
+
+	Help(&stdout)
+
+	output := stdout.String()
+
+	// Check for mailman command presence
+	if !strings.Contains(output, "mailman") {
+		t.Errorf("Expected help output to include 'mailman' command, got: %s", output)
+	}
+
+	// Check for daemon flag
+	if !strings.Contains(output, "--daemon") {
+		t.Errorf("Expected help output to include '--daemon' flag, got: %s", output)
+	}
+}
+
+// Test that help output includes status command
+func TestHelpCommand_IncludesStatusCommand(t *testing.T) {
+	var stdout bytes.Buffer
+
+	Help(&stdout)
+
+	output := stdout.String()
+
+	// Check for status command presence
+	if !strings.Contains(output, "status") {
+		t.Errorf("Expected help output to include 'status' command, got: %s", output)
+	}
+
+	// Check for status options
+	if !strings.Contains(output, "ready|work|offline") {
+		t.Errorf("Expected help output to include status options, got: %s", output)
 	}
 }

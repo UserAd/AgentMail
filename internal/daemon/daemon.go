@@ -51,7 +51,7 @@ func PIDFilePath(repoRoot string) string {
 func ReadPID(repoRoot string) (int, error) {
 	pidPath := PIDFilePath(repoRoot)
 
-	content, err := os.ReadFile(pidPath)
+	content, err := os.ReadFile(pidPath) // #nosec G304 - pidPath is constructed from constants
 	if err != nil {
 		if os.IsNotExist(err) {
 			return 0, nil
@@ -80,7 +80,7 @@ func WritePID(repoRoot string, pid int) error {
 	pidPath := PIDFilePath(repoRoot)
 	content := fmt.Sprintf("%d\n", pid)
 
-	if err := os.WriteFile(pidPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(pidPath, []byte(content), 0600); err != nil { // G306: restricted file permissions
 		return fmt.Errorf("failed to write PID file: %w", err)
 	}
 
@@ -231,7 +231,7 @@ func runForeground(repoRoot string, stdout, stderr io.Writer) int {
 	<-loopDone // Wait for loop to finish
 
 	// Clean up PID file on shutdown
-	DeletePID(repoRoot)
+	_ = DeletePID(repoRoot) // G104: best-effort cleanup, errors don't affect exit status
 
 	return 0
 }

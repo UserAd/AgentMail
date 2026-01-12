@@ -2,6 +2,7 @@ package mail
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -12,11 +13,39 @@ import (
 // MailDir is the directory name for mail storage within .git
 const MailDir = ".git/mail"
 
+// ErrInvalidPath is returned when a path traversal attack is detected.
+var ErrInvalidPath = errors.New("invalid path: directory traversal detected")
+
+// safePath constructs a safe file path and validates it stays within the base directory.
+// This prevents path traversal attacks (G304) by ensuring the cleaned path
+// is still under the expected base directory.
+func safePath(baseDir, filename string) (string, error) {
+	// Clean the filename to remove any .. or . components
+	cleanName := filepath.Clean(filename)
+
+	// Reject if the cleaned name tries to escape (starts with .. or /)
+	if strings.HasPrefix(cleanName, "..") || filepath.IsAbs(cleanName) {
+		return "", ErrInvalidPath
+	}
+
+	// Construct the full path
+	fullPath := filepath.Join(baseDir, cleanName)
+
+	// Verify the result is still under baseDir
+	// Use Clean on baseDir too for consistent comparison
+	cleanBase := filepath.Clean(baseDir)
+	if !strings.HasPrefix(fullPath, cleanBase+string(filepath.Separator)) && fullPath != cleanBase {
+		return "", ErrInvalidPath
+	}
+
+	return fullPath, nil
+}
+
 // EnsureMailDir creates the .git/mail/ directory if it doesn't exist.
 // T018: Create .git/mail/ if missing
 func EnsureMailDir(repoRoot string) error {
 	mailPath := filepath.Join(repoRoot, MailDir)
-	return os.MkdirAll(mailPath, 0755)
+	return os.MkdirAll(mailPath, 0750) // G301: restricted directory permissions
 }
 
 // Append adds a message to the recipient's mailbox file with file locking.
@@ -27,26 +56,30 @@ func Append(repoRoot string, msg Message) error {
 		return err
 	}
 
-	// Build file path for recipient
-	filePath := filepath.Join(repoRoot, MailDir, msg.To+".jsonl")
+	// Build file path for recipient with path traversal protection (G304)
+	mailDir := filepath.Join(repoRoot, MailDir)
+	filePath, err := safePath(mailDir, msg.To+".jsonl")
+	if err != nil {
+		return err
+	}
 
 	// Open file for appending (create if not exists)
-	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600) // #nosec G304 - path validated by safePath; G302 - restricted file permissions
 	if err != nil {
 		return err
 	}
 
 	// Acquire exclusive lock on the file
 	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
-		file.Close()
+		_ = file.Close() // G104: error intentionally ignored in cleanup path
 		return err
 	}
 
 	// Marshal message to JSON
 	data, err := json.Marshal(msg)
 	if err != nil {
-		syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
-		file.Close()
+		_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+		_ = file.Close()
 		return err
 	}
 
@@ -54,18 +87,23 @@ func Append(repoRoot string, msg Message) error {
 	_, err = file.Write(append(data, '\n'))
 
 	// Unlock before close (correct order)
-	syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
-	file.Close()
+	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
+	_ = file.Close()                                   // G104: close errors don't affect the write result
 	return err
 }
 
 // ReadAll reads all messages from a recipient's mailbox file.
 // T030: Read .git/mail/<recipient>.jsonl
 func ReadAll(repoRoot string, recipient string) ([]Message, error) {
-	filePath := filepath.Join(repoRoot, MailDir, recipient+".jsonl")
+	// Build file path with path traversal protection (G304)
+	mailDir := filepath.Join(repoRoot, MailDir)
+	filePath, err := safePath(mailDir, recipient+".jsonl")
+	if err != nil {
+		return nil, err
+	}
 
 	// Open file for reading
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) // #nosec G304 - path validated by safePath
 	if err != nil {
 		if os.IsNotExist(err) {
 			return []Message{}, nil
@@ -153,17 +191,22 @@ func WriteAll(repoRoot string, recipient string, messages []Message) error {
 		return err
 	}
 
-	filePath := filepath.Join(repoRoot, MailDir, recipient+".jsonl")
+	// Build file path with path traversal protection (G304)
+	mailDir := filepath.Join(repoRoot, MailDir)
+	filePath, err := safePath(mailDir, recipient+".jsonl")
+	if err != nil {
+		return err
+	}
 
 	// Open file for read/write
-	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_RDWR, 0644)
+	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_RDWR, 0600) // #nosec G304 - path validated by safePath; G302 - restricted file permissions
 	if err != nil {
 		return err
 	}
 
 	// Acquire exclusive lock
 	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
-		file.Close()
+		_ = file.Close() // G104: error intentionally ignored in cleanup path
 		return err
 	}
 
@@ -171,8 +214,8 @@ func WriteAll(repoRoot string, recipient string, messages []Message) error {
 	writeErr := writeAllLocked(file, messages)
 
 	// Unlock before close (correct order)
-	syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
-	file.Close()
+	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
+	_ = file.Close()                                   // G104: close errors don't affect the write result
 	return writeErr
 }
 
@@ -185,10 +228,15 @@ func MarkAsRead(repoRoot string, recipient string, messageID string) error {
 		return err
 	}
 
-	filePath := filepath.Join(repoRoot, MailDir, recipient+".jsonl")
+	// Build file path with path traversal protection (G304)
+	mailDir := filepath.Join(repoRoot, MailDir)
+	filePath, err := safePath(mailDir, recipient+".jsonl")
+	if err != nil {
+		return err
+	}
 
 	// Open file for read/write
-	file, err := os.OpenFile(filePath, os.O_RDWR, 0644)
+	file, err := os.OpenFile(filePath, os.O_RDWR, 0600) // #nosec G304 - path validated by safePath; G302 - restricted file permissions
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil // No messages to mark
@@ -198,15 +246,15 @@ func MarkAsRead(repoRoot string, recipient string, messageID string) error {
 
 	// Acquire exclusive lock for atomic read-modify-write
 	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
-		file.Close()
+		_ = file.Close() // G104: error intentionally ignored in cleanup path
 		return err
 	}
 
 	// Read all messages while holding lock
-	data, err := os.ReadFile(filePath)
+	data, err := os.ReadFile(filePath) // #nosec G304 - path validated by safePath
 	if err != nil {
-		syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
-		file.Close()
+		_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+		_ = file.Close()
 		return err
 	}
 
@@ -218,8 +266,8 @@ func MarkAsRead(repoRoot string, recipient string, messageID string) error {
 		}
 		var msg Message
 		if err := json.Unmarshal([]byte(line), &msg); err != nil {
-			syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
-			file.Close()
+			_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+			_ = file.Close()
 			return err
 		}
 		messages = append(messages, msg)
@@ -237,7 +285,7 @@ func MarkAsRead(repoRoot string, recipient string, messageID string) error {
 	writeErr := writeAllLocked(file, messages)
 
 	// Unlock before close (correct order)
-	syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
-	file.Close()
+	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
+	_ = file.Close()                                   // G104: close errors don't affect the write result
 	return writeErr
 }

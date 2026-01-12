@@ -31,8 +31,8 @@ func FindGitRoot() (string, error) {
 // It returns a map of window names to ignore for easy lookup.
 // Per FR-016: If the file doesn't exist or is unreadable, returns nil (no error).
 func LoadIgnoreList(gitRoot string) (map[string]bool, error) {
-	path := filepath.Join(gitRoot, ".agentmailignore")
-	file, err := os.Open(path)
+	path := filepath.Join(gitRoot, ".agentmailignore") // #nosec G304 - filename is a constant
+	file, err := os.Open(path)                         // #nosec G304 - path is constructed from constant
 	if err != nil {
 		if os.IsNotExist(err) || os.IsPermission(err) {
 			return nil, nil // Per FR-016: treat as if file doesn't exist

@@ -3,6 +3,7 @@
 package daemon
 
 import (
+	"sync"
 	"time"
 
 	"agentmail/internal/mail"
@@ -15,12 +16,24 @@ const DefaultLoopInterval = 10 * time.Second
 // DefaultStaleThreshold is the default threshold for cleaning stale states.
 const DefaultStaleThreshold = time.Hour
 
+// StatelessNotifyInterval is the interval between notifications for stateless agents (T001).
+const StatelessNotifyInterval = 60 * time.Second
+
+// StatelessTracker tracks notification timestamps for stateless agents (T002).
+// It uses in-memory storage that resets on daemon restart.
+type StatelessTracker struct {
+	mu             sync.Mutex           // Protects concurrent access
+	lastNotified   map[string]time.Time // Window name → last notification time
+	notifyInterval time.Duration        // Minimum interval between notifications
+}
+
 // LoopOptions configures the notification loop.
 type LoopOptions struct {
-	RepoRoot      string        // Repository root path
-	Interval      time.Duration // Loop interval (default 10s)
-	StopChan      chan struct{} // Channel to stop the loop
-	SkipTmuxCheck bool          // Skip tmux check (for testing)
+	RepoRoot         string            // Repository root path
+	Interval         time.Duration     // Loop interval (default 10s)
+	StopChan         chan struct{}     // Channel to stop the loop
+	SkipTmuxCheck    bool              // Skip tmux check (for testing)
+	StatelessTracker *StatelessTracker // Tracker for stateless agents (T003)
 }
 
 // NotifyFunc is the function signature for notifying an agent.

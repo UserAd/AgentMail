@@ -91,6 +91,8 @@ Templates are stored in `.specify/templates/` and project constitution in `.spec
 - JSONL files - `.agentmail/mailman.pid` (PID), `.agentmail/recipients.jsonl` (state) (006-mailman-daemon)
 - Go 1.21+ (per IC-001) + Standard library only (os, filepath, syscall, encoding/json) (007-storage-restructure)
 - JSONL files in `.agentmail/` directory hierarchy (007-storage-restructure)
+- Go 1.21+ (per IC-001) + Standard library only (time, sync) (008-stale-agent-mailman)
+- JSONL files in `.agentmail/` (existing), in-memory tracker (new) (008-stale-agent-mailman)
 
 ## Recent Changes
 - 001-agent-mail-structure: Added Go 1.21+ (per IC-001) + Standard library only (os/exec for tmux, encoding/json for JSONL)

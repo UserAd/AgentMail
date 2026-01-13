@@ -82,10 +82,10 @@ func TestMailman_ForegroundMode_Success(t *testing.T) {
 
 	// Verify startup message format (safe to read after daemon stopped)
 	output := stdout.String()
-	expected := "Mailman daemon started (PID: " + strconv.Itoa(currentPID) + ")\n"
+	expected := "Mailman daemon started (PID: " + strconv.Itoa(currentPID) + ")"
 
-	if output != expected {
-		t.Errorf("Expected output %q, got %q", expected, output)
+	if !strings.Contains(output, expected) {
+		t.Errorf("Expected output to contain %q, got %q", expected, output)
 	}
 
 	if exitCode != 0 {

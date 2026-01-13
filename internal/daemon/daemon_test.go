@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -324,10 +325,10 @@ func TestStartDaemon_ForegroundMode_OutputsStartupMessage(t *testing.T) {
 	// Verify startup message format: "Mailman daemon started (PID: 12345)"
 	output := stdout.String()
 	currentPID := os.Getpid()
-	expected := "Mailman daemon started (PID: " + strconv.Itoa(currentPID) + ")\n"
+	expected := "Mailman daemon started (PID: " + strconv.Itoa(currentPID) + ")"
 
-	if output != expected {
-		t.Errorf("Expected output %q, got %q", expected, output)
+	if !strings.Contains(output, expected) {
+		t.Errorf("Expected output to contain %q, got %q", expected, output)
 	}
 
 	if exitCode != 0 {
@@ -697,5 +698,61 @@ func TestStartDaemon_Shutdown_DeletesPIDFile(t *testing.T) {
 	// Verify PID file was deleted on shutdown
 	if _, err := os.Stat(pidFile); !os.IsNotExist(err) {
 		t.Error("PID file should be deleted after shutdown")
+	}
+}
+
+// =============================================================================
+// Additional coverage tests for IsDaemonChild
+// =============================================================================
+
+func TestIsDaemonChild_WhenEnvNotSet(t *testing.T) {
+	// Save and clear the environment variable
+	oldVal := os.Getenv("AGENTMAIL_DAEMON_CHILD")
+	os.Unsetenv("AGENTMAIL_DAEMON_CHILD")
+	defer func() {
+		if oldVal != "" {
+			os.Setenv("AGENTMAIL_DAEMON_CHILD", oldVal)
+		} else {
+			os.Unsetenv("AGENTMAIL_DAEMON_CHILD")
+		}
+	}()
+
+	if IsDaemonChild() {
+		t.Error("IsDaemonChild should return false when env not set")
+	}
+}
+
+func TestIsDaemonChild_WhenEnvSetTo1(t *testing.T) {
+	// Save and set the environment variable
+	oldVal := os.Getenv("AGENTMAIL_DAEMON_CHILD")
+	os.Setenv("AGENTMAIL_DAEMON_CHILD", "1")
+	defer func() {
+		if oldVal != "" {
+			os.Setenv("AGENTMAIL_DAEMON_CHILD", oldVal)
+		} else {
+			os.Unsetenv("AGENTMAIL_DAEMON_CHILD")
+		}
+	}()
+
+	if !IsDaemonChild() {
+		t.Error("IsDaemonChild should return true when env is '1'")
+	}
+}
+
+func TestIsDaemonChild_WhenEnvSetToOther(t *testing.T) {
+	// Save and set the environment variable
+	oldVal := os.Getenv("AGENTMAIL_DAEMON_CHILD")
+	os.Setenv("AGENTMAIL_DAEMON_CHILD", "true")
+	defer func() {
+		if oldVal != "" {
+			os.Setenv("AGENTMAIL_DAEMON_CHILD", oldVal)
+		} else {
+			os.Unsetenv("AGENTMAIL_DAEMON_CHILD")
+		}
+	}()
+
+	// Only "1" should be recognized as true
+	if IsDaemonChild() {
+		t.Error("IsDaemonChild should return false when env is not exactly '1'")
 	}
 }

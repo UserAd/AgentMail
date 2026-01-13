@@ -93,11 +93,11 @@ Based on plan.md structure:
 
 ### Implementation for User Story 3
 
-- [ ] T020 [US3] Add "File watching unavailable, using polling" log message when FileWatcher init fails in `internal/daemon/daemon.go` (FR-003a)
-- [ ] T021 [US3] Implement fallback to existing `RunLoop()` when FileWatcher initialization fails in `internal/daemon/daemon.go` (FR-003b, FR-016)
-- [ ] T022 [US3] Implement runtime error handling in `FileWatcher.Run()` - log error and switch to polling mode (FR-014a, FR-014b) in `internal/daemon/watcher.go`
-- [ ] T023 [US3] Implement `FileWatcher.SwitchToPolling(opts LoopOptions)` method to transition from watching to polling mode in `internal/daemon/watcher.go` (FR-015)
-- [ ] T024 [US3] Ensure existing `RunLoop()` in `internal/daemon/loop.go` continues to work unchanged for polling mode (FR-013)
+- [x] T020 [US3] Add "File watching unavailable, using polling" log message when FileWatcher init fails in `internal/daemon/daemon.go` (FR-003a)
+- [x] T021 [US3] Implement fallback to existing `RunLoop()` when FileWatcher initialization fails in `internal/daemon/daemon.go` (FR-003b, FR-016)
+- [x] T022 [US3] Implement runtime error handling in `FileWatcher.Run()` - log error and switch to polling mode (FR-014a, FR-014b) in `internal/daemon/watcher.go`
+- [x] T023 [US3] Implement `FileWatcher.SwitchToPolling(opts LoopOptions)` method to transition from watching to polling mode in `internal/daemon/watcher.go` (FR-015)
+- [x] T024 [US3] Ensure existing `RunLoop()` in `internal/daemon/loop.go` continues to work unchanged for polling mode (FR-013)
 
 **Checkpoint**: User Stories 1, 2, AND 3 complete - file-watching with automatic fallback to polling
 

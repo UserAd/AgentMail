@@ -15,7 +15,7 @@ import (
 	"agentmail/internal/mail"
 )
 
-// PIDFile is the filename for the mailman daemon PID file within .git/mail/
+// PIDFile is the filename for the mailman daemon PID file within .agentmail/
 const PIDFile = "mailman.pid"
 
 // DaemonStatus represents the status of an existing daemon process.
@@ -42,7 +42,7 @@ func SetStopChannel(ch chan struct{}) {
 
 // PIDFilePath returns the full path to the PID file for a given repository root.
 func PIDFilePath(repoRoot string) string {
-	return filepath.Join(repoRoot, mail.MailDir, PIDFile)
+	return filepath.Join(repoRoot, mail.RootDir, PIDFile)
 }
 
 // ReadPID reads the PID from the mailman.pid file.

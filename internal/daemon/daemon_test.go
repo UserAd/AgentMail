@@ -34,8 +34,8 @@ func TestWritePID_CreatesFile(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail directory
+	mailDir := filepath.Join(tmpDir, ".agentmail")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -67,8 +67,8 @@ func TestWritePID_OverwritesExisting(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail directory
+	mailDir := filepath.Join(tmpDir, ".agentmail")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -105,8 +105,8 @@ func TestReadPID_ReadsExistingFile(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory and PID file
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail directory and PID file
+	mailDir := filepath.Join(tmpDir, ".agentmail")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -134,8 +134,8 @@ func TestReadPID_ReturnsZeroForMissingFile(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory but no PID file
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail directory but no PID file
+	mailDir := filepath.Join(tmpDir, ".agentmail")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -158,8 +158,8 @@ func TestReadPID_ErrorsOnInvalidContent(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory and invalid PID file
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail directory and invalid PID file
+	mailDir := filepath.Join(tmpDir, ".agentmail")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -183,8 +183,8 @@ func TestDeletePID_RemovesFile(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory and PID file
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail directory and PID file
+	mailDir := filepath.Join(tmpDir, ".agentmail")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -213,8 +213,8 @@ func TestDeletePID_NoErrorForMissingFile(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory but no PID file
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail directory but no PID file
+	mailDir := filepath.Join(tmpDir, ".agentmail")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -237,8 +237,8 @@ func TestStartDaemon_ForegroundMode_WritesPID(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail directory
+	mailDir := filepath.Join(tmpDir, ".agentmail")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -294,8 +294,8 @@ func TestStartDaemon_ForegroundMode_OutputsStartupMessage(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail directory
+	mailDir := filepath.Join(tmpDir, ".agentmail")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -342,8 +342,8 @@ func TestStartDaemon_AlreadyRunning_ExitsWithCode2(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail directory
+	mailDir := filepath.Join(tmpDir, ".agentmail")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -377,8 +377,8 @@ func TestStartDaemon_StalePID_OverwritesAndStarts(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail directory
+	mailDir := filepath.Join(tmpDir, ".agentmail")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -482,7 +482,7 @@ func TestIsRunning_ReturnsFalseForZero(t *testing.T) {
 }
 
 func TestPIDFilePath(t *testing.T) {
-	expected := filepath.Join("/test/repo", ".git/mail/mailman.pid")
+	expected := filepath.Join("/test/repo", ".agentmail/mailman.pid")
 	result := PIDFilePath("/test/repo")
 	if result != expected {
 		t.Errorf("Expected %q, got %q", expected, result)
@@ -500,8 +500,8 @@ func TestStartDaemon_CorruptedPIDFile_ReturnsError(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail directory
+	mailDir := filepath.Join(tmpDir, ".agentmail")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -539,8 +539,8 @@ func TestCheckExistingDaemon_NoPIDFile_ReturnsNone(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory but no PID file
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail directory but no PID file
+	mailDir := filepath.Join(tmpDir, ".agentmail")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -564,8 +564,8 @@ func TestCheckExistingDaemon_RunningProcess_ReturnsRunning(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail directory
+	mailDir := filepath.Join(tmpDir, ".agentmail")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -596,8 +596,8 @@ func TestCheckExistingDaemon_StaleProcess_ReturnsStale(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail directory
+	mailDir := filepath.Join(tmpDir, ".agentmail")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -628,8 +628,8 @@ func TestCheckExistingDaemon_CorruptedPIDFile_ReturnsError(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail directory
+	mailDir := filepath.Join(tmpDir, ".agentmail")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -657,8 +657,8 @@ func TestStartDaemon_Shutdown_DeletesPIDFile(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail directory
+	mailDir := filepath.Join(tmpDir, ".agentmail")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}

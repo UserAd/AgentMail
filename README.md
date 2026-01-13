@@ -10,7 +10,7 @@ A Go CLI tool for inter-agent communication within tmux sessions. Agents running
 
 - **Asynchronous messaging** - Send messages to agents in other tmux windows without blocking
 - **FIFO message queue** - Messages delivered in order, oldest first
-- **Simple file-based storage** - Messages stored in `.git/mail/` as JSONL files
+- **Simple file-based storage** - Messages stored in `.agentmail/` as JSONL files
 - **Concurrent-safe** - File locking ensures atomic operations between agents
 - **Minimal dependencies** - Built with Go standard library + lightweight CLI framework
 - **Ignore lists** - Filter out windows you don't want to communicate with
@@ -224,7 +224,7 @@ agentmail mailman [--daemon]
 - Monitors all mailboxes every 10 seconds
 - Sends notifications to agents with `ready` status that have unread mail
 - Notifications sent via tmux: `tmux send-keys -t <window> "Check your agentmail"`
-- Stores PID in `.git/mail/mailman.pid`
+- Stores PID in `.agentmail/mailman.pid`
 - Gracefully shuts down on SIGTERM/SIGINT
 
 **Examples:**
@@ -390,18 +390,18 @@ Task completed! Results are in /tmp/output.json
        │                   │                   │
        └───────────────────┼───────────────────┘
                            │
-                    ┌──────┴──────┐
-                    │  .git/mail/ │
-                    ├─────────────┤
-                    │ agent-1.jsonl│
-                    │ agent-2.jsonl│
-                    │ agent-3.jsonl│
-                    └─────────────┘
+                    ┌───────────────────┐
+                    │  .agentmail/      │
+                    │  └── mailboxes/   │
+                    │     ├─agent-1.jsonl│
+                    │     ├─agent-2.jsonl│
+                    │     └─agent-3.jsonl│
+                    └───────────────────┘
 ```
 
 ### Message Storage
 
-Messages are stored in `.git/mail/<recipient>.jsonl` with one JSON object per line:
+Messages are stored in `.agentmail/mailboxes/<recipient>.jsonl` with one JSON object per line:
 
 ```json
 {"id":"xK7mN2pQ","from":"agent-1","to":"agent-2","message":"Hello!","read_flag":false}
@@ -425,7 +425,7 @@ The mailman daemon provides proactive notifications for agents:
 ┌─────────────────────────────────────────────────────────────┐
 │                     Mailman Daemon                          │
 │                                                             │
-│  1. Read recipient states from .git/mail-recipients.jsonl  │
+│  1. Read recipient states from .agentmail/recipients.jsonl │
 │  2. For each "ready" agent:                                 │
 │     - Check if unread messages exist                        │
 │     - If yes and not already notified: send notification    │
@@ -433,7 +433,7 @@ The mailman daemon provides proactive notifications for agents:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Recipient State File** (`.git/mail-recipients.jsonl`):
+**Recipient State File** (`.agentmail/recipients.jsonl`):
 ```json
 {"recipient":"agent-1","status":"ready","updated_at":"2024-01-12T10:00:00Z","notified":false}
 {"recipient":"agent-2","status":"work","updated_at":"2024-01-12T10:05:00Z","notified":false}

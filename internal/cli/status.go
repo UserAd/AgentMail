@@ -51,7 +51,7 @@ func ValidateStatus(status string) bool {
 // 2. If not in tmux: exit 0 silently (no-op for non-tmux environments)
 // 3. Get current tmux window name
 // 4. Parse status argument - if not ready/work/offline: print error to stderr, exit 1
-// 5. Update .git/mail-recipients.jsonl
+// 5. Update .agentmail/recipients.jsonl
 // 6. If transitioning to `work` or `offline`: reset `notified` to false
 // 7. Exit 0
 func Status(args []string, stdout, stderr io.Writer, opts StatusOptions) int {

@@ -18,10 +18,10 @@ func TestStatusCommand_Ready(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git directory
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.MkdirAll(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create agentmail dir: %v", err)
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -70,10 +70,10 @@ func TestStatusCommand_Work(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git directory
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.MkdirAll(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create agentmail dir: %v", err)
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -122,10 +122,10 @@ func TestStatusCommand_Offline(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git directory
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.MkdirAll(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create agentmail dir: %v", err)
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -199,10 +199,10 @@ func TestStatusCommand_InvalidStatus(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git directory
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.MkdirAll(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create agentmail dir: %v", err)
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -263,10 +263,10 @@ func TestStatusCommand_NotifiedResetOnWorkOffline(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git directory
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.MkdirAll(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create agentmail dir: %v", err)
 	}
 
 	// First, set status to ready with notified=true
@@ -321,10 +321,10 @@ func TestStatusCommand_NotifiedResetOnOffline(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git directory
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.MkdirAll(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create agentmail dir: %v", err)
 	}
 
 	// First, set status with notified=true
@@ -375,10 +375,10 @@ func TestStatusCommand_NotifiedPreservedOnReady(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git directory
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.MkdirAll(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create agentmail dir: %v", err)
 	}
 
 	// First, set status with notified=true
@@ -452,10 +452,10 @@ func TestStatusCommand_Integration(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git directory
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.MkdirAll(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create agentmail dir: %v", err)
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -537,10 +537,10 @@ func TestStatusCommand_MultipleAgents(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git directory
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.MkdirAll(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create agentmail dir: %v", err)
 	}
 
 	// Pre-populate with another agent

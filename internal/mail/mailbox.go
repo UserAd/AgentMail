@@ -10,8 +10,11 @@ import (
 	"syscall"
 )
 
-// MailDir is the directory name for mail storage within .git
-const MailDir = ".git/mail"
+// RootDir is the root directory for AgentMail storage
+const RootDir = ".agentmail"
+
+// MailDir is the directory name for mailbox storage
+const MailDir = ".agentmail/mailboxes"
 
 // ErrInvalidPath is returned when a path traversal attack is detected.
 var ErrInvalidPath = errors.New("invalid path: directory traversal detected")
@@ -41,15 +44,20 @@ func safePath(baseDir, filename string) (string, error) {
 	return fullPath, nil
 }
 
-// EnsureMailDir creates the .git/mail/ directory if it doesn't exist.
-// T018: Create .git/mail/ if missing
+// EnsureMailDir creates the .agentmail/ and .agentmail/mailboxes/ directories if they don't exist.
 func EnsureMailDir(repoRoot string) error {
+	// Create root directory first
+	rootPath := filepath.Join(repoRoot, RootDir)
+	if err := os.MkdirAll(rootPath, 0750); err != nil { // G301: restricted directory permissions
+		return err
+	}
+
+	// Create mailboxes directory
 	mailPath := filepath.Join(repoRoot, MailDir)
 	return os.MkdirAll(mailPath, 0750) // G301: restricted directory permissions
 }
 
 // Append adds a message to the recipient's mailbox file with file locking.
-// T019: Append to .git/mail/<recipient>.jsonl with file locking
 func Append(repoRoot string, msg Message) error {
 	// Ensure mail directory exists
 	if err := EnsureMailDir(repoRoot); err != nil {
@@ -93,7 +101,6 @@ func Append(repoRoot string, msg Message) error {
 }
 
 // ReadAll reads all messages from a recipient's mailbox file.
-// T030: Read .git/mail/<recipient>.jsonl
 func ReadAll(repoRoot string, recipient string) ([]Message, error) {
 	// Build file path with path traversal protection (G304)
 	mailDir := filepath.Join(repoRoot, MailDir)
@@ -141,7 +148,6 @@ func ReadAll(repoRoot string, recipient string) ([]Message, error) {
 }
 
 // FindUnread returns all unread messages for a recipient in FIFO order.
-// T031: Filter by read_flag only, no recipient filter needed (per-recipient files)
 func FindUnread(repoRoot string, recipient string) ([]Message, error) {
 	messages, err := ReadAll(repoRoot, recipient)
 	if err != nil {
@@ -184,7 +190,6 @@ func writeAllLocked(file *os.File, messages []Message) error {
 }
 
 // WriteAll writes all messages to a recipient's mailbox file with locking.
-// T032: Write to recipient file with locking
 func WriteAll(repoRoot string, recipient string, messages []Message) error {
 	// Ensure mail directory exists
 	if err := EnsureMailDir(repoRoot); err != nil {
@@ -220,7 +225,6 @@ func WriteAll(repoRoot string, recipient string, messages []Message) error {
 }
 
 // MarkAsRead marks a specific message as read in the recipient's mailbox.
-// T033: Implement MarkAsRead function
 // This function is atomic - it holds a lock during the entire read-modify-write cycle.
 func MarkAsRead(repoRoot string, recipient string, messageID string) error {
 	// Ensure mail directory exists

@@ -12,10 +12,10 @@ import (
 func TestReadAllRecipients_Empty(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create .git directory to simulate git repo
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.Mkdir(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create .git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.Mkdir(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
 	}
 
 	// File does not exist - should return empty slice, no error
@@ -37,10 +37,10 @@ func TestReadAllRecipients_Empty(t *testing.T) {
 func TestReadAllRecipients_ParsesJSONL(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create .git directory
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.Mkdir(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create .git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.Mkdir(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
 	}
 
 	// Create test data with multiple recipient states
@@ -65,7 +65,7 @@ func TestReadAllRecipients_ParsesJSONL(t *testing.T) {
 	}
 
 	// Write JSONL content
-	filePath := filepath.Join(gitDir, "mail-recipients.jsonl")
+	filePath := filepath.Join(agentmailDir, "recipients.jsonl")
 	file, err := os.Create(filePath)
 	if err != nil {
 		t.Fatalf("Failed to create file: %v", err)
@@ -121,10 +121,10 @@ func TestReadAllRecipients_ParsesJSONL(t *testing.T) {
 func TestReadAllRecipients_HandlesEmptyLines(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create .git directory
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.Mkdir(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create .git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.Mkdir(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
 	}
 
 	// Create JSONL with empty lines
@@ -132,7 +132,7 @@ func TestReadAllRecipients_HandlesEmptyLines(t *testing.T) {
 
 {"recipient":"agent-2","status":"work","updated_at":"2024-01-01T00:00:00Z","notified":true}
 `
-	filePath := filepath.Join(gitDir, "mail-recipients.jsonl")
+	filePath := filepath.Join(agentmailDir, "recipients.jsonl")
 	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
 		t.Fatalf("Failed to write file: %v", err)
 	}
@@ -151,10 +151,10 @@ func TestReadAllRecipients_HandlesEmptyLines(t *testing.T) {
 func TestWriteAllRecipients(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create .git directory
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.Mkdir(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create .git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.Mkdir(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
 	}
 
 	now := time.Now().Truncate(time.Second)
@@ -180,7 +180,7 @@ func TestWriteAllRecipients(t *testing.T) {
 	}
 
 	// Verify file exists and content is correct
-	filePath := filepath.Join(gitDir, "mail-recipients.jsonl")
+	filePath := filepath.Join(agentmailDir, "recipients.jsonl")
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		t.Fatalf("Failed to read file: %v", err)
@@ -209,11 +209,11 @@ func TestWriteAllRecipients(t *testing.T) {
 	}
 }
 
-// TestWriteAllRecipients_CreatesParentDir - creates .git dir if missing
+// TestWriteAllRecipients_CreatesParentDir - creates .agentmail dir if missing
 func TestWriteAllRecipients_CreatesParentDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Note: .git directory does NOT exist yet
+	// Note: .agentmail directory does NOT exist yet
 
 	recipients := []RecipientState{
 		{
@@ -224,14 +224,14 @@ func TestWriteAllRecipients_CreatesParentDir(t *testing.T) {
 		},
 	}
 
-	// Write recipients - should create .git directory
+	// Write recipients - should create .agentmail directory
 	err := WriteAllRecipients(tmpDir, recipients)
 	if err != nil {
 		t.Fatalf("WriteAllRecipients failed: %v", err)
 	}
 
 	// Verify file exists
-	filePath := filepath.Join(tmpDir, ".git", "mail-recipients.jsonl")
+	filePath := filepath.Join(tmpDir, ".agentmail", "recipients.jsonl")
 	if _, err := os.Stat(filePath); err != nil {
 		t.Errorf("File should exist: %v", err)
 	}
@@ -241,10 +241,10 @@ func TestWriteAllRecipients_CreatesParentDir(t *testing.T) {
 func TestWriteAllRecipients_OverwritesExisting(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create .git directory
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.Mkdir(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create .git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.Mkdir(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
 	}
 
 	// Write initial content
@@ -282,10 +282,10 @@ func TestWriteAllRecipients_OverwritesExisting(t *testing.T) {
 func TestUpdateRecipientState_NewRecipient(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create .git directory
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.Mkdir(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create .git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.Mkdir(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
 	}
 
 	// Update a new recipient (file doesn't exist yet)
@@ -322,10 +322,10 @@ func TestUpdateRecipientState_NewRecipient(t *testing.T) {
 func TestUpdateRecipientState_UpdateExisting(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create .git directory
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.Mkdir(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create .git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.Mkdir(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
 	}
 
 	// Create initial recipient
@@ -409,10 +409,10 @@ func TestUpdateRecipientState_UpdateExisting(t *testing.T) {
 func TestUpdateRecipientState_ResetNotified(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create .git directory
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.Mkdir(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create .git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.Mkdir(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
 	}
 
 	// Create initial recipient with Notified=true
@@ -456,10 +456,10 @@ func TestUpdateRecipientState_ResetNotified(t *testing.T) {
 func TestUpdateRecipientState_AddToExisting(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create .git directory
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.Mkdir(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create .git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.Mkdir(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
 	}
 
 	// Create initial recipient
@@ -526,7 +526,7 @@ func TestStatusConstants(t *testing.T) {
 
 // TestRecipientsFile - verify file path constant
 func TestRecipientsFile(t *testing.T) {
-	expected := ".git/mail-recipients.jsonl"
+	expected := ".agentmail/recipients.jsonl"
 	if RecipientsFile != expected {
 		t.Errorf("RecipientsFile should be '%s', got %s", expected, RecipientsFile)
 	}
@@ -540,10 +540,10 @@ func TestRecipientsFile(t *testing.T) {
 func TestListMailboxRecipients_EmptyDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create .git/mail directory
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail/mailboxes directory
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
-		t.Fatalf("Failed to create mail dir: %v", err)
+		t.Fatalf("Failed to create mailboxes dir: %v", err)
 	}
 
 	recipients, err := ListMailboxRecipients(tmpDir)
@@ -560,10 +560,10 @@ func TestListMailboxRecipients_EmptyDir(t *testing.T) {
 func TestListMailboxRecipients_FindsMailboxes(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create .git/mail directory
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail/mailboxes directory
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
-		t.Fatalf("Failed to create mail dir: %v", err)
+		t.Fatalf("Failed to create mailboxes dir: %v", err)
 	}
 
 	// Create some mailbox files
@@ -602,10 +602,10 @@ func TestListMailboxRecipients_FindsMailboxes(t *testing.T) {
 func TestListMailboxRecipients_IgnoresNonJSONLFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create .git/mail directory
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail/mailboxes directory
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
-		t.Fatalf("Failed to create mail dir: %v", err)
+		t.Fatalf("Failed to create mailboxes dir: %v", err)
 	}
 
 	// Create a .jsonl mailbox file
@@ -638,11 +638,11 @@ func TestListMailboxRecipients_IgnoresNonJSONLFiles(t *testing.T) {
 	}
 }
 
-// TestListMailboxRecipients_NoMailDir - returns empty slice when .git/mail doesn't exist
+// TestListMailboxRecipients_NoMailDir - returns empty slice when .agentmail/mailboxes doesn't exist
 func TestListMailboxRecipients_NoMailDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Don't create .git/mail directory
+	// Don't create .agentmail/mailboxes directory
 
 	recipients, err := ListMailboxRecipients(tmpDir)
 	if err != nil {
@@ -662,10 +662,10 @@ func TestListMailboxRecipients_NoMailDir(t *testing.T) {
 func TestCleanStaleStates_RemovesOldStates(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create .git directory
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.Mkdir(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create .git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.Mkdir(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
 	}
 
 	now := time.Now()
@@ -704,10 +704,10 @@ func TestCleanStaleStates_RemovesOldStates(t *testing.T) {
 func TestCleanStaleStates_KeepsRecentStates(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create .git directory
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.Mkdir(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create .git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.Mkdir(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
 	}
 
 	now := time.Now()
@@ -743,10 +743,10 @@ func TestCleanStaleStates_KeepsRecentStates(t *testing.T) {
 func TestCleanStaleStates_EmptyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create .git directory but no recipients file
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.Mkdir(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create .git dir: %v", err)
+	// Create .agentmail directory but no recipients file
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.Mkdir(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
 	}
 
 	// Clean stale states on empty/non-existent file
@@ -764,10 +764,10 @@ func TestCleanStaleStates_EmptyFile(t *testing.T) {
 func TestSetNotifiedFlag_UpdatesExistingRecipient(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create .git directory
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.Mkdir(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create .git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.Mkdir(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
 	}
 
 	now := time.Now()
@@ -805,10 +805,10 @@ func TestSetNotifiedFlag_UpdatesExistingRecipient(t *testing.T) {
 func TestSetNotifiedFlag_NoOpForNonExistent(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create .git directory
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.Mkdir(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create .git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.Mkdir(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
 	}
 
 	now := time.Now()
@@ -846,10 +846,10 @@ func TestSetNotifiedFlag_NoOpForNonExistent(t *testing.T) {
 func TestSetNotifiedFlag_NoRecipientsFile(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create .git directory but no recipients file
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.Mkdir(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create .git dir: %v", err)
+	// Create .agentmail directory but no recipients file
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.Mkdir(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
 	}
 
 	// Try to set notified flag when file doesn't exist
@@ -863,10 +863,10 @@ func TestSetNotifiedFlag_NoRecipientsFile(t *testing.T) {
 func TestSetNotifiedFlag_SetToFalse(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create .git directory
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.Mkdir(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create .git dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.Mkdir(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
 	}
 
 	now := time.Now()

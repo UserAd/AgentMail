@@ -31,6 +31,6 @@ go.work.sum
 # .idea/
 # .vscode/
 
-# AgentMail mailbox storage (per-recipient JSONL files)
-.git/mail/
+# AgentMail storage directory (mailboxes, recipients, PID file)
+.agentmail/
 /agentmail

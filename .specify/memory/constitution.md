@@ -78,7 +78,7 @@ New dependencies require documented rationale in research.md with:
 ## Technology Constraints
 
 - **Language**: Go 1.21+ (per IC-001)
-- **Storage**: JSONL files in `.git/mail/` directory (per-recipient files, state files)
+- **Storage**: JSONL files in `.agentmail/` directory (per-recipient files, state files)
 - **Platform**: macOS and Linux with tmux installed
 - **Build**: Standard `go build`, no CGO dependencies
 

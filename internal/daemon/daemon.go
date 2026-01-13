@@ -201,14 +201,19 @@ func runForeground(repoRoot string, stdout, stderr io.Writer) int {
 	// Create a stop channel for the notification loop
 	loopStopChan := make(chan struct{})
 
+	// T025: Initialize StatelessTracker for stateless agent notifications (FR-010, FR-012)
+	tracker := NewStatelessTracker(StatelessNotifyInterval)
+
 	// Start the notification loop in a goroutine
 	loopDone := make(chan struct{})
 	go func() {
 		opts := LoopOptions{
-			RepoRoot:      repoRoot,
-			Interval:      DefaultLoopInterval,
-			StopChan:      loopStopChan,
-			SkipTmuxCheck: false, // Production mode: use real tmux
+			RepoRoot:         repoRoot,
+			Interval:         DefaultLoopInterval,
+			StopChan:         loopStopChan,
+			SkipTmuxCheck:    false,   // Production mode: use real tmux
+			StatelessTracker: tracker, // Enable stateless agent notifications
+			Logger:           stdout,  // Log all actions in foreground mode
 		}
 		RunLoop(opts)
 		close(loopDone)

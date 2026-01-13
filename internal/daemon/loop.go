@@ -27,6 +27,55 @@ type StatelessTracker struct {
 	notifyInterval time.Duration        // Minimum interval between notifications
 }
 
+// NewStatelessTracker creates a new tracker with the specified notification interval (T010).
+func NewStatelessTracker(interval time.Duration) *StatelessTracker {
+	return &StatelessTracker{
+		lastNotified:   make(map[string]time.Time),
+		notifyInterval: interval,
+	}
+}
+
+// ShouldNotify returns true if the window is eligible for notification (T011).
+// Returns true if: (a) window not in tracker, or (b) interval elapsed since last notification.
+func (t *StatelessTracker) ShouldNotify(window string) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	lastTime, exists := t.lastNotified[window]
+	if !exists {
+		return true
+	}
+
+	return time.Since(lastTime) >= t.notifyInterval
+}
+
+// MarkNotified records that a notification was sent to the window (T012).
+func (t *StatelessTracker) MarkNotified(window string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.lastNotified[window] = time.Now()
+}
+
+// Cleanup removes entries for windows that are no longer active (T013).
+func (t *StatelessTracker) Cleanup(activeWindows []string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	// Build a set of active windows for O(1) lookup
+	activeSet := make(map[string]struct{}, len(activeWindows))
+	for _, w := range activeWindows {
+		activeSet[w] = struct{}{}
+	}
+
+	// Remove entries not in the active set
+	for window := range t.lastNotified {
+		if _, exists := activeSet[window]; !exists {
+			delete(t.lastNotified, window)
+		}
+	}
+}
+
 // LoopOptions configures the notification loop.
 type LoopOptions struct {
 	RepoRoot         string            // Repository root path

@@ -39,19 +39,19 @@
 
 ### Tests (write first, ensure they FAIL)
 
-- [ ] T004 [P] Add TestStatelessTracker_ShouldNotify_FirstTime - returns true for new window in internal/daemon/loop_test.go (FR-010)
-- [ ] T005 [P] Add TestStatelessTracker_ShouldNotify_BeforeInterval - returns false before 60s in internal/daemon/loop_test.go (FR-005)
-- [ ] T006 [P] Add TestStatelessTracker_ShouldNotify_AfterInterval - returns true after 60s in internal/daemon/loop_test.go (FR-005)
-- [ ] T007 [P] Add TestStatelessTracker_MarkNotified - updates timestamp in internal/daemon/loop_test.go (FR-009)
-- [ ] T008 [P] Add TestStatelessTracker_Cleanup - removes stale entries in internal/daemon/loop_test.go (FR-011)
-- [ ] T009 [P] Add TestStatelessTracker_ThreadSafety - concurrent access is safe in internal/daemon/loop_test.go (FR-013, SC-007)
+- [X] T004 [P] Add TestStatelessTracker_ShouldNotify_FirstTime - returns true for new window in internal/daemon/loop_test.go (FR-010)
+- [X] T005 [P] Add TestStatelessTracker_ShouldNotify_BeforeInterval - returns false before 60s in internal/daemon/loop_test.go (FR-005)
+- [X] T006 [P] Add TestStatelessTracker_ShouldNotify_AfterInterval - returns true after 60s in internal/daemon/loop_test.go (FR-005)
+- [X] T007 [P] Add TestStatelessTracker_MarkNotified - updates timestamp in internal/daemon/loop_test.go (FR-009)
+- [X] T008 [P] Add TestStatelessTracker_Cleanup - removes stale entries in internal/daemon/loop_test.go (FR-011)
+- [X] T009 [P] Add TestStatelessTracker_ThreadSafety - concurrent access is safe in internal/daemon/loop_test.go (FR-013, SC-007)
 
 ### Implementation
 
-- [ ] T010 Implement NewStatelessTracker(interval time.Duration) constructor in internal/daemon/loop.go (FR-010)
-- [ ] T011 Implement ShouldNotify(window string) bool method in internal/daemon/loop.go (FR-005)
-- [ ] T012 Implement MarkNotified(window string) method in internal/daemon/loop.go (FR-009)
-- [ ] T013 Implement Cleanup(activeWindows []string) method in internal/daemon/loop.go (FR-011)
+- [X] T010 Implement NewStatelessTracker(interval time.Duration) constructor in internal/daemon/loop.go (FR-010)
+- [X] T011 Implement ShouldNotify(window string) bool method in internal/daemon/loop.go (FR-005)
+- [X] T012 Implement MarkNotified(window string) method in internal/daemon/loop.go (FR-009)
+- [X] T013 Implement Cleanup(activeWindows []string) method in internal/daemon/loop.go (FR-011)
 
 **Checkpoint**: All T004-T009 tests should now PASS. Foundation ready - user story implementation can now begin.
 

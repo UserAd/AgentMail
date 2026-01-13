@@ -833,3 +833,169 @@ func TestRecipientStateJSONFormat(t *testing.T) {
 		t.Error("Expected Notified=false")
 	}
 }
+
+// =============================================================================
+// Phase 2: StatelessTracker Tests (T004-T009)
+// =============================================================================
+
+// T004: TestStatelessTracker_ShouldNotify_FirstTime - returns true for new window (FR-010)
+func TestStatelessTracker_ShouldNotify_FirstTime(t *testing.T) {
+	tracker := NewStatelessTracker(60 * time.Second)
+
+	// First time seeing this window, should notify
+	if !tracker.ShouldNotify("new-window") {
+		t.Error("ShouldNotify should return true for a new window")
+	}
+}
+
+// T005: TestStatelessTracker_ShouldNotify_BeforeInterval - returns false before 60s (FR-005)
+func TestStatelessTracker_ShouldNotify_BeforeInterval(t *testing.T) {
+	tracker := NewStatelessTracker(60 * time.Second)
+
+	// Mark as notified
+	tracker.MarkNotified("test-window")
+
+	// Immediately after, should not notify
+	if tracker.ShouldNotify("test-window") {
+		t.Error("ShouldNotify should return false immediately after notification")
+	}
+
+	// After a short wait (well before interval), should still not notify
+	time.Sleep(10 * time.Millisecond)
+	if tracker.ShouldNotify("test-window") {
+		t.Error("ShouldNotify should return false before interval elapsed")
+	}
+}
+
+// T006: TestStatelessTracker_ShouldNotify_AfterInterval - returns true after 60s (FR-005)
+func TestStatelessTracker_ShouldNotify_AfterInterval(t *testing.T) {
+	// Use a very short interval for testing
+	tracker := NewStatelessTracker(50 * time.Millisecond)
+
+	// Mark as notified
+	tracker.MarkNotified("test-window")
+
+	// Should not notify immediately
+	if tracker.ShouldNotify("test-window") {
+		t.Error("ShouldNotify should return false immediately after notification")
+	}
+
+	// Wait for interval to elapse
+	time.Sleep(60 * time.Millisecond)
+
+	// Now should notify
+	if !tracker.ShouldNotify("test-window") {
+		t.Error("ShouldNotify should return true after interval elapsed")
+	}
+}
+
+// T007: TestStatelessTracker_MarkNotified - updates timestamp (FR-009)
+func TestStatelessTracker_MarkNotified(t *testing.T) {
+	tracker := NewStatelessTracker(60 * time.Second)
+
+	// Initially, window is not tracked
+	if !tracker.ShouldNotify("test-window") {
+		t.Error("New window should allow notification")
+	}
+
+	// Mark as notified
+	before := time.Now()
+	tracker.MarkNotified("test-window")
+	after := time.Now()
+
+	// Should not notify immediately after
+	if tracker.ShouldNotify("test-window") {
+		t.Error("Should not notify immediately after MarkNotified")
+	}
+
+	// Verify the timestamp was set correctly (internal check via ShouldNotify behavior)
+	// The timestamp should be between before and after
+	tracker.mu.Lock()
+	timestamp, exists := tracker.lastNotified["test-window"]
+	tracker.mu.Unlock()
+
+	if !exists {
+		t.Fatal("Window should be tracked after MarkNotified")
+	}
+	if timestamp.Before(before) || timestamp.After(after) {
+		t.Error("Timestamp should be set to approximately current time")
+	}
+}
+
+// T008: TestStatelessTracker_Cleanup - removes stale entries (FR-011)
+func TestStatelessTracker_Cleanup(t *testing.T) {
+	tracker := NewStatelessTracker(60 * time.Second)
+
+	// Mark several windows as notified
+	tracker.MarkNotified("active-1")
+	tracker.MarkNotified("active-2")
+	tracker.MarkNotified("stale-1")
+	tracker.MarkNotified("stale-2")
+
+	// Cleanup with only active windows
+	activeWindows := []string{"active-1", "active-2"}
+	tracker.Cleanup(activeWindows)
+
+	// Verify stale entries were removed
+	tracker.mu.Lock()
+	_, active1Exists := tracker.lastNotified["active-1"]
+	_, active2Exists := tracker.lastNotified["active-2"]
+	_, stale1Exists := tracker.lastNotified["stale-1"]
+	_, stale2Exists := tracker.lastNotified["stale-2"]
+	tracker.mu.Unlock()
+
+	if !active1Exists {
+		t.Error("active-1 should still be tracked")
+	}
+	if !active2Exists {
+		t.Error("active-2 should still be tracked")
+	}
+	if stale1Exists {
+		t.Error("stale-1 should have been removed")
+	}
+	if stale2Exists {
+		t.Error("stale-2 should have been removed")
+	}
+}
+
+// T009: TestStatelessTracker_ThreadSafety - concurrent access is safe (FR-013, SC-007)
+func TestStatelessTracker_ThreadSafety(t *testing.T) {
+	tracker := NewStatelessTracker(10 * time.Millisecond)
+
+	done := make(chan bool)
+	iterations := 100
+
+	// Goroutine 1: Repeatedly mark notifications
+	go func() {
+		for i := 0; i < iterations; i++ {
+			tracker.MarkNotified("window-1")
+			tracker.MarkNotified("window-2")
+		}
+		done <- true
+	}()
+
+	// Goroutine 2: Repeatedly check ShouldNotify
+	go func() {
+		for i := 0; i < iterations; i++ {
+			tracker.ShouldNotify("window-1")
+			tracker.ShouldNotify("window-2")
+			tracker.ShouldNotify("window-3") // non-existent
+		}
+		done <- true
+	}()
+
+	// Goroutine 3: Repeatedly cleanup
+	go func() {
+		for i := 0; i < iterations; i++ {
+			tracker.Cleanup([]string{"window-1"})
+		}
+		done <- true
+	}()
+
+	// Wait for all goroutines to complete
+	<-done
+	<-done
+	<-done
+
+	// If we get here without race detector issues, the test passes
+}

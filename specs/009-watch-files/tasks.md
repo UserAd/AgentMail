@@ -37,11 +37,11 @@ Based on plan.md structure:
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T003 Add `LastReadAt int64` field with `json:"last_read_at,omitempty"` tag to `RecipientState` struct in `internal/mail/recipients.go`
-- [ ] T004 [P] Create `MonitoringMode` type constants (`ModeWatching`, `ModePolling`) in `internal/daemon/watcher.go`
-- [ ] T005 [P] Create `Debouncer` struct with `timer`, `duration`, `mu` fields in `internal/daemon/watcher.go`
-- [ ] T006 Implement `Debouncer.Trigger(callback func())` method with trailing-edge debounce (500ms) in `internal/daemon/watcher.go`
-- [ ] T007 Implement `Debouncer.Stop()` method to cancel pending timer in `internal/daemon/watcher.go`
+- [x] T003 Add `LastReadAt int64` field with `json:"last_read_at,omitempty"` tag to `RecipientState` struct in `internal/mail/recipients.go`
+- [x] T004 [P] Create `MonitoringMode` type constants (`ModeWatching`, `ModePolling`) in `internal/daemon/watcher.go`
+- [x] T005 [P] Create `Debouncer` struct with `timer`, `duration`, `mu` fields in `internal/daemon/watcher.go`
+- [x] T006 Implement `Debouncer.Trigger(callback func())` method with trailing-edge debounce (500ms) in `internal/daemon/watcher.go`
+- [x] T007 Implement `Debouncer.Stop()` method to cancel pending timer in `internal/daemon/watcher.go`
 
 **Checkpoint**: Foundation ready - Debouncer and MonitoringMode available for user story implementation
 

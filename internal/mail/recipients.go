@@ -21,10 +21,11 @@ const (
 
 // RecipientState represents the availability state of a recipient agent
 type RecipientState struct {
-	Recipient string    `json:"recipient"`
-	Status    string    `json:"status"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Notified  bool      `json:"notified"`
+	Recipient  string    `json:"recipient"`
+	Status     string    `json:"status"`
+	UpdatedAt  time.Time `json:"updated_at"`
+	Notified   bool      `json:"notified"`
+	LastReadAt int64     `json:"last_read_at,omitempty"` // Unix timestamp in milliseconds when agent last called receive
 }
 
 // ReadAllRecipients reads and parses all recipient states from the recipients file.

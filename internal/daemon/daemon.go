@@ -213,6 +213,7 @@ func runForeground(repoRoot string, stdout, stderr io.Writer) int {
 			StopChan:         loopStopChan,
 			SkipTmuxCheck:    false,   // Production mode: use real tmux
 			StatelessTracker: tracker, // Enable stateless agent notifications
+			Logger:           stdout,  // Log all actions in foreground mode
 		}
 		RunLoop(opts)
 		close(loopDone)

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -324,10 +325,10 @@ func TestStartDaemon_ForegroundMode_OutputsStartupMessage(t *testing.T) {
 	// Verify startup message format: "Mailman daemon started (PID: 12345)"
 	output := stdout.String()
 	currentPID := os.Getpid()
-	expected := "Mailman daemon started (PID: " + strconv.Itoa(currentPID) + ")\n"
+	expected := "Mailman daemon started (PID: " + strconv.Itoa(currentPID) + ")"
 
-	if output != expected {
-		t.Errorf("Expected output %q, got %q", expected, output)
+	if !strings.Contains(output, expected) {
+		t.Errorf("Expected output to contain %q, got %q", expected, output)
 	}
 
 	if exitCode != 0 {

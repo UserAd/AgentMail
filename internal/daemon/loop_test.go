@@ -1,9 +1,11 @@
 package daemon
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -1612,5 +1614,142 @@ func TestRunLoop_WithStatelessTracker(t *testing.T) {
 	// Verify tracker was used
 	if tracker.ShouldNotify("stateless-agent") {
 		t.Error("stateless-agent should have been marked as notified")
+	}
+}
+
+// =============================================================================
+// Logging Tests
+// =============================================================================
+
+// TestLogging_ForegroundMode tests that logging works in foreground mode
+func TestLogging_ForegroundMode(t *testing.T) {
+	repoRoot := createTestMailDir(t)
+
+	// Create a stated agent with unread messages
+	now := time.Now()
+	createRecipientState(t, repoRoot, "stated-agent", mail.StatusReady, false, now)
+	createUnreadMessage(t, repoRoot, "stated-agent", "sender", "Hello stated!")
+
+	// Create a stateless agent with unread messages
+	createUnreadMessage(t, repoRoot, "stateless-agent", "sender", "Hello stateless!")
+
+	tracker := NewStatelessTracker(60 * time.Second)
+
+	// Capture log output
+	var logBuf bytes.Buffer
+
+	mockNotify := func(window string) error {
+		return nil
+	}
+
+	opts := LoopOptions{
+		RepoRoot:         repoRoot,
+		SkipTmuxCheck:    true,
+		StatelessTracker: tracker,
+		Logger:           &logBuf,
+	}
+
+	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	if err != nil {
+		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
+	}
+
+	logOutput := logBuf.String()
+
+	// Verify key log messages are present
+	expectedLogs := []string{
+		"[mailman] Starting notification cycle",
+		"[mailman] Found 1 stated agents",
+		"[mailman] Stated agent \"stated-agent\" has 1 unread message(s)",
+		"[mailman] Notifying stated agent \"stated-agent\"",
+		"[mailman] Notification sent to stated agent \"stated-agent\"",
+		"[mailman] Found 2 mailbox recipients",
+		"[mailman] Stateless agent \"stateless-agent\" has 1 unread message(s)",
+		"[mailman] Notifying stateless agent \"stateless-agent\"",
+		"[mailman] Notification sent to stateless agent \"stateless-agent\"",
+		"[mailman] Notification cycle complete",
+	}
+
+	for _, expected := range expectedLogs {
+		if !strings.Contains(logOutput, expected) {
+			t.Errorf("Expected log output to contain %q, got:\n%s", expected, logOutput)
+		}
+	}
+}
+
+// TestLogging_NoLoggerNoOutput tests that no logging occurs when Logger is nil
+func TestLogging_NoLoggerNoOutput(t *testing.T) {
+	repoRoot := createTestMailDir(t)
+
+	// Create agents
+	now := time.Now()
+	createRecipientState(t, repoRoot, "stated-agent", mail.StatusReady, false, now)
+	createUnreadMessage(t, repoRoot, "stated-agent", "sender", "Hello!")
+
+	tracker := NewStatelessTracker(60 * time.Second)
+
+	opts := LoopOptions{
+		RepoRoot:         repoRoot,
+		SkipTmuxCheck:    true,
+		StatelessTracker: tracker,
+		Logger:           nil, // No logger
+	}
+
+	// This should not panic even with nil logger
+	err := CheckAndNotifyWithNotifier(opts, nil)
+	if err != nil {
+		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
+	}
+}
+
+// TestLogging_SkipMessages tests that skip messages are logged
+func TestLogging_SkipMessages(t *testing.T) {
+	repoRoot := createTestMailDir(t)
+
+	// Create a stated agent with "work" status (should be skipped)
+	now := time.Now()
+	createRecipientState(t, repoRoot, "work-agent", mail.StatusWork, false, now)
+	createUnreadMessage(t, repoRoot, "work-agent", "sender", "Hello!")
+
+	// Create a stated agent that's already notified (should be skipped)
+	createRecipientState(t, repoRoot, "notified-agent", mail.StatusReady, true, now)
+	createUnreadMessage(t, repoRoot, "notified-agent", "sender", "Hello!")
+
+	// Create a stateless agent with no unread messages (should be skipped)
+	mailDir := filepath.Join(repoRoot, ".agentmail", "mailboxes")
+	emptyMailbox := filepath.Join(mailDir, "empty-agent.jsonl")
+	if err := os.WriteFile(emptyMailbox, []byte{}, 0644); err != nil {
+		t.Fatalf("Failed to create empty mailbox: %v", err)
+	}
+
+	tracker := NewStatelessTracker(60 * time.Second)
+
+	var logBuf bytes.Buffer
+
+	opts := LoopOptions{
+		RepoRoot:         repoRoot,
+		SkipTmuxCheck:    true,
+		StatelessTracker: tracker,
+		Logger:           &logBuf,
+	}
+
+	err := CheckAndNotifyWithNotifier(opts, nil)
+	if err != nil {
+		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
+	}
+
+	logOutput := logBuf.String()
+
+	// Verify skip messages
+	expectedSkips := []string{
+		"Skipping stated agent \"work-agent\": status=work (not ready)",
+		"Skipping stated agent \"notified-agent\": already notified",
+		"Skipping stateless agent \"empty-agent\": no unread messages",
+	}
+
+	for _, expected := range expectedSkips {
+		if !strings.Contains(logOutput, expected) {
+			t.Errorf("Expected log output to contain %q, got:\n%s", expected, logOutput)
+		}
 	}
 }

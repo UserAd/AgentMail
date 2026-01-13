@@ -3,6 +3,8 @@
 package daemon
 
 import (
+	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -83,6 +85,14 @@ type LoopOptions struct {
 	StopChan         chan struct{}     // Channel to stop the loop
 	SkipTmuxCheck    bool              // Skip tmux check (for testing)
 	StatelessTracker *StatelessTracker // Tracker for stateless agents (T003)
+	Logger           io.Writer         // Logger for foreground mode (nil = no logging)
+}
+
+// log writes a formatted message to the logger if configured.
+func (opts *LoopOptions) log(format string, args ...interface{}) {
+	if opts.Logger != nil {
+		fmt.Fprintf(opts.Logger, "[mailman] "+format+"\n", args...)
+	}
 }
 
 // NotifyFunc is the function signature for notifying an agent.
@@ -129,6 +139,8 @@ func CheckAndNotify(opts LoopOptions) error {
 // - Phase 1: Stated agents (with recipient state in recipients.jsonl)
 // - Phase 2: Stateless agents (mailbox but no recipient state)
 func CheckAndNotifyWithNotifier(opts LoopOptions, notify NotifyFunc) error {
+	opts.log("Starting notification cycle")
+
 	// =========================================================================
 	// Phase 1: Stated agents (existing logic)
 	// =========================================================================
@@ -136,8 +148,11 @@ func CheckAndNotifyWithNotifier(opts LoopOptions, notify NotifyFunc) error {
 	// Read all recipient states
 	recipients, err := mail.ReadAllRecipients(opts.RepoRoot)
 	if err != nil {
+		opts.log("Error reading recipients: %v", err)
 		return err
 	}
+
+	opts.log("Found %d stated agents", len(recipients))
 
 	// T018: Build statedSet from recipients for Phase 2 lookup (FR-002)
 	statedSet := make(map[string]struct{}, len(recipients))
@@ -149,37 +164,44 @@ func CheckAndNotifyWithNotifier(opts LoopOptions, notify NotifyFunc) error {
 	for _, recipient := range recipients {
 		// Only process ready agents that haven't been notified
 		if recipient.Status != mail.StatusReady {
+			opts.log("Skipping stated agent %q: status=%s (not ready)", recipient.Recipient, recipient.Status)
 			continue
 		}
 		if recipient.Notified {
+			opts.log("Skipping stated agent %q: already notified", recipient.Recipient)
 			continue
 		}
 
 		// Check for unread messages
 		unread, err := mail.FindUnread(opts.RepoRoot, recipient.Recipient)
 		if err != nil {
-			// Log error but continue with other recipients
+			opts.log("Error reading mailbox for stated agent %q: %v", recipient.Recipient, err)
 			continue
 		}
 
 		if len(unread) == 0 {
-			// No unread messages, skip notification
+			opts.log("Skipping stated agent %q: no unread messages", recipient.Recipient)
 			continue
 		}
 
+		opts.log("Stated agent %q has %d unread message(s)", recipient.Recipient, len(unread))
+
 		// Send notification
 		if notify != nil {
+			opts.log("Notifying stated agent %q", recipient.Recipient)
 			if err := notify(recipient.Recipient); err != nil {
-				// Notification failed, don't mark as notified
+				opts.log("Notification failed for stated agent %q: %v", recipient.Recipient, err)
 				continue
 			}
+			opts.log("Notification sent to stated agent %q", recipient.Recipient)
 		}
 
 		// Update notified flag
 		if err := mail.SetNotifiedFlag(opts.RepoRoot, recipient.Recipient, true); err != nil {
-			// Log error but continue
+			opts.log("Error setting notified flag for %q: %v", recipient.Recipient, err)
 			continue
 		}
+		opts.log("Marked stated agent %q as notified", recipient.Recipient)
 	}
 
 	// =========================================================================
@@ -188,54 +210,69 @@ func CheckAndNotifyWithNotifier(opts LoopOptions, notify NotifyFunc) error {
 
 	// Skip Phase 2 if no tracker is configured
 	if opts.StatelessTracker == nil {
+		opts.log("Stateless tracking disabled, skipping Phase 2")
 		return nil
 	}
 
 	// T019: Get all mailbox recipients (FR-001)
 	mailboxRecipients, err := mail.ListMailboxRecipients(opts.RepoRoot)
 	if err != nil {
-		// Log error but continue (best-effort for stateless agents)
+		opts.log("Error listing mailbox recipients: %v", err)
 		return nil
 	}
 
+	opts.log("Found %d mailbox recipients, checking for stateless agents", len(mailboxRecipients))
+
 	// T020-T024: Process each stateless agent
+	statelessCount := 0
 	for _, mailboxRecipient := range mailboxRecipients {
 		// T020: Skip agents that have recipient state (FR-003)
 		if _, isStated := statedSet[mailboxRecipient]; isStated {
 			continue
 		}
+		statelessCount++
 
 		// T021: Check for unread messages (FR-006)
 		unread, err := mail.FindUnread(opts.RepoRoot, mailboxRecipient)
 		if err != nil {
-			// Skip this agent on error
+			opts.log("Error reading mailbox for stateless agent %q: %v", mailboxRecipient, err)
 			continue
 		}
 		if len(unread) == 0 {
-			// No unread messages, skip notification
+			opts.log("Skipping stateless agent %q: no unread messages", mailboxRecipient)
 			continue
 		}
 
+		opts.log("Stateless agent %q has %d unread message(s)", mailboxRecipient, len(unread))
+
 		// T022: Check if notification is due (FR-004, FR-005)
 		if !opts.StatelessTracker.ShouldNotify(mailboxRecipient) {
+			opts.log("Skipping stateless agent %q: interval not elapsed", mailboxRecipient)
 			continue
 		}
 
 		// Send notification
 		if notify != nil {
+			opts.log("Notifying stateless agent %q", mailboxRecipient)
 			if err := notify(mailboxRecipient); err != nil {
-				// Notification failed, don't mark as notified
+				opts.log("Notification failed for stateless agent %q: %v", mailboxRecipient, err)
 				continue
 			}
+			opts.log("Notification sent to stateless agent %q", mailboxRecipient)
 		}
 
 		// T023: Mark as notified
 		opts.StatelessTracker.MarkNotified(mailboxRecipient)
+		opts.log("Marked stateless agent %q in tracker", mailboxRecipient)
 	}
+
+	opts.log("Found %d stateless agents", statelessCount)
 
 	// T024: Cleanup tracker with current mailbox list (FR-011)
 	opts.StatelessTracker.Cleanup(mailboxRecipients)
+	opts.log("Cleaned up stale entries from stateless tracker")
 
+	opts.log("Notification cycle complete")
 	return nil
 }
 
@@ -248,32 +285,40 @@ func RunLoop(opts LoopOptions) {
 		interval = DefaultLoopInterval
 	}
 
+	opts.log("Starting notification loop with interval %v", interval)
+
 	// Create ticker for the loop
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	// Run initial check immediately
+	opts.log("Running initial notification check")
 	_ = CheckAndNotify(opts) // G104: errors are logged but don't stop the loop
 
 	// Also clean stale states periodically
-	cleanStaleStates(opts.RepoRoot)
+	cleanStaleStates(opts.RepoRoot, opts.Logger)
 
 	// Loop until stopped
 	for {
 		select {
 		case <-opts.StopChan:
+			opts.log("Received stop signal, shutting down notification loop")
 			return
 		case <-ticker.C:
+			opts.log("Loop tick: running notification check")
 			// Perform notification check
 			_ = CheckAndNotify(opts) // G104: errors are logged but don't stop the loop
 
 			// Clean stale states periodically
-			cleanStaleStates(opts.RepoRoot)
+			cleanStaleStates(opts.RepoRoot, opts.Logger)
 		}
 	}
 }
 
 // cleanStaleStates removes recipient states older than the threshold.
-func cleanStaleStates(repoRoot string) {
+func cleanStaleStates(repoRoot string, logger io.Writer) {
+	if logger != nil {
+		fmt.Fprintf(logger, "[mailman] Cleaning stale recipient states (threshold: %v)\n", DefaultStaleThreshold)
+	}
 	_ = mail.CleanStaleStates(repoRoot, DefaultStaleThreshold) // G104: best-effort cleanup, errors don't stop the daemon
 }

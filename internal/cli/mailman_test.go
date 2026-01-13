@@ -37,10 +37,10 @@ func TestMailman_ForegroundMode_Success(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
-	if err := os.MkdirAll(mailDir, 0755); err != nil {
-		t.Fatalf("Failed to create mail dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
 	}
 
 	// Set up test stop channel
@@ -64,7 +64,7 @@ func TestMailman_ForegroundMode_Success(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	// Read PID file while daemon is running (safe - not being written to)
-	pidFile := filepath.Join(mailDir, "mailman.pid")
+	pidFile := filepath.Join(agentmailDir, "mailman.pid")
 	content, err := os.ReadFile(pidFile)
 	if err != nil {
 		t.Fatalf("PID file should exist: %v", err)
@@ -101,15 +101,15 @@ func TestMailman_AlreadyRunning_ExitsCode2(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
-	if err := os.MkdirAll(mailDir, 0755); err != nil {
-		t.Fatalf("Failed to create mail dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
 	}
 
 	// Create PID file with current process PID (simulating running daemon)
 	currentPID := os.Getpid()
-	pidFile := filepath.Join(mailDir, "mailman.pid")
+	pidFile := filepath.Join(agentmailDir, "mailman.pid")
 	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(currentPID)+"\n"), 0644); err != nil {
 		t.Fatalf("Failed to create PID file: %v", err)
 	}
@@ -145,15 +145,15 @@ func TestMailman_StalePID_StartsSuccessfully(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
-	if err := os.MkdirAll(mailDir, 0755); err != nil {
-		t.Fatalf("Failed to create mail dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
 	}
 
 	// Create PID file with a non-existent PID (stale)
 	stalePID := 99999999
-	pidFile := filepath.Join(mailDir, "mailman.pid")
+	pidFile := filepath.Join(agentmailDir, "mailman.pid")
 	if err := os.WriteFile(pidFile, []byte(strconv.Itoa(stalePID)+"\n"), 0644); err != nil {
 		t.Fatalf("Failed to create PID file: %v", err)
 	}
@@ -213,10 +213,10 @@ func TestMailman_NoPIDFile_StartsSuccessfully(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory (no PID file)
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
-	if err := os.MkdirAll(mailDir, 0755); err != nil {
-		t.Fatalf("Failed to create mail dir: %v", err)
+	// Create .agentmail directory (no PID file)
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
 	}
 
 	// Set up test stop channel
@@ -240,7 +240,7 @@ func TestMailman_NoPIDFile_StartsSuccessfully(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	// Verify PID file was created
-	pidFile := filepath.Join(mailDir, "mailman.pid")
+	pidFile := filepath.Join(agentmailDir, "mailman.pid")
 	if _, err := os.Stat(pidFile); os.IsNotExist(err) {
 		t.Error("PID file should be created")
 	}
@@ -262,11 +262,7 @@ func TestMailman_CreatesMailDirIfNeeded(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create only .git directory (no mail subdirectory)
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.Mkdir(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create .git dir: %v", err)
-	}
+	// Don't create .agentmail directory - daemon should create it
 
 	// Set up test stop channel
 	stopCh, cleanup := setupTestStopChannel()
@@ -288,18 +284,18 @@ func TestMailman_CreatesMailDirIfNeeded(t *testing.T) {
 	// Give daemon time to start
 	time.Sleep(50 * time.Millisecond)
 
-	// Verify .git/mail directory was created
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
-	info, err := os.Stat(mailDir)
+	// Verify .agentmail directory was created
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	info, err := os.Stat(agentmailDir)
 	if err != nil {
-		t.Fatalf("Mail directory should be created: %v", err)
+		t.Fatalf(".agentmail directory should be created: %v", err)
 	}
 	if !info.IsDir() {
-		t.Error("Mail directory should be a directory")
+		t.Error(".agentmail should be a directory")
 	}
 
 	// Verify PID file was created
-	pidFile := filepath.Join(mailDir, "mailman.pid")
+	pidFile := filepath.Join(agentmailDir, "mailman.pid")
 	if _, err := os.Stat(pidFile); os.IsNotExist(err) {
 		t.Error("PID file should be created")
 	}
@@ -325,10 +321,10 @@ func TestMailman_Singleton_SecondInstanceExitsCode2(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
-	if err := os.MkdirAll(mailDir, 0755); err != nil {
-		t.Fatalf("Failed to create mail dir: %v", err)
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
 	}
 
 	// Set up test stop channel for first daemon
@@ -352,7 +348,7 @@ func TestMailman_Singleton_SecondInstanceExitsCode2(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	// Verify PID file exists (safe to check file existence)
-	pidFile := filepath.Join(mailDir, "mailman.pid")
+	pidFile := filepath.Join(agentmailDir, "mailman.pid")
 	if _, err := os.Stat(pidFile); os.IsNotExist(err) {
 		t.Fatal("PID file should exist after first daemon start")
 	}

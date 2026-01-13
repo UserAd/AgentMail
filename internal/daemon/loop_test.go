@@ -14,11 +14,11 @@ import (
 // Helper functions for tests
 // =============================================================================
 
-// createTestMailDir creates a temp directory with .git/mail/ structure
+// createTestMailDir creates a temp directory with .agentmail/mailboxes/ structure
 func createTestMailDir(t *testing.T) string {
 	t.Helper()
 	tmpDir := t.TempDir()
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -450,7 +450,7 @@ func TestListMailboxRecipients_FindsMailboxes(t *testing.T) {
 	repoRoot := createTestMailDir(t)
 
 	// Create some mailbox files
-	mailDir := filepath.Join(repoRoot, ".git", "mail")
+	mailDir := filepath.Join(repoRoot, ".agentmail", "mailboxes")
 	for _, name := range []string{"agent-1", "agent-2", "agent-3"} {
 		file := filepath.Join(mailDir, name+".jsonl")
 		if err := os.WriteFile(file, []byte{}, 0644); err != nil {
@@ -485,7 +485,7 @@ func TestListMailboxRecipients_FindsMailboxes(t *testing.T) {
 func TestListMailboxRecipients_IgnoresNonJSONLFiles(t *testing.T) {
 	repoRoot := createTestMailDir(t)
 
-	mailDir := filepath.Join(repoRoot, ".git", "mail")
+	mailDir := filepath.Join(repoRoot, ".agentmail", "mailboxes")
 
 	// Create a .jsonl mailbox file
 	mailboxFile := filepath.Join(mailDir, "agent-1.jsonl")
@@ -735,7 +735,7 @@ func TestCheckAndNotify_UsesMailboxFilesToDetermineRecipients(t *testing.T) {
 	}
 
 	// Verify mailbox file exists
-	mailboxFile := filepath.Join(repoRoot, ".git", "mail", "agent-1.jsonl")
+	mailboxFile := filepath.Join(repoRoot, ".agentmail", "mailboxes", "agent-1.jsonl")
 	if _, err := os.Stat(mailboxFile); os.IsNotExist(err) {
 		t.Fatal("Mailbox file should exist after Append")
 	}
@@ -811,7 +811,7 @@ func TestRecipientStateJSONFormat(t *testing.T) {
 	createRecipientState(t, repoRoot, "agent-1", mail.StatusReady, false, now)
 
 	// Read raw file content
-	filePath := filepath.Join(repoRoot, ".git", "mail-recipients.jsonl")
+	filePath := filepath.Join(repoRoot, ".agentmail", "recipients.jsonl")
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		t.Fatalf("Failed to read file: %v", err)

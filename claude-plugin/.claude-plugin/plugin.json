@@ -49,6 +49,17 @@
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "agentmail status work"
+          }
+        ]
+      }
     ]
   }
 }

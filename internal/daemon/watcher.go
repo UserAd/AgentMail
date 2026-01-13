@@ -34,24 +34,28 @@ const FallbackTimerInterval = 60 * time.Second
 
 // Debouncer coalesces rapid file change events using a trailing-edge debounce.
 // It ensures that a callback is only triggered after no triggers have occurred
-// for the specified duration.
+// for the specified duration. Uses a channel-based approach to avoid data races
+// when the callback writes to shared resources.
 type Debouncer struct {
 	timer    *time.Timer   // Active timer (nil if no pending trigger)
 	duration time.Duration // Debounce window (500ms per FR-011)
 	mu       sync.Mutex    // Protects timer access
+	ready    chan struct{} // Signals when debounce window expires
 }
 
 // NewDebouncer creates a new Debouncer with the specified duration.
 func NewDebouncer(duration time.Duration) *Debouncer {
 	return &Debouncer{
 		duration: duration,
+		ready:    make(chan struct{}, 1), // Buffered to avoid blocking timer goroutine
 	}
 }
 
-// Trigger schedules the callback to be called after the debounce window.
+// Trigger signals that an event occurred. After the debounce window expires
+// without another Trigger call, the Ready channel will receive a signal.
 // If Trigger is called again before the window expires, the timer is reset.
 // This implements a trailing-edge debounce pattern.
-func (d *Debouncer) Trigger(callback func()) {
+func (d *Debouncer) Trigger() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -60,8 +64,21 @@ func (d *Debouncer) Trigger(callback func()) {
 		d.timer.Stop()
 	}
 
-	// Start a new timer
-	d.timer = time.AfterFunc(d.duration, callback)
+	// Start a new timer that signals the ready channel
+	d.timer = time.AfterFunc(d.duration, func() {
+		// Non-blocking send to signal ready
+		select {
+		case d.ready <- struct{}{}:
+		default:
+			// Channel already has a pending signal, ignore
+		}
+	})
+}
+
+// Ready returns a channel that receives a signal when the debounce window expires.
+// The caller should select on this channel and run the callback in their own goroutine.
+func (d *Debouncer) Ready() <-chan struct{} {
+	return d.ready
 }
 
 // Stop cancels any pending timer. Should be called when shutting down.
@@ -190,6 +207,7 @@ func (fw *FileWatcher) isMailboxDirCreate(event fsnotify.Event) bool {
 // Run starts the file watcher event loop.
 // It calls processFunc when mailbox or recipients.jsonl changes are detected (debounced).
 // Returns when Close() is called or an error occurs.
+// processFunc is always called in this goroutine (not in a timer goroutine) to avoid data races.
 func (fw *FileWatcher) Run(processFunc func()) error {
 	// Create fallback ticker for safety net (FR-012)
 	fallbackTicker := time.NewTicker(FallbackTimerInterval)
@@ -212,7 +230,7 @@ func (fw *FileWatcher) Run(processFunc func()) error {
 			if fw.isMailboxEvent(event) {
 				fw.log("Mailbox change detected: %s (%s)", filepath.Base(event.Name), event.Op)
 				// Trigger debounced notification check (FR-011)
-				fw.debouncer.Trigger(processFunc)
+				fw.debouncer.Trigger()
 				continue
 			}
 
@@ -220,7 +238,7 @@ func (fw *FileWatcher) Run(processFunc func()) error {
 			if fw.isRecipientsEvent(event) {
 				fw.log("Recipients state change detected (%s)", event.Op)
 				// Trigger debounced notification check - reloads states and checks notifications
-				fw.debouncer.Trigger(processFunc)
+				fw.debouncer.Trigger()
 				continue
 			}
 
@@ -230,6 +248,11 @@ func (fw *FileWatcher) Run(processFunc func()) error {
 				// Add watch for the newly created mailboxes directory
 				_ = fw.watcher.Add(fw.mailboxDir) // G104: best-effort, errors handled by fallback
 			}
+
+		case <-fw.debouncer.Ready():
+			// Debounce window expired - run processFunc in this goroutine to avoid data races
+			fw.log("Debounce window expired: running notification check")
+			processFunc()
 
 		case err, ok := <-fw.watcher.Errors:
 			if !ok {

@@ -225,16 +225,15 @@ func runForeground(repoRoot string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "[mailman] File watching enabled\n")
 
 		go func() {
-			// Create process function that wraps CheckAndNotify
+			// Create process function that wraps CheckAndNotify AND cleanStaleStates
+			// This ensures stale cleanup runs on events and fallback timer (not just at startup)
 			processFunc := func() {
 				_ = CheckAndNotify(opts) // G104: errors are logged but don't stop the loop
+				cleanStaleStates(repoRoot, stdout)
 			}
 
-			// Run initial check immediately
+			// Run initial check immediately (includes stale cleanup)
 			processFunc()
-
-			// Also clean stale states periodically
-			cleanStaleStates(repoRoot, stdout)
 
 			// Run the file watcher event loop
 			if err := fileWatcher.Run(processFunc); err != nil {

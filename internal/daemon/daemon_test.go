@@ -756,3 +756,146 @@ func TestIsDaemonChild_WhenEnvSetToOther(t *testing.T) {
 		t.Error("IsDaemonChild should return false when env is not exactly '1'")
 	}
 }
+
+// =============================================================================
+// T032: Tests for stale cleanup in watcher mode
+// =============================================================================
+
+func TestStartDaemon_WatcherMode_CleansStaleStatesOnEvent(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-daemon-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create .agentmail directory structure
+	mailDir := filepath.Join(tmpDir, ".agentmail")
+	mailboxDir := filepath.Join(mailDir, "mailboxes")
+	if err := os.MkdirAll(mailboxDir, 0755); err != nil {
+		t.Fatalf("Failed to create mailbox dir: %v", err)
+	}
+
+	// Create a stale recipient state (older than 1 hour)
+	// This should be cleaned up when the daemon processes an event
+	staleTime := time.Now().Add(-2 * time.Hour) // 2 hours ago
+	staleState := `{"recipient":"stale-agent","status":"ready","updated_at":"` + staleTime.Format(time.RFC3339Nano) + `","notified":false}` + "\n"
+	recipientsFile := filepath.Join(mailDir, "recipients.jsonl")
+	if err := os.WriteFile(recipientsFile, []byte(staleState), 0600); err != nil {
+		t.Fatalf("Failed to write recipients file: %v", err)
+	}
+
+	// Verify stale state exists initially
+	data, err := os.ReadFile(recipientsFile)
+	if err != nil {
+		t.Fatalf("Failed to read recipients file: %v", err)
+	}
+	if !strings.Contains(string(data), "stale-agent") {
+		t.Fatal("Stale agent state should exist initially")
+	}
+
+	// Set up test stop channel
+	stopCh, cleanup := setupTestStopChannel()
+	defer cleanup()
+
+	var stdout, stderr bytes.Buffer
+	var exitCode int
+
+	// Start daemon in goroutine (will use file watching mode)
+	done := make(chan struct{})
+	go func() {
+		exitCode = StartDaemon(tmpDir, false, &stdout, &stderr)
+		close(done)
+	}()
+
+	// Give daemon time to start and initialize file watcher
+	time.Sleep(100 * time.Millisecond)
+
+	// Trigger a file event by writing to mailbox (this triggers processFunc which includes cleanup)
+	testMailbox := filepath.Join(mailboxDir, "test-agent.jsonl")
+	if err := os.WriteFile(testMailbox, []byte(`{"test":1}`+"\n"), 0600); err != nil {
+		t.Fatalf("Failed to write mailbox file: %v", err)
+	}
+
+	// Wait for debounce window (500ms) + cleanup time + buffer
+	time.Sleep(800 * time.Millisecond)
+
+	// Stop the daemon
+	close(stopCh)
+	<-done
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	// Verify stale state was cleaned up
+	data, err = os.ReadFile(recipientsFile)
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatalf("Failed to read recipients file: %v", err)
+	}
+	if strings.Contains(string(data), "stale-agent") {
+		t.Error("Stale agent state should have been cleaned up by watcher event processing")
+	}
+
+	// Verify output mentions stale cleanup
+	output := stdout.String()
+	if !strings.Contains(output, "Cleaning stale recipient states") {
+		t.Errorf("Expected output to mention stale cleanup, got: %s", output)
+	}
+}
+
+func TestStartDaemon_WatcherMode_CleansStaleStatesAtStartup(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-daemon-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create .agentmail directory structure
+	mailDir := filepath.Join(tmpDir, ".agentmail")
+	mailboxDir := filepath.Join(mailDir, "mailboxes")
+	if err := os.MkdirAll(mailboxDir, 0755); err != nil {
+		t.Fatalf("Failed to create mailbox dir: %v", err)
+	}
+
+	// Create a stale recipient state (older than 1 hour)
+	staleTime := time.Now().Add(-2 * time.Hour)
+	staleState := `{"recipient":"stale-agent-at-startup","status":"ready","updated_at":"` + staleTime.Format(time.RFC3339Nano) + `","notified":false}` + "\n"
+	recipientsFile := filepath.Join(mailDir, "recipients.jsonl")
+	if err := os.WriteFile(recipientsFile, []byte(staleState), 0600); err != nil {
+		t.Fatalf("Failed to write recipients file: %v", err)
+	}
+
+	// Set up test stop channel
+	stopCh, cleanup := setupTestStopChannel()
+	defer cleanup()
+
+	var stdout, stderr bytes.Buffer
+	var exitCode int
+
+	// Start daemon in goroutine
+	done := make(chan struct{})
+	go func() {
+		exitCode = StartDaemon(tmpDir, false, &stdout, &stderr)
+		close(done)
+	}()
+
+	// Give daemon time to start and run initial processFunc (which includes cleanup)
+	time.Sleep(200 * time.Millisecond)
+
+	// Stop the daemon
+	close(stopCh)
+	<-done
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	// Verify stale state was cleaned up at startup
+	data, err := os.ReadFile(recipientsFile)
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatalf("Failed to read recipients file: %v", err)
+	}
+	if strings.Contains(string(data), "stale-agent-at-startup") {
+		t.Error("Stale agent state should have been cleaned up at daemon startup")
+	}
+}

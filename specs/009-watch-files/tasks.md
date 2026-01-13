@@ -124,18 +124,18 @@ Based on plan.md structure:
 
 **Purpose**: Testing, validation, and quality assurance
 
-- [ ] T029 [P] Add unit tests for `Debouncer` in `internal/daemon/watcher_test.go`
-- [ ] T030 [P] Add unit tests for `FileWatcher` initialization and fallback in `internal/daemon/watcher_test.go`
-- [ ] T031 [P] Add unit tests for `UpdateLastReadAt()` function in `internal/mail/recipients_test.go`
-- [ ] T032 [P] Add unit tests for last-read tracking in `Receive()` in `internal/cli/receive_test.go`
-- [ ] T033 Run `go test -v -race ./...` to verify all tests pass with race detection
-- [ ] T034 Run `go vet ./...` to check for code issues
-- [ ] T035 Run `go fmt ./...` to ensure code formatting
-- [ ] T036 Run `govulncheck ./...` for security vulnerabilities
-- [ ] T037 Run `gosec ./...` for security issues
-- [ ] T038 Build and manually test file-watching with tmux: send message, verify < 2 second notification
-- [ ] T039 Manually test fallback: simulate watcher failure, verify polling mode works
-- [ ] T040 Manually test last-read tracking: run `agentmail receive`, check `recipients.jsonl` for `last_read_at`
+- [x] T029 [P] Add unit tests for `Debouncer` in `internal/daemon/watcher_test.go`
+- [x] T030 [P] Add unit tests for `FileWatcher` initialization and fallback in `internal/daemon/watcher_test.go`
+- [x] T031 [P] Add unit tests for `UpdateLastReadAt()` function in `internal/mail/recipients_test.go`
+- [x] T032 [P] Add unit tests for last-read tracking in `Receive()` in `internal/cli/receive_test.go`
+- [x] T033 Run `go test -v -race ./...` to verify all tests pass with race detection
+- [x] T034 Run `go vet ./...` to check for code issues
+- [x] T035 Run `go fmt ./...` to ensure code formatting
+- [x] T036 Run `govulncheck ./...` for security vulnerabilities
+- [x] T037 Run `gosec ./...` for security issues
+- [x] T038 Build and manually test file-watching with tmux: send message, verify < 2 second notification
+- [x] T039 Manually test fallback: simulate watcher failure, verify polling mode works
+- [x] T040 Manually test last-read tracking: run `agentmail receive`, check `recipients.jsonl` for `last_read_at`
 
 ---
 

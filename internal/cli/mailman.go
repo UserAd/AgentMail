@@ -30,7 +30,7 @@ func Mailman(stdout, stderr io.Writer, opts MailmanOptions) int {
 		repoRoot, err = mail.FindGitRoot()
 		if err != nil {
 			// Not in a git repository
-			// For mailman, we need .git/mail/ to store PID file
+			// For mailman, we need .agentmail/ to store PID file
 			// Fall back to current directory
 			repoRoot, err = os.Getwd()
 			if err != nil {

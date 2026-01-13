@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-// RecipientsFile is the filename for recipients state storage within .git
-const RecipientsFile = ".git/mail-recipients.jsonl"
+// RecipientsFile is the filename for recipients state storage
+const RecipientsFile = ".agentmail/recipients.jsonl"
 
 // Status constants for recipient availability
 const (
@@ -27,7 +27,7 @@ type RecipientState struct {
 	Notified  bool      `json:"notified"`
 }
 
-// ReadAllRecipients reads and parses all recipient states from .git/mail-recipients.jsonl
+// ReadAllRecipients reads and parses all recipient states from the recipients file.
 func ReadAllRecipients(repoRoot string) ([]RecipientState, error) {
 	filePath := filepath.Join(repoRoot, RecipientsFile) // #nosec G304 - RecipientsFile is a constant, not user input
 
@@ -81,7 +81,7 @@ func writeAllRecipientsLocked(file *os.File, recipients []RecipientState) error 
 	return nil
 }
 
-// WriteAllRecipients writes all recipient states to .git/mail-recipients.jsonl with file locking
+// WriteAllRecipients writes all recipient states to the recipients file with file locking.
 func WriteAllRecipients(repoRoot string, recipients []RecipientState) error {
 	filePath := filepath.Join(repoRoot, RecipientsFile) // #nosec G304 - RecipientsFile is a constant
 
@@ -196,7 +196,7 @@ func UpdateRecipientState(repoRoot string, recipient string, status string, rese
 }
 
 // ListMailboxRecipients returns a list of all recipients who have mailbox files.
-// It scans the .git/mail/ directory for .jsonl files (excluding non-mailbox files).
+// It scans the mailboxes directory for .jsonl files.
 func ListMailboxRecipients(repoRoot string) ([]string, error) {
 	mailPath := filepath.Join(repoRoot, MailDir)
 

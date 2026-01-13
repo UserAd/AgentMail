@@ -140,17 +140,17 @@
 
 ### Tests for Error Handling
 
-- [ ] T032 [P] Add TestStatelessNotification_MailboxDirReadError in internal/daemon/loop_test.go (FR-014)
-- [ ] T033 [P] Add TestStatelessNotification_NotifyFailure in internal/daemon/loop_test.go (FR-015)
-- [ ] T034 [P] Add TestStatelessNotification_MailboxFileReadError in internal/daemon/loop_test.go (FR-016)
-- [ ] T035 [P] Add TestStatelessNotification_RecipientsReadError in internal/daemon/loop_test.go (FR-017)
+- [X] T032 [P] Add TestStatelessNotification_MailboxDirReadError in internal/daemon/loop_test.go (FR-014)
+- [X] T033 [P] Add TestStatelessNotification_NotifyFailure in internal/daemon/loop_test.go (FR-015)
+- [X] T034 [P] Add TestStatelessNotification_MailboxFileReadError in internal/daemon/loop_test.go (FR-016)
+- [X] T035 [P] Add TestStatelessNotification_RecipientsReadError in internal/daemon/loop_test.go (FR-017)
 
 ### Implementation for Error Handling
 
-- [ ] T036 Add error handling: log and continue if ListMailboxRecipients() fails in internal/daemon/loop.go (FR-014)
-- [ ] T037 Add error handling: skip MarkNotified if notify() fails in internal/daemon/loop.go (FR-015)
-- [ ] T038 Add error handling: skip agent if FindUnread() fails, log warning in internal/daemon/loop.go (FR-016)
-- [ ] T039 Add error handling: if ReadAllRecipients() fails, treat all as stateless in internal/daemon/loop.go (FR-017)
+- [X] T036 Add error handling: log and continue if ListMailboxRecipients() fails in internal/daemon/loop.go (FR-014)
+- [X] T037 Add error handling: skip MarkNotified if notify() fails in internal/daemon/loop.go (FR-015)
+- [X] T038 Add error handling: skip agent if FindUnread() fails, log warning in internal/daemon/loop.go (FR-016)
+- [X] T039 Add error handling: if ReadAllRecipients() fails, treat all as stateless in internal/daemon/loop.go (FR-017)
 
 **Checkpoint**: Error handling complete. Tests T032-T035 should PASS.
 

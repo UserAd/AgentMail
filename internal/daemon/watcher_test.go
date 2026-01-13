@@ -250,3 +250,161 @@ func TestFallbackTimerInterval_Is60s(t *testing.T) {
 		t.Errorf("FallbackTimerInterval should be 60s, got %v", FallbackTimerInterval)
 	}
 }
+
+// =============================================================================
+// T031: Tests for FileWatcher.Run event handling
+// =============================================================================
+
+func TestFileWatcher_Run_CallsProcessFuncOnMailboxEvent(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-watcher-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	fw, err := NewFileWatcher(tmpDir)
+	if err != nil {
+		t.Fatalf("NewFileWatcher failed: %v", err)
+	}
+
+	err = fw.AddWatches()
+	if err != nil {
+		t.Fatalf("AddWatches failed: %v", err)
+	}
+
+	var called atomic.Int32
+	processFunc := func() {
+		called.Add(1)
+	}
+
+	// Run watcher in goroutine
+	done := make(chan struct{})
+	go func() {
+		_ = fw.Run(processFunc)
+		close(done)
+	}()
+
+	// Give watcher time to start
+	time.Sleep(50 * time.Millisecond)
+
+	// Trigger a mailbox event by writing to a .jsonl file in mailboxes/
+	mailboxFile := filepath.Join(tmpDir, ".agentmail", "mailboxes", "test-agent.jsonl")
+	if err := os.WriteFile(mailboxFile, []byte("{\"test\":1}\n"), 0600); err != nil {
+		t.Fatalf("Failed to write mailbox file: %v", err)
+	}
+
+	// Wait for debounce window (500ms) + buffer
+	time.Sleep(700 * time.Millisecond)
+
+	// Close watcher
+	_ = fw.Close()
+	<-done
+
+	// processFunc should have been called at least once (debounced)
+	if called.Load() < 1 {
+		t.Errorf("Expected processFunc to be called at least once on mailbox event, got %d", called.Load())
+	}
+}
+
+func TestFileWatcher_Run_CallsProcessFuncOnRecipientsEvent(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-watcher-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	fw, err := NewFileWatcher(tmpDir)
+	if err != nil {
+		t.Fatalf("NewFileWatcher failed: %v", err)
+	}
+
+	err = fw.AddWatches()
+	if err != nil {
+		t.Fatalf("AddWatches failed: %v", err)
+	}
+
+	var called atomic.Int32
+	processFunc := func() {
+		called.Add(1)
+	}
+
+	// Run watcher in goroutine
+	done := make(chan struct{})
+	go func() {
+		_ = fw.Run(processFunc)
+		close(done)
+	}()
+
+	// Give watcher time to start
+	time.Sleep(50 * time.Millisecond)
+
+	// First create the recipients file (this is a Create event, not Write)
+	recipientsFile := filepath.Join(tmpDir, ".agentmail", "recipients.jsonl")
+	if err := os.WriteFile(recipientsFile, []byte("{\"recipient\":\"agent1\"}\n"), 0600); err != nil {
+		t.Fatalf("Failed to write recipients file: %v", err)
+	}
+
+	// Give some time for initial event
+	time.Sleep(100 * time.Millisecond)
+
+	// Now write to it again (this is a Write event which triggers recipients event)
+	if err := os.WriteFile(recipientsFile, []byte("{\"recipient\":\"agent2\"}\n"), 0600); err != nil {
+		t.Fatalf("Failed to write recipients file: %v", err)
+	}
+
+	// Wait for debounce window (500ms) + buffer
+	time.Sleep(700 * time.Millisecond)
+
+	// Close watcher
+	_ = fw.Close()
+	<-done
+
+	// processFunc should have been called at least once
+	if called.Load() < 1 {
+		t.Errorf("Expected processFunc to be called at least once on recipients event, got %d", called.Load())
+	}
+}
+
+func TestFileWatcher_Run_StopsOnClose(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-watcher-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	fw, err := NewFileWatcher(tmpDir)
+	if err != nil {
+		t.Fatalf("NewFileWatcher failed: %v", err)
+	}
+
+	err = fw.AddWatches()
+	if err != nil {
+		t.Fatalf("AddWatches failed: %v", err)
+	}
+
+	processFunc := func() {}
+
+	// Run watcher in goroutine
+	done := make(chan struct{})
+	go func() {
+		_ = fw.Run(processFunc)
+		close(done)
+	}()
+
+	// Give watcher time to start
+	time.Sleep(50 * time.Millisecond)
+
+	// Close watcher
+	err = fw.Close()
+	if err != nil {
+		t.Errorf("Close returned error: %v", err)
+	}
+
+	// Run should return after Close
+	select {
+	case <-done:
+		// Success - watcher stopped
+	case <-time.After(1 * time.Second):
+		t.Error("Watcher did not stop within timeout after Close")
+	}
+}

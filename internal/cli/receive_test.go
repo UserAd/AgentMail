@@ -17,8 +17,8 @@ func TestReceiveCommand_NoMessages(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory but no file
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail/mailboxes directory but no file
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -49,8 +49,8 @@ func TestReceiveCommand_AllMessagesRead(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory and file with all messages read
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail/mailboxes directory and file with all messages read
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -90,8 +90,8 @@ func TestReceiveCommand_Success(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory and file
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail/mailboxes directory and file
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -146,8 +146,8 @@ func TestReceiveCommand_FIFO_Order(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory and file with multiple messages
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail/mailboxes directory and file with multiple messages
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -207,7 +207,7 @@ func TestReceiveCommand_CurrentWindowNotInSession(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -240,7 +240,7 @@ func TestReceiveCommand_HookMode_WithMessages(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -308,7 +308,7 @@ func TestReceiveCommand_HookMode_NoMessages(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -370,7 +370,7 @@ func TestReceiveCommand_HookMode_WindowNotInSession(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -407,7 +407,7 @@ func TestReceiveCommand_HookMode_AllMessagesRead(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -448,7 +448,7 @@ func TestReceiveCommand_NormalMode_Unchanged(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}

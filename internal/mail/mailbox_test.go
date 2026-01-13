@@ -9,20 +9,14 @@ import (
 // T014: Tests for mailbox Append to recipient file
 
 func TestEnsureMailDir_CreatesDirectory(t *testing.T) {
-	// Create temp dir as git root
+	// Create temp dir as root
 	tmpDir, err := os.MkdirTemp("", "agentmail-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git directory to simulate git repo
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.Mkdir(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create .git dir: %v", err)
-	}
-
-	mailDir := filepath.Join(gitDir, "mail")
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 
 	// Verify mail dir doesn't exist yet
 	if _, err := os.Stat(mailDir); !os.IsNotExist(err) {
@@ -53,8 +47,8 @@ func TestEnsureMailDir_ExistingDirectory(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail/mailboxes directory
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -73,8 +67,8 @@ func TestAppend_CreatesFileAndWritesMessage(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail/mailboxes directory
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -112,8 +106,8 @@ func TestAppend_AppendsToExistingFile(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail/mailboxes directory
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -167,8 +161,8 @@ func TestReadAll_ReadsMessagesFromFile(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory and file
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail/mailboxes directory and file
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -207,8 +201,8 @@ func TestReadAll_ReturnsEmptyForMissingFile(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory but no file
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail/mailboxes directory but no file
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -232,8 +226,8 @@ func TestFindUnread_ReturnsUnreadMessages(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory and file
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail/mailboxes directory and file
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -273,8 +267,8 @@ func TestFindUnread_ReturnsEmptyWhenAllRead(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory and file
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail/mailboxes directory and file
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -307,8 +301,8 @@ func TestMarkAsRead_UpdatesMessageFlag(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory and file
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail/mailboxes directory and file
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -353,8 +347,8 @@ func TestMarkAsRead_NonexistentMessage(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory and file
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail/mailboxes directory and file
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}

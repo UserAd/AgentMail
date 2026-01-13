@@ -216,6 +216,7 @@ func runForeground(repoRoot string, stdout, stderr io.Writer) int {
 	loopDone := make(chan struct{})
 	fileWatcher, watcherErr := NewFileWatcher(repoRoot)
 	if watcherErr == nil {
+		fileWatcher.SetLogger(stdout) // Enable logging in foreground mode
 		watcherErr = fileWatcher.AddWatches()
 	}
 

@@ -3,6 +3,8 @@
 package daemon
 
 import (
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -83,6 +85,14 @@ type FileWatcher struct {
 	stopChan     chan struct{}     // Signal to stop the watcher
 	mode         MonitoringMode    // Current monitoring mode
 	mu           sync.Mutex        // Protects mode
+	logger       io.Writer         // Logger for foreground mode (nil = no logging)
+}
+
+// log writes a formatted message to the logger if configured.
+func (fw *FileWatcher) log(format string, args ...interface{}) {
+	if fw.logger != nil {
+		fmt.Fprintf(fw.logger, "[mailman] "+format+"\n", args...)
+	}
 }
 
 // NewFileWatcher creates a new FileWatcher for the given repository root.
@@ -112,12 +122,18 @@ func NewFileWatcher(repoRoot string) (*FileWatcher, error) {
 	return fw, nil
 }
 
+// SetLogger sets the logger for the file watcher.
+func (fw *FileWatcher) SetLogger(logger io.Writer) {
+	fw.logger = logger
+}
+
 // AddWatches adds watches for .agentmail/ and .agentmail/mailboxes/ directories (FR-001, FR-004).
 func (fw *FileWatcher) AddWatches() error {
 	// Watch .agentmail/ for recipients.jsonl changes (FR-005)
 	if err := fw.watcher.Add(fw.agentmailDir); err != nil {
 		return err
 	}
+	fw.log("Watching directory: %s", fw.agentmailDir)
 
 	// Watch .agentmail/mailboxes/ for mailbox file changes (FR-004)
 	// Check if directory exists first
@@ -125,6 +141,7 @@ func (fw *FileWatcher) AddWatches() error {
 		if err := fw.watcher.Add(fw.mailboxDir); err != nil {
 			return err
 		}
+		fw.log("Watching directory: %s", fw.mailboxDir)
 	}
 	// Note: If mailboxes/ doesn't exist yet, we'll still get events when it's created
 	// because we're watching the parent .agentmail/ directory
@@ -178,9 +195,12 @@ func (fw *FileWatcher) Run(processFunc func()) error {
 	fallbackTicker := time.NewTicker(FallbackTimerInterval)
 	defer fallbackTicker.Stop()
 
+	fw.log("Starting file watcher event loop (fallback interval: %v)", FallbackTimerInterval)
+
 	for {
 		select {
 		case <-fw.stopChan:
+			fw.log("Received stop signal, shutting down file watcher")
 			return nil
 
 		case event, ok := <-fw.watcher.Events:
@@ -190,6 +210,7 @@ func (fw *FileWatcher) Run(processFunc func()) error {
 
 			// Check if this is a mailbox event (FR-009)
 			if fw.isMailboxEvent(event) {
+				fw.log("Mailbox change detected: %s (%s)", filepath.Base(event.Name), event.Op)
 				// Trigger debounced notification check (FR-011)
 				fw.debouncer.Trigger(processFunc)
 				continue
@@ -197,6 +218,7 @@ func (fw *FileWatcher) Run(processFunc func()) error {
 
 			// Check if this is a recipients.jsonl event (FR-005, FR-010a, FR-010b)
 			if fw.isRecipientsEvent(event) {
+				fw.log("Recipients state change detected (%s)", event.Op)
 				// Trigger debounced notification check - reloads states and checks notifications
 				fw.debouncer.Trigger(processFunc)
 				continue
@@ -204,6 +226,7 @@ func (fw *FileWatcher) Run(processFunc func()) error {
 
 			// Check if mailboxes directory was created (FR-008)
 			if fw.isMailboxDirCreate(event) {
+				fw.log("Mailboxes directory created, adding watch")
 				// Add watch for the newly created mailboxes directory
 				_ = fw.watcher.Add(fw.mailboxDir) // G104: best-effort, errors handled by fallback
 			}
@@ -212,10 +235,12 @@ func (fw *FileWatcher) Run(processFunc func()) error {
 			if !ok {
 				return nil
 			}
+			fw.log("Watcher error: %v", err)
 			// Return error to allow caller to handle fallback (FR-014a, FR-014b)
 			return err
 
 		case <-fallbackTicker.C:
+			fw.log("Fallback timer tick: running notification check")
 			// Safety net: check for notifications even if no events (FR-012)
 			processFunc()
 		}

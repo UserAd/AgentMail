@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"agentmail/internal/mail"
 	"agentmail/internal/tmux"
@@ -138,6 +139,14 @@ func Receive(stdout, stderr io.Writer, opts ReceiveOptions) int {
 		}
 		fmt.Fprintf(stderr, "error: failed to mark message as read: %v\n", err)
 		return 1
+	}
+
+	// FR-017, FR-018: Update last_read_at timestamp when inside tmux
+	// FR-021: Skip update when outside tmux (SkipTmuxCheck means we're in test mode or outside tmux)
+	if !opts.SkipTmuxCheck {
+		// We're inside tmux, update the last-read timestamp
+		timestamp := time.Now().UnixMilli()                      // FR-018: Unix timestamp in milliseconds
+		_ = mail.UpdateLastReadAt(repoRoot, receiver, timestamp) // G104: best-effort, errors don't affect receive
 	}
 
 	// FR-005: Hook mode writes all output to STDERR

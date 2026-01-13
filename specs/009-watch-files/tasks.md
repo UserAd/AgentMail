@@ -111,10 +111,10 @@ Based on plan.md structure:
 
 ### Implementation for User Story 4
 
-- [ ] T025 [US4] Implement `UpdateLastReadAt(repoRoot, recipient string, timestamp int64) error` function in `internal/mail/recipients.go` - uses file locking (FR-020)
-- [ ] T026 [US4] Handle case when recipient entry doesn't exist - create new entry with `last_read_at` in `UpdateLastReadAt()` function (FR-019)
-- [ ] T027 [US4] Modify `Receive()` function in `internal/cli/receive.go` to call `UpdateLastReadAt()` with current Unix timestamp in milliseconds when inside tmux (FR-017, FR-018)
-- [ ] T028 [US4] Add tmux check in `Receive()` before updating last-read timestamp - skip update when outside tmux (FR-021) in `internal/cli/receive.go`
+- [x] T025 [US4] Implement `UpdateLastReadAt(repoRoot, recipient string, timestamp int64) error` function in `internal/mail/recipients.go` - uses file locking (FR-020)
+- [x] T026 [US4] Handle case when recipient entry doesn't exist - create new entry with `last_read_at` in `UpdateLastReadAt()` function (FR-019)
+- [x] T027 [US4] Modify `Receive()` function in `internal/cli/receive.go` to call `UpdateLastReadAt()` with current Unix timestamp in milliseconds when inside tmux (FR-017, FR-018)
+- [x] T028 [US4] Add tmux check in `Receive()` before updating last-read timestamp - skip update when outside tmux (FR-021) in `internal/cli/receive.go`
 
 **Checkpoint**: All 4 user stories complete - file-watching with fallback and last-read tracking
 

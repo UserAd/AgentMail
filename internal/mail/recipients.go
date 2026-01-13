@@ -360,3 +360,83 @@ func SetNotifiedFlag(repoRoot string, recipient string, notified bool) error {
 	_ = file.Close()                                   // G104: close errors don't affect the write result
 	return writeErr
 }
+
+// UpdateLastReadAt sets the last_read_at timestamp for a recipient.
+// If the recipient doesn't exist, it creates a new entry with the timestamp (FR-019).
+// Uses file locking to prevent race conditions (FR-020).
+func UpdateLastReadAt(repoRoot string, recipient string, timestamp int64) error {
+	filePath := filepath.Join(repoRoot, RecipientsFile) // #nosec G304 - RecipientsFile is a constant
+
+	// Ensure parent directory exists
+	dir := filepath.Dir(filePath)
+	if err := os.MkdirAll(dir, 0750); err != nil {
+		return err
+	}
+
+	// Open file for read/write (create if not exists)
+	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_RDWR, 0600) // #nosec G304 - path is constructed from constant
+	if err != nil {
+		return err
+	}
+
+	// Acquire exclusive lock for atomic read-modify-write (FR-020)
+	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
+		_ = file.Close() // G104: error intentionally ignored in cleanup path
+		return err
+	}
+
+	// Read all recipient states while holding lock
+	data, err := os.ReadFile(filePath) // #nosec G304 - path is constructed from constant
+	if err != nil && !os.IsNotExist(err) {
+		_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+		_ = file.Close()
+		return err
+	}
+
+	var recipients []RecipientState
+	if len(data) > 0 {
+		lines := strings.Split(string(data), "\n")
+		for _, line := range lines {
+			if line == "" {
+				continue
+			}
+			var state RecipientState
+			if err := json.Unmarshal([]byte(line), &state); err != nil {
+				_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+				_ = file.Close()
+				return err
+			}
+			recipients = append(recipients, state)
+		}
+	}
+
+	// Find and update the recipient, or add new (FR-019)
+	found := false
+	for i := range recipients {
+		if recipients[i].Recipient == recipient {
+			recipients[i].LastReadAt = timestamp
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		// Create new entry with just the timestamp (FR-019)
+		newState := RecipientState{
+			Recipient:  recipient,
+			Status:     StatusReady, // Default to ready for new entries
+			UpdatedAt:  time.Now(),
+			Notified:   false,
+			LastReadAt: timestamp,
+		}
+		recipients = append(recipients, newState)
+	}
+
+	// Write back while still holding lock
+	writeErr := writeAllRecipientsLocked(file, recipients)
+
+	// Unlock before close (correct order)
+	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
+	_ = file.Close()                                   // G104: close errors don't affect the write result
+	return writeErr
+}

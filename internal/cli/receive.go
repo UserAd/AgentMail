@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"io"
-	"os"
 
 	"agentmail/internal/mail"
 	"agentmail/internal/tmux"
@@ -92,17 +91,17 @@ func Receive(stdout, stderr io.Writer, opts ReceiveOptions) int {
 		return 1
 	}
 
-	// Determine repository root
+	// Determine repository root (find git root, not current directory)
 	repoRoot := opts.RepoRoot
 	if repoRoot == "" {
 		var err error
-		repoRoot, err = os.Getwd()
+		repoRoot, err = mail.FindGitRoot()
 		if err != nil {
 			// FR-004a: Hook mode exits silently on errors
 			if opts.HookMode {
 				return 0
 			}
-			fmt.Fprintf(stderr, "error: failed to get current directory: %v\n", err)
+			fmt.Fprintf(stderr, "error: not in a git repository: %v\n", err)
 			return 1
 		}
 	}

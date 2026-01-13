@@ -55,15 +55,15 @@ Based on plan.md structure:
 
 ### Implementation for User Story 1
 
-- [ ] T008 [US1] Create `FileWatcher` struct in `internal/daemon/watcher.go` with fields: `watcher *fsnotify.Watcher`, `debouncer *Debouncer`, `mailboxDir string`, `agentmailDir string`, `stopChan chan struct{}`, `mode MonitoringMode`, `mu sync.Mutex`
-- [ ] T009 [US1] Implement `NewFileWatcher(repoRoot string) (*FileWatcher, error)` constructor in `internal/daemon/watcher.go` - creates fsnotify watcher, creates directories if needed (FR-006, FR-007)
-- [ ] T010 [US1] Implement `FileWatcher.AddWatches()` method to add watches for `.agentmail/` and `.agentmail/mailboxes/` directories in `internal/daemon/watcher.go` (FR-001, FR-004)
-- [ ] T011 [US1] Implement `FileWatcher.isMailboxEvent(event fsnotify.Event) bool` helper to identify mailbox file events (Write/Create on `.jsonl` files in mailboxes/) in `internal/daemon/watcher.go`
-- [ ] T012 [US1] Implement `FileWatcher.Run(processFunc func()) error` main event loop in `internal/daemon/watcher.go` - handles Write/Create events for mailbox files, uses debouncer (FR-009, FR-011)
-- [ ] T013 [US1] Add 60-second fallback ticker to `FileWatcher.Run()` for safety net notification checks in `internal/daemon/watcher.go` (FR-012)
-- [ ] T014 [US1] Implement `FileWatcher.Close()` to stop watcher and debouncer in `internal/daemon/watcher.go`
-- [ ] T015 [US1] Modify `runForeground()` in `internal/daemon/daemon.go` to attempt FileWatcher initialization before falling back to RunLoop
-- [ ] T016 [US1] Add "File watching enabled" log message when FileWatcher initializes successfully in `internal/daemon/daemon.go` (FR-002a)
+- [x] T008 [US1] Create `FileWatcher` struct in `internal/daemon/watcher.go` with fields: `watcher *fsnotify.Watcher`, `debouncer *Debouncer`, `mailboxDir string`, `agentmailDir string`, `stopChan chan struct{}`, `mode MonitoringMode`, `mu sync.Mutex`
+- [x] T009 [US1] Implement `NewFileWatcher(repoRoot string) (*FileWatcher, error)` constructor in `internal/daemon/watcher.go` - creates fsnotify watcher, creates directories if needed (FR-006, FR-007)
+- [x] T010 [US1] Implement `FileWatcher.AddWatches()` method to add watches for `.agentmail/` and `.agentmail/mailboxes/` directories in `internal/daemon/watcher.go` (FR-001, FR-004)
+- [x] T011 [US1] Implement `FileWatcher.isMailboxEvent(event fsnotify.Event) bool` helper to identify mailbox file events (Write/Create on `.jsonl` files in mailboxes/) in `internal/daemon/watcher.go`
+- [x] T012 [US1] Implement `FileWatcher.Run(processFunc func()) error` main event loop in `internal/daemon/watcher.go` - handles Write/Create events for mailbox files, uses debouncer (FR-009, FR-011)
+- [x] T013 [US1] Add 60-second fallback ticker to `FileWatcher.Run()` for safety net notification checks in `internal/daemon/watcher.go` (FR-012)
+- [x] T014 [US1] Implement `FileWatcher.Close()` to stop watcher and debouncer in `internal/daemon/watcher.go`
+- [x] T015 [US1] Modify `runForeground()` in `internal/daemon/daemon.go` to attempt FileWatcher initialization before falling back to RunLoop
+- [x] T016 [US1] Add "File watching enabled" log message when FileWatcher initializes successfully in `internal/daemon/daemon.go` (FR-002a)
 
 **Checkpoint**: User Story 1 complete - mailbox changes trigger instant notifications via file-watching
 

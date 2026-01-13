@@ -125,11 +125,24 @@ func CheckAndNotify(opts LoopOptions) error {
 // CheckAndNotifyWithNotifier performs a single notification cycle with a custom notifier.
 // This allows for testing without actual tmux calls.
 // When notify is non-nil, it will be called for each agent that should be notified.
+// The function handles two types of agents:
+// - Phase 1: Stated agents (with recipient state in recipients.jsonl)
+// - Phase 2: Stateless agents (mailbox but no recipient state)
 func CheckAndNotifyWithNotifier(opts LoopOptions, notify NotifyFunc) error {
+	// =========================================================================
+	// Phase 1: Stated agents (existing logic)
+	// =========================================================================
+
 	// Read all recipient states
 	recipients, err := mail.ReadAllRecipients(opts.RepoRoot)
 	if err != nil {
 		return err
+	}
+
+	// T018: Build statedSet from recipients for Phase 2 lookup (FR-002)
+	statedSet := make(map[string]struct{}, len(recipients))
+	for _, r := range recipients {
+		statedSet[r.Recipient] = struct{}{}
 	}
 
 	// Check each recipient
@@ -168,6 +181,60 @@ func CheckAndNotifyWithNotifier(opts LoopOptions, notify NotifyFunc) error {
 			continue
 		}
 	}
+
+	// =========================================================================
+	// Phase 2: Stateless agents (T019-T024)
+	// =========================================================================
+
+	// Skip Phase 2 if no tracker is configured
+	if opts.StatelessTracker == nil {
+		return nil
+	}
+
+	// T019: Get all mailbox recipients (FR-001)
+	mailboxRecipients, err := mail.ListMailboxRecipients(opts.RepoRoot)
+	if err != nil {
+		// Log error but continue (best-effort for stateless agents)
+		return nil
+	}
+
+	// T020-T024: Process each stateless agent
+	for _, mailboxRecipient := range mailboxRecipients {
+		// T020: Skip agents that have recipient state (FR-003)
+		if _, isStated := statedSet[mailboxRecipient]; isStated {
+			continue
+		}
+
+		// T021: Check for unread messages (FR-006)
+		unread, err := mail.FindUnread(opts.RepoRoot, mailboxRecipient)
+		if err != nil {
+			// Skip this agent on error
+			continue
+		}
+		if len(unread) == 0 {
+			// No unread messages, skip notification
+			continue
+		}
+
+		// T022: Check if notification is due (FR-004, FR-005)
+		if !opts.StatelessTracker.ShouldNotify(mailboxRecipient) {
+			continue
+		}
+
+		// Send notification
+		if notify != nil {
+			if err := notify(mailboxRecipient); err != nil {
+				// Notification failed, don't mark as notified
+				continue
+			}
+		}
+
+		// T023: Mark as notified
+		opts.StatelessTracker.MarkNotified(mailboxRecipient)
+	}
+
+	// T024: Cleanup tracker with current mailbox list (FR-011)
+	opts.StatelessTracker.Cleanup(mailboxRecipients)
 
 	return nil
 }

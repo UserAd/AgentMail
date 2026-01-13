@@ -999,3 +999,184 @@ func TestStatelessTracker_ThreadSafety(t *testing.T) {
 
 	// If we get here without race detector issues, the test passes
 }
+
+// =============================================================================
+// Phase 3: User Story 1 - Stateless Agent Notifications (T014-T017)
+// =============================================================================
+
+// T014: TestStatelessNotification_AgentWithMailboxNoState (FR-003, FR-004)
+// Tests that agents with mailboxes but no recipient state get notified
+func TestStatelessNotification_AgentWithMailboxNoState(t *testing.T) {
+	repoRoot := createTestMailDir(t)
+
+	// Create a mailbox for an agent (but no recipient state)
+	createUnreadMessage(t, repoRoot, "stateless-agent", "sender", "Hello stateless!")
+
+	// Create tracker
+	tracker := NewStatelessTracker(60 * time.Second)
+
+	// Track notifications
+	var notifiedAgents []string
+	mockNotify := func(window string) error {
+		notifiedAgents = append(notifiedAgents, window)
+		return nil
+	}
+
+	opts := LoopOptions{
+		RepoRoot:         repoRoot,
+		SkipTmuxCheck:    true,
+		StatelessTracker: tracker,
+	}
+
+	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	if err != nil {
+		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
+	}
+
+	// Verify stateless-agent was notified
+	if len(notifiedAgents) != 1 {
+		t.Fatalf("Expected 1 notification, got %d: %v", len(notifiedAgents), notifiedAgents)
+	}
+	if notifiedAgents[0] != "stateless-agent" {
+		t.Errorf("Expected stateless-agent to be notified, got %s", notifiedAgents[0])
+	}
+}
+
+// T015: TestStatelessNotification_RespectInterval (FR-004, SC-002)
+// Tests that first notification is immediate, subsequent at 60s intervals
+func TestStatelessNotification_RespectInterval(t *testing.T) {
+	repoRoot := createTestMailDir(t)
+
+	// Create a mailbox for a stateless agent
+	createUnreadMessage(t, repoRoot, "stateless-agent", "sender", "Hello!")
+
+	// Use a short interval for testing
+	tracker := NewStatelessTracker(50 * time.Millisecond)
+
+	notifyCount := 0
+	mockNotify := func(window string) error {
+		notifyCount++
+		return nil
+	}
+
+	opts := LoopOptions{
+		RepoRoot:         repoRoot,
+		SkipTmuxCheck:    true,
+		StatelessTracker: tracker,
+	}
+
+	// First call: should notify (first time)
+	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	if err != nil {
+		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
+	}
+	if notifyCount != 1 {
+		t.Errorf("Expected 1 notification on first call, got %d", notifyCount)
+	}
+
+	// Second call immediately: should NOT notify (interval not elapsed)
+	err = CheckAndNotifyWithNotifier(opts, mockNotify)
+	if err != nil {
+		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
+	}
+	if notifyCount != 1 {
+		t.Errorf("Expected still 1 notification after immediate second call, got %d", notifyCount)
+	}
+
+	// Wait for interval to elapse
+	time.Sleep(60 * time.Millisecond)
+
+	// Third call: should notify again (interval elapsed)
+	err = CheckAndNotifyWithNotifier(opts, mockNotify)
+	if err != nil {
+		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
+	}
+	if notifyCount != 2 {
+		t.Errorf("Expected 2 notifications after interval, got %d", notifyCount)
+	}
+}
+
+// T016: TestStatelessNotification_NoUnreadMessages (FR-006)
+// Tests that stateless agents with no unread messages don't get notified
+func TestStatelessNotification_NoUnreadMessages(t *testing.T) {
+	repoRoot := createTestMailDir(t)
+
+	// Create an empty mailbox file (no unread messages)
+	mailDir := filepath.Join(repoRoot, ".agentmail", "mailboxes")
+	mailboxFile := filepath.Join(mailDir, "stateless-agent.jsonl")
+	if err := os.WriteFile(mailboxFile, []byte{}, 0644); err != nil {
+		t.Fatalf("Failed to create empty mailbox: %v", err)
+	}
+
+	tracker := NewStatelessTracker(60 * time.Second)
+
+	notifyCount := 0
+	mockNotify := func(window string) error {
+		notifyCount++
+		return nil
+	}
+
+	opts := LoopOptions{
+		RepoRoot:         repoRoot,
+		SkipTmuxCheck:    true,
+		StatelessTracker: tracker,
+	}
+
+	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	if err != nil {
+		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
+	}
+
+	// No notifications should have been sent
+	if notifyCount != 0 {
+		t.Errorf("Expected 0 notifications for empty mailbox, got %d", notifyCount)
+	}
+}
+
+// T017: TestStatelessNotification_MultipleAgents
+// Tests that multiple stateless agents are handled correctly
+func TestStatelessNotification_MultipleAgents(t *testing.T) {
+	repoRoot := createTestMailDir(t)
+
+	// Create mailboxes for multiple stateless agents
+	createUnreadMessage(t, repoRoot, "agent-a", "sender", "Hello A!")
+	createUnreadMessage(t, repoRoot, "agent-b", "sender", "Hello B!")
+	createUnreadMessage(t, repoRoot, "agent-c", "sender", "Hello C!")
+
+	tracker := NewStatelessTracker(60 * time.Second)
+
+	var notifiedAgents []string
+	mockNotify := func(window string) error {
+		notifiedAgents = append(notifiedAgents, window)
+		return nil
+	}
+
+	opts := LoopOptions{
+		RepoRoot:         repoRoot,
+		SkipTmuxCheck:    true,
+		StatelessTracker: tracker,
+	}
+
+	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	if err != nil {
+		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
+	}
+
+	// All 3 agents should have been notified
+	if len(notifiedAgents) != 3 {
+		t.Errorf("Expected 3 notifications, got %d: %v", len(notifiedAgents), notifiedAgents)
+	}
+
+	// Verify all agents were notified (order may vary)
+	expected := map[string]bool{"agent-a": false, "agent-b": false, "agent-c": false}
+	for _, agent := range notifiedAgents {
+		if _, ok := expected[agent]; ok {
+			expected[agent] = true
+		}
+	}
+	for agent, notified := range expected {
+		if !notified {
+			t.Errorf("Expected %s to be notified", agent)
+		}
+	}
+}

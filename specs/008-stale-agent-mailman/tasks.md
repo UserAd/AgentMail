@@ -68,21 +68,21 @@
 
 ### Tests for User Story 1 (write first, ensure they FAIL)
 
-- [ ] T014 [P] [US1] Add TestStatelessNotification_AgentWithMailboxNoState in internal/daemon/loop_test.go (FR-003, FR-004)
-- [ ] T015 [P] [US1] Add TestStatelessNotification_RespectInterval - first notification immediate, subsequent at 60s intervals in internal/daemon/loop_test.go (FR-004, SC-002)
-- [ ] T016 [P] [US1] Add TestStatelessNotification_NoUnreadMessages in internal/daemon/loop_test.go (FR-006)
-- [ ] T017 [P] [US1] Add TestStatelessNotification_MultipleAgents in internal/daemon/loop_test.go
+- [X] T014 [P] [US1] Add TestStatelessNotification_AgentWithMailboxNoState in internal/daemon/loop_test.go (FR-003, FR-004)
+- [X] T015 [P] [US1] Add TestStatelessNotification_RespectInterval - first notification immediate, subsequent at 60s intervals in internal/daemon/loop_test.go (FR-004, SC-002)
+- [X] T016 [P] [US1] Add TestStatelessNotification_NoUnreadMessages in internal/daemon/loop_test.go (FR-006)
+- [X] T017 [P] [US1] Add TestStatelessNotification_MultipleAgents in internal/daemon/loop_test.go
 
 ### Implementation for User Story 1
 
-- [ ] T018 [US1] In CheckAndNotifyWithNotifier, build statedSet from recipients slice in internal/daemon/loop.go (FR-002)
-- [ ] T019 [US1] In CheckAndNotifyWithNotifier, call mail.ListMailboxRecipients() after Phase 1 logic in internal/daemon/loop.go (FR-001)
-- [ ] T020 [US1] In CheckAndNotifyWithNotifier, iterate mailbox recipients and skip those in statedSet in internal/daemon/loop.go (FR-003)
-- [ ] T021 [US1] For each stateless agent, check FindUnread() and skip if empty in internal/daemon/loop.go (FR-006)
-- [ ] T022 [US1] For each stateless agent, check tracker.ShouldNotify() and send notification if due in internal/daemon/loop.go (FR-004, FR-005)
-- [ ] T023 [US1] Call tracker.MarkNotified() after successful notification in internal/daemon/loop.go
-- [ ] T024 [US1] Call tracker.Cleanup() with mailbox list at end of Phase 2 logic in internal/daemon/loop.go (FR-011)
-- [ ] T025 [US1] Initialize StatelessTracker in runForeground() and pass to LoopOptions in internal/daemon/daemon.go (FR-010, FR-012)
+- [X] T018 [US1] In CheckAndNotifyWithNotifier, build statedSet from recipients slice in internal/daemon/loop.go (FR-002)
+- [X] T019 [US1] In CheckAndNotifyWithNotifier, call mail.ListMailboxRecipients() after Phase 1 logic in internal/daemon/loop.go (FR-001)
+- [X] T020 [US1] In CheckAndNotifyWithNotifier, iterate mailbox recipients and skip those in statedSet in internal/daemon/loop.go (FR-003)
+- [X] T021 [US1] For each stateless agent, check FindUnread() and skip if empty in internal/daemon/loop.go (FR-006)
+- [X] T022 [US1] For each stateless agent, check tracker.ShouldNotify() and send notification if due in internal/daemon/loop.go (FR-004, FR-005)
+- [X] T023 [US1] Call tracker.MarkNotified() after successful notification in internal/daemon/loop.go
+- [X] T024 [US1] Call tracker.Cleanup() with mailbox list at end of Phase 2 logic in internal/daemon/loop.go (FR-011)
+- [X] T025 [US1] Initialize StatelessTracker in runForeground() and pass to LoopOptions in internal/daemon/daemon.go (FR-010, FR-012)
 
 **Checkpoint**: User Story 1 complete. Tests T014-T017 should PASS. Stateless agents now receive periodic notifications.
 

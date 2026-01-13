@@ -23,29 +23,31 @@ func TestNewDebouncer_CreatesDebouncerWithDuration(t *testing.T) {
 	if d.timer != nil {
 		t.Error("Expected timer to be nil initially")
 	}
+	if d.ready == nil {
+		t.Error("Expected ready channel to be initialized")
+	}
 }
 
-func TestDebouncer_Trigger_CallsCallbackAfterDuration(t *testing.T) {
+func TestDebouncer_Trigger_SignalsReadyAfterDuration(t *testing.T) {
 	d := NewDebouncer(50 * time.Millisecond)
 	defer d.Stop()
 
-	var called atomic.Int32
-	callback := func() {
-		called.Add(1)
-	}
+	d.Trigger()
 
-	d.Trigger(callback)
-
-	// Should not be called immediately
-	if called.Load() != 0 {
-		t.Error("Callback should not be called immediately")
+	// Ready channel should not have signal immediately
+	select {
+	case <-d.Ready():
+		t.Error("Ready channel should not signal immediately")
+	default:
+		// Expected - no signal yet
 	}
 
 	// Wait for debounce window to pass
-	time.Sleep(100 * time.Millisecond)
-
-	if called.Load() != 1 {
-		t.Errorf("Expected callback to be called once, got %d", called.Load())
+	select {
+	case <-d.Ready():
+		// Expected - signal received
+	case <-time.After(100 * time.Millisecond):
+		t.Error("Ready channel should have signaled after debounce window")
 	}
 }
 
@@ -53,44 +55,50 @@ func TestDebouncer_Trigger_ResetsTimerOnMultipleCalls(t *testing.T) {
 	d := NewDebouncer(100 * time.Millisecond)
 	defer d.Stop()
 
-	var called atomic.Int32
-	callback := func() {
-		called.Add(1)
-	}
+	var signalCount atomic.Int32
 
 	// Trigger multiple times within the debounce window
-	d.Trigger(callback)
+	d.Trigger()
 	time.Sleep(30 * time.Millisecond)
-	d.Trigger(callback)
+	d.Trigger()
 	time.Sleep(30 * time.Millisecond)
-	d.Trigger(callback)
+	d.Trigger()
 
 	// Wait for debounce window to pass after last trigger
 	time.Sleep(150 * time.Millisecond)
 
-	// Should only be called once (trailing-edge debounce)
-	if called.Load() != 1 {
-		t.Errorf("Expected callback to be called once due to debouncing, got %d", called.Load())
+	// Drain all signals from ready channel
+	for {
+		select {
+		case <-d.Ready():
+			signalCount.Add(1)
+		default:
+			goto done
+		}
+	}
+done:
+
+	// Should only signal once (trailing-edge debounce, buffered channel size 1)
+	if signalCount.Load() != 1 {
+		t.Errorf("Expected ready channel to signal once due to debouncing, got %d", signalCount.Load())
 	}
 }
 
 func TestDebouncer_Stop_CancelsPendingTimer(t *testing.T) {
 	d := NewDebouncer(100 * time.Millisecond)
 
-	var called atomic.Int32
-	callback := func() {
-		called.Add(1)
-	}
-
-	d.Trigger(callback)
+	d.Trigger()
 	d.Stop()
 
 	// Wait for what would have been the debounce window
 	time.Sleep(150 * time.Millisecond)
 
-	// Callback should not have been called
-	if called.Load() != 0 {
-		t.Error("Callback should not be called after Stop")
+	// Ready channel should not have signal
+	select {
+	case <-d.Ready():
+		t.Error("Ready channel should not signal after Stop")
+	default:
+		// Expected - no signal
 	}
 }
 

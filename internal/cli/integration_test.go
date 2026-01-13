@@ -28,8 +28,8 @@ func TestIntegration_SendReceiveRoundTrip(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create .git/mail directory
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	// Create .agentmail/mailboxes directory
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestIntegration_FIFOOrdering(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}
@@ -180,7 +180,7 @@ func TestIntegration_MultiAgentFileIsolation(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	mailDir := filepath.Join(tmpDir, ".git", "mail")
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
 	if err := os.MkdirAll(mailDir, 0755); err != nil {
 		t.Fatalf("Failed to create mail dir: %v", err)
 	}

@@ -699,3 +699,59 @@ func TestStartDaemon_Shutdown_DeletesPIDFile(t *testing.T) {
 		t.Error("PID file should be deleted after shutdown")
 	}
 }
+
+// =============================================================================
+// Additional coverage tests for IsDaemonChild
+// =============================================================================
+
+func TestIsDaemonChild_WhenEnvNotSet(t *testing.T) {
+	// Save and clear the environment variable
+	oldVal := os.Getenv("AGENTMAIL_DAEMON_CHILD")
+	os.Unsetenv("AGENTMAIL_DAEMON_CHILD")
+	defer func() {
+		if oldVal != "" {
+			os.Setenv("AGENTMAIL_DAEMON_CHILD", oldVal)
+		} else {
+			os.Unsetenv("AGENTMAIL_DAEMON_CHILD")
+		}
+	}()
+
+	if IsDaemonChild() {
+		t.Error("IsDaemonChild should return false when env not set")
+	}
+}
+
+func TestIsDaemonChild_WhenEnvSetTo1(t *testing.T) {
+	// Save and set the environment variable
+	oldVal := os.Getenv("AGENTMAIL_DAEMON_CHILD")
+	os.Setenv("AGENTMAIL_DAEMON_CHILD", "1")
+	defer func() {
+		if oldVal != "" {
+			os.Setenv("AGENTMAIL_DAEMON_CHILD", oldVal)
+		} else {
+			os.Unsetenv("AGENTMAIL_DAEMON_CHILD")
+		}
+	}()
+
+	if !IsDaemonChild() {
+		t.Error("IsDaemonChild should return true when env is '1'")
+	}
+}
+
+func TestIsDaemonChild_WhenEnvSetToOther(t *testing.T) {
+	// Save and set the environment variable
+	oldVal := os.Getenv("AGENTMAIL_DAEMON_CHILD")
+	os.Setenv("AGENTMAIL_DAEMON_CHILD", "true")
+	defer func() {
+		if oldVal != "" {
+			os.Setenv("AGENTMAIL_DAEMON_CHILD", oldVal)
+		} else {
+			os.Unsetenv("AGENTMAIL_DAEMON_CHILD")
+		}
+	}()
+
+	// Only "1" should be recognized as true
+	if IsDaemonChild() {
+		t.Error("IsDaemonChild should return false when env is not exactly '1'")
+	}
+}

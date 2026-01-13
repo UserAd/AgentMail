@@ -1543,3 +1543,74 @@ func TestStatelessNotification_RecipientsReadError(t *testing.T) {
 		t.Log("Current implementation returns error on recipients read failure")
 	}
 }
+
+// =============================================================================
+// Additional Coverage Tests
+// =============================================================================
+
+// TestCheckAndNotify_WithNotifier tests the CheckAndNotify wrapper function
+func TestCheckAndNotify_WithNotifier(t *testing.T) {
+	repoRoot := createTestMailDir(t)
+
+	// Create a ready agent with unread messages
+	now := time.Now()
+	createRecipientState(t, repoRoot, "agent-1", mail.StatusReady, false, now)
+	createUnreadMessage(t, repoRoot, "agent-1", "sender", "Hello!")
+
+	opts := LoopOptions{
+		RepoRoot:      repoRoot,
+		SkipTmuxCheck: true, // This triggers the nil notifier path
+	}
+
+	// Should not error even with nil notifier
+	err := CheckAndNotify(opts)
+	if err != nil {
+		t.Fatalf("CheckAndNotify with nil notifier failed: %v", err)
+	}
+
+	// Verify the notified flag was still updated
+	state := readRecipientState(t, repoRoot, "agent-1")
+	if state == nil {
+		t.Fatal("agent-1 not found")
+	}
+	if !state.Notified {
+		t.Error("Expected Notified=true even with nil notifier")
+	}
+}
+
+// TestRunLoop_WithStatelessTracker tests RunLoop with stateless tracker
+func TestRunLoop_WithStatelessTracker(t *testing.T) {
+	repoRoot := createTestMailDir(t)
+
+	// Create a stateless agent
+	createUnreadMessage(t, repoRoot, "stateless-agent", "sender", "Hello!")
+
+	tracker := NewStatelessTracker(60 * time.Second)
+
+	stopCh := make(chan struct{})
+	opts := LoopOptions{
+		RepoRoot:         repoRoot,
+		Interval:         50 * time.Millisecond,
+		StopChan:         stopCh,
+		SkipTmuxCheck:    true,
+		StatelessTracker: tracker,
+	}
+
+	done := make(chan struct{})
+	go func() {
+		RunLoop(opts)
+		close(done)
+	}()
+
+	// Let it run one cycle
+	time.Sleep(100 * time.Millisecond)
+
+	// Stop the loop
+	close(stopCh)
+	<-done
+
+	// Verify tracker was used
+	if tracker.ShouldNotify("stateless-agent") {
+		t.Error("stateless-agent should have been marked as notified")
+	}
+}

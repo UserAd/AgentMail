@@ -99,13 +99,13 @@
 
 ### Tests for User Story 2 (write first, ensure they FAIL)
 
-- [ ] T026 [P] [US2] Add TestStatelessNotification_StatedAgentTakesPrecedence in internal/daemon/loop_test.go (FR-007, SC-003)
-- [ ] T027 [P] [US2] Add TestStatelessNotification_TransitionToStated in internal/daemon/loop_test.go (FR-008)
+- [X] T026 [P] [US2] Add TestStatelessNotification_StatedAgentTakesPrecedence in internal/daemon/loop_test.go (FR-007, SC-003)
+- [X] T027 [P] [US2] Add TestStatelessNotification_TransitionToStated in internal/daemon/loop_test.go (FR-008)
 
 ### Implementation for User Story 2
 
-- [ ] T028 [US2] Verify statedSet check correctly excludes agents with recipients.jsonl entries in internal/daemon/loop.go (FR-007)
-- [ ] T029 [US2] Verify existing stated agent tests still pass (no modifications needed) (SC-005)
+- [X] T028 [US2] Verify statedSet check correctly excludes agents with recipients.jsonl entries in internal/daemon/loop.go (FR-007)
+- [X] T029 [US2] Verify existing stated agent tests still pass (no modifications needed) (SC-005)
 
 **Checkpoint**: User Story 2 complete. Tests T026-T027 should PASS. Stated agents take precedence over stateless logic.
 

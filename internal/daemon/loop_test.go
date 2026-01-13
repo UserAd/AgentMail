@@ -1180,3 +1180,145 @@ func TestStatelessNotification_MultipleAgents(t *testing.T) {
 		}
 	}
 }
+
+// =============================================================================
+// Phase 4: User Story 2 - Stated Agents Take Precedence (T026-T027)
+// =============================================================================
+
+// T026: TestStatelessNotification_StatedAgentTakesPrecedence (FR-007, SC-003)
+// Tests that agents with recipient state are NOT treated as stateless
+func TestStatelessNotification_StatedAgentTakesPrecedence(t *testing.T) {
+	repoRoot := createTestMailDir(t)
+
+	// Create a stated agent (with recipient state)
+	now := time.Now()
+	createRecipientState(t, repoRoot, "stated-agent", mail.StatusReady, false, now)
+	createUnreadMessage(t, repoRoot, "stated-agent", "sender", "Hello stated!")
+
+	// Create a stateless agent (no recipient state)
+	createUnreadMessage(t, repoRoot, "stateless-agent", "sender", "Hello stateless!")
+
+	tracker := NewStatelessTracker(60 * time.Second)
+
+	var notifiedAgents []string
+	mockNotify := func(window string) error {
+		notifiedAgents = append(notifiedAgents, window)
+		return nil
+	}
+
+	opts := LoopOptions{
+		RepoRoot:         repoRoot,
+		SkipTmuxCheck:    true,
+		StatelessTracker: tracker,
+	}
+
+	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	if err != nil {
+		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
+	}
+
+	// Both should be notified, but via different paths
+	// stated-agent via Phase 1 (stated logic), stateless-agent via Phase 2
+	if len(notifiedAgents) != 2 {
+		t.Fatalf("Expected 2 notifications, got %d: %v", len(notifiedAgents), notifiedAgents)
+	}
+
+	// Verify stated-agent was notified (via stated logic)
+	found := false
+	for _, agent := range notifiedAgents {
+		if agent == "stated-agent" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("Expected stated-agent to be notified via stated logic")
+	}
+
+	// Verify stateless-agent was also notified (via stateless logic)
+	found = false
+	for _, agent := range notifiedAgents {
+		if agent == "stateless-agent" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("Expected stateless-agent to be notified via stateless logic")
+	}
+
+	// Verify that stated-agent was marked notified in recipients.jsonl (stated behavior)
+	state := readRecipientState(t, repoRoot, "stated-agent")
+	if state == nil {
+		t.Fatal("stated-agent should have state")
+	}
+	if !state.Notified {
+		t.Error("stated-agent should have Notified=true after notification")
+	}
+}
+
+// T027: TestStatelessNotification_TransitionToStated (FR-008)
+// Tests that when a stateless agent registers status, it switches to stated notification
+func TestStatelessNotification_TransitionToStated(t *testing.T) {
+	repoRoot := createTestMailDir(t)
+
+	// Initially create a stateless agent
+	createUnreadMessage(t, repoRoot, "transitioning-agent", "sender", "Hello!")
+
+	tracker := NewStatelessTracker(50 * time.Millisecond)
+
+	notifyCount := 0
+	mockNotify := func(window string) error {
+		notifyCount++
+		return nil
+	}
+
+	opts := LoopOptions{
+		RepoRoot:         repoRoot,
+		SkipTmuxCheck:    true,
+		StatelessTracker: tracker,
+	}
+
+	// First call: notified as stateless
+	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	if err != nil {
+		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
+	}
+	if notifyCount != 1 {
+		t.Errorf("Expected 1 notification, got %d", notifyCount)
+	}
+
+	// Wait for interval to allow re-notification if still stateless
+	time.Sleep(60 * time.Millisecond)
+
+	// Now register the agent as stated (ready status)
+	now := time.Now()
+	createRecipientState(t, repoRoot, "transitioning-agent", mail.StatusReady, false, now)
+
+	// Second call: agent is now stated, should be notified via stated logic
+	err = CheckAndNotifyWithNotifier(opts, mockNotify)
+	if err != nil {
+		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
+	}
+	if notifyCount != 2 {
+		t.Errorf("Expected 2 notifications, got %d", notifyCount)
+	}
+
+	// Verify the agent was marked as notified in recipients.jsonl (stated behavior)
+	state := readRecipientState(t, repoRoot, "transitioning-agent")
+	if state == nil {
+		t.Fatal("transitioning-agent should have state")
+	}
+	if !state.Notified {
+		t.Error("transitioning-agent should have Notified=true")
+	}
+
+	// Third call: already notified as stated, should NOT get notified again
+	err = CheckAndNotifyWithNotifier(opts, mockNotify)
+	if err != nil {
+		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
+	}
+	if notifyCount != 2 {
+		t.Errorf("Expected still 2 notifications (no re-notify for stated), got %d", notifyCount)
+	}
+}

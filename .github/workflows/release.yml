@@ -169,9 +169,10 @@ jobs:
           curl -fsSL --retry 3 --retry-delay 5 "https://github.com/UserAd/AgentMail/releases/download/v${VERSION}/agentmail-darwin-amd64" -o darwin-amd64
           curl -fsSL --retry 3 --retry-delay 5 "https://github.com/UserAd/AgentMail/releases/download/v${VERSION}/agentmail-darwin-arm64" -o darwin-arm64
           curl -fsSL --retry 3 --retry-delay 5 "https://github.com/UserAd/AgentMail/releases/download/v${VERSION}/agentmail-linux-amd64" -o linux-amd64
+          curl -fsSL --retry 3 --retry-delay 5 "https://github.com/UserAd/AgentMail/releases/download/v${VERSION}/agentmail-linux-arm64" -o linux-arm64
 
           # Verify downloads are non-empty
-          for f in darwin-amd64 darwin-arm64 linux-amd64; do
+          for f in darwin-amd64 darwin-arm64 linux-amd64 linux-arm64; do
             if [ ! -s "$f" ]; then
               echo "ERROR: $f is empty or missing"
               exit 1
@@ -182,6 +183,7 @@ jobs:
           echo "SHA_DARWIN_AMD64=$(sha256sum darwin-amd64 | cut -d' ' -f1)" >> $GITHUB_ENV
           echo "SHA_DARWIN_ARM64=$(sha256sum darwin-arm64 | cut -d' ' -f1)" >> $GITHUB_ENV
           echo "SHA_LINUX_AMD64=$(sha256sum linux-amd64 | cut -d' ' -f1)" >> $GITHUB_ENV
+          echo "SHA_LINUX_ARM64=$(sha256sum linux-arm64 | cut -d' ' -f1)" >> $GITHUB_ENV
 
       - name: Update formula
         env:
@@ -208,7 +210,11 @@ jobs:
             on_linux do
               on_intel do
                 url "https://github.com/UserAd/AgentMail/releases/download/vVERSION_PLACEHOLDER/agentmail-linux-amd64"
-                sha256 "SHA_LINUX_PLACEHOLDER"
+                sha256 "SHA_LINUX_AMD64_PLACEHOLDER"
+              end
+              on_arm do
+                url "https://github.com/UserAd/AgentMail/releases/download/vVERSION_PLACEHOLDER/agentmail-linux-arm64"
+                sha256 "SHA_LINUX_ARM64_PLACEHOLDER"
               end
             end
 
@@ -217,7 +223,8 @@ jobs:
                 bin.install "agentmail-darwin-arm64" => "agentmail" if Hardware::CPU.arm?
                 bin.install "agentmail-darwin-amd64" => "agentmail" if Hardware::CPU.intel?
               else
-                bin.install "agentmail-linux-amd64" => "agentmail"
+                bin.install "agentmail-linux-arm64" => "agentmail" if Hardware::CPU.arm?
+                bin.install "agentmail-linux-amd64" => "agentmail" if Hardware::CPU.intel?
               end
             end
 
@@ -232,7 +239,8 @@ jobs:
           sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" Formula/agentmail.rb
           sed -i "s/SHA_ARM64_PLACEHOLDER/${SHA_DARWIN_ARM64}/g" Formula/agentmail.rb
           sed -i "s/SHA_AMD64_PLACEHOLDER/${SHA_DARWIN_AMD64}/g" Formula/agentmail.rb
-          sed -i "s/SHA_LINUX_PLACEHOLDER/${SHA_LINUX_AMD64}/g" Formula/agentmail.rb
+          sed -i "s/SHA_LINUX_AMD64_PLACEHOLDER/${SHA_LINUX_AMD64}/g" Formula/agentmail.rb
+          sed -i "s/SHA_LINUX_ARM64_PLACEHOLDER/${SHA_LINUX_ARM64}/g" Formula/agentmail.rb
 
       - name: Validate formula
         run: |

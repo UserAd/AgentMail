@@ -181,7 +181,7 @@ func StartDaemon(repoRoot string, daemonize bool, stdout, stderr io.Writer) int 
 // runForeground runs the daemon in foreground mode.
 // Writes PID file and outputs startup message.
 // Sets up signal handling for graceful shutdown on SIGTERM/SIGINT.
-// Attempts to use file watching for instant notifications, falling back to polling.
+// Uses file watching for instant notifications (required).
 func runForeground(repoRoot string, stdout, stderr io.Writer) int {
 	currentPID := os.Getpid()
 

@@ -181,7 +181,7 @@ func StartDaemon(repoRoot string, daemonize bool, stdout, stderr io.Writer) int 
 // runForeground runs the daemon in foreground mode.
 // Writes PID file and outputs startup message.
 // Sets up signal handling for graceful shutdown on SIGTERM/SIGINT.
-// Runs the notification loop to monitor mailboxes and notify ready agents.
+// Attempts to use file watching for instant notifications, falling back to polling.
 func runForeground(repoRoot string, stdout, stderr io.Writer) int {
 	currentPID := os.Getpid()
 
@@ -198,26 +198,61 @@ func runForeground(repoRoot string, stdout, stderr io.Writer) int {
 	// Output startup message
 	fmt.Fprintf(stdout, "Mailman daemon started (PID: %d)\n", currentPID)
 
-	// Create a stop channel for the notification loop
-	loopStopChan := make(chan struct{})
-
 	// T025: Initialize StatelessTracker for stateless agent notifications (FR-010, FR-012)
 	tracker := NewStatelessTracker(StatelessNotifyInterval)
 
-	// Start the notification loop in a goroutine
+	// Create loop options for both file watching and polling modes
+	loopStopChan := make(chan struct{})
+	opts := LoopOptions{
+		RepoRoot:         repoRoot,
+		Interval:         DefaultLoopInterval,
+		StopChan:         loopStopChan,
+		SkipTmuxCheck:    false,   // Production mode: use real tmux
+		StatelessTracker: tracker, // Enable stateless agent notifications
+		Logger:           stdout,  // Log all actions in foreground mode
+	}
+
+	// Try to initialize file watcher for instant notifications (FR-001, FR-002a)
 	loopDone := make(chan struct{})
-	go func() {
-		opts := LoopOptions{
-			RepoRoot:         repoRoot,
-			Interval:         DefaultLoopInterval,
-			StopChan:         loopStopChan,
-			SkipTmuxCheck:    false,   // Production mode: use real tmux
-			StatelessTracker: tracker, // Enable stateless agent notifications
-			Logger:           stdout,  // Log all actions in foreground mode
-		}
-		RunLoop(opts)
-		close(loopDone)
-	}()
+	fileWatcher, watcherErr := NewFileWatcher(repoRoot)
+	if watcherErr == nil {
+		fileWatcher.SetLogger(stdout) // Enable logging in foreground mode
+		watcherErr = fileWatcher.AddWatches()
+	}
+
+	if watcherErr == nil {
+		// File watching mode (FR-002a)
+		fmt.Fprintf(stdout, "[mailman] File watching enabled\n")
+
+		go func() {
+			// Create process function that wraps CheckAndNotify
+			processFunc := func() {
+				_ = CheckAndNotify(opts) // G104: errors are logged but don't stop the loop
+			}
+
+			// Run initial check immediately
+			processFunc()
+
+			// Also clean stale states periodically
+			cleanStaleStates(repoRoot, stdout)
+
+			// Run the file watcher event loop
+			if err := fileWatcher.Run(processFunc); err != nil {
+				// Watcher error - fall back to polling (FR-014a, FR-014b)
+				fmt.Fprintf(stdout, "[mailman] File watcher error: %v, falling back to polling\n", err)
+				RunLoop(opts)
+			}
+			close(loopDone)
+		}()
+	} else {
+		// File watching unavailable - use polling mode (FR-003a, FR-003b)
+		fmt.Fprintf(stdout, "[mailman] File watching unavailable, using polling\n")
+
+		go func() {
+			RunLoop(opts)
+			close(loopDone)
+		}()
+	}
 
 	// Wait for shutdown signal or test stop
 	if stopChan != nil {
@@ -233,6 +268,12 @@ func runForeground(repoRoot string, stdout, stderr io.Writer) int {
 
 	// Stop the notification loop
 	close(loopStopChan)
+
+	// Close file watcher if it was initialized
+	if fileWatcher != nil {
+		_ = fileWatcher.Close() // G104: best-effort cleanup
+	}
+
 	<-loopDone // Wait for loop to finish
 
 	// Clean up PID file on shutdown

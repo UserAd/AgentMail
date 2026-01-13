@@ -895,3 +895,233 @@ func TestSetNotifiedFlag_SetToFalse(t *testing.T) {
 		t.Error("Expected Notified to be false")
 	}
 }
+
+// =============================================================================
+// T031: Unit tests for UpdateLastReadAt
+// =============================================================================
+
+func TestUpdateLastReadAt_CreatesFileAndDirectoryIfNotExist(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Call UpdateLastReadAt - should create directories and file
+	timestamp := int64(1704067200000) // 2024-01-01 00:00:00 UTC in milliseconds
+	err := UpdateLastReadAt(tmpDir, "new-agent", timestamp)
+	if err != nil {
+		t.Fatalf("UpdateLastReadAt failed: %v", err)
+	}
+
+	// Verify file was created
+	filePath := filepath.Join(tmpDir, RecipientsFile)
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		t.Error("Recipients file was not created")
+	}
+
+	// Verify content
+	recipients, err := ReadAllRecipients(tmpDir)
+	if err != nil {
+		t.Fatalf("ReadAllRecipients failed: %v", err)
+	}
+
+	if len(recipients) != 1 {
+		t.Fatalf("Expected 1 recipient, got %d", len(recipients))
+	}
+
+	if recipients[0].Recipient != "new-agent" {
+		t.Errorf("Expected recipient 'new-agent', got %s", recipients[0].Recipient)
+	}
+
+	if recipients[0].LastReadAt != timestamp {
+		t.Errorf("Expected LastReadAt %d, got %d", timestamp, recipients[0].LastReadAt)
+	}
+
+	// Verify defaults for new entry
+	if recipients[0].Status != StatusReady {
+		t.Errorf("Expected status 'ready', got %s", recipients[0].Status)
+	}
+}
+
+func TestUpdateLastReadAt_UpdatesExistingRecipient(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .agentmail directory and initial recipient file
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.Mkdir(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
+	}
+
+	// Create existing recipient
+	now := time.Now().Truncate(time.Second)
+	existing := RecipientState{
+		Recipient:  "existing-agent",
+		Status:     StatusWork,
+		UpdatedAt:  now,
+		Notified:   true,
+		LastReadAt: 1000000000000, // Old timestamp
+	}
+	filePath := filepath.Join(agentmailDir, "recipients.jsonl")
+	file, err := os.Create(filePath)
+	if err != nil {
+		t.Fatalf("Failed to create file: %v", err)
+	}
+	data, _ := json.Marshal(existing)
+	file.Write(append(data, '\n'))
+	file.Close()
+
+	// Update LastReadAt
+	newTimestamp := int64(1704067200000)
+	err = UpdateLastReadAt(tmpDir, "existing-agent", newTimestamp)
+	if err != nil {
+		t.Fatalf("UpdateLastReadAt failed: %v", err)
+	}
+
+	// Verify only LastReadAt was updated
+	recipients, err := ReadAllRecipients(tmpDir)
+	if err != nil {
+		t.Fatalf("ReadAllRecipients failed: %v", err)
+	}
+
+	if len(recipients) != 1 {
+		t.Fatalf("Expected 1 recipient, got %d", len(recipients))
+	}
+
+	if recipients[0].LastReadAt != newTimestamp {
+		t.Errorf("Expected LastReadAt %d, got %d", newTimestamp, recipients[0].LastReadAt)
+	}
+
+	// Other fields should be preserved
+	if recipients[0].Status != StatusWork {
+		t.Errorf("Status should be preserved as 'work', got %s", recipients[0].Status)
+	}
+	if !recipients[0].Notified {
+		t.Error("Notified flag should be preserved as true")
+	}
+}
+
+func TestUpdateLastReadAt_CreatesNewEntryWhenRecipientNotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .agentmail directory and initial recipient file
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.Mkdir(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
+	}
+
+	// Create existing recipient
+	now := time.Now().Truncate(time.Second)
+	existing := RecipientState{
+		Recipient: "existing-agent",
+		Status:    StatusReady,
+		UpdatedAt: now,
+		Notified:  false,
+	}
+	filePath := filepath.Join(agentmailDir, "recipients.jsonl")
+	file, err := os.Create(filePath)
+	if err != nil {
+		t.Fatalf("Failed to create file: %v", err)
+	}
+	data, _ := json.Marshal(existing)
+	file.Write(append(data, '\n'))
+	file.Close()
+
+	// Update LastReadAt for a different recipient
+	timestamp := int64(1704067200000)
+	err = UpdateLastReadAt(tmpDir, "new-agent", timestamp)
+	if err != nil {
+		t.Fatalf("UpdateLastReadAt failed: %v", err)
+	}
+
+	// Verify both recipients exist
+	recipients, err := ReadAllRecipients(tmpDir)
+	if err != nil {
+		t.Fatalf("ReadAllRecipients failed: %v", err)
+	}
+
+	if len(recipients) != 2 {
+		t.Fatalf("Expected 2 recipients, got %d", len(recipients))
+	}
+
+	// Find new recipient
+	var newRecipient *RecipientState
+	for i := range recipients {
+		if recipients[i].Recipient == "new-agent" {
+			newRecipient = &recipients[i]
+			break
+		}
+	}
+
+	if newRecipient == nil {
+		t.Fatal("New recipient was not created")
+	}
+
+	if newRecipient.LastReadAt != timestamp {
+		t.Errorf("Expected LastReadAt %d, got %d", timestamp, newRecipient.LastReadAt)
+	}
+}
+
+func TestUpdateLastReadAt_PreservesOtherRecipients(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.Mkdir(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
+	}
+
+	// Create multiple recipients
+	now := time.Now().Truncate(time.Second)
+	filePath := filepath.Join(tmpDir, RecipientsFile)
+	file, err := os.Create(filePath)
+	if err != nil {
+		t.Fatalf("Failed to create file: %v", err)
+	}
+
+	recipients := []RecipientState{
+		{Recipient: "agent-1", Status: StatusReady, UpdatedAt: now, Notified: false},
+		{Recipient: "agent-2", Status: StatusWork, UpdatedAt: now, Notified: true},
+		{Recipient: "agent-3", Status: StatusOffline, UpdatedAt: now, Notified: false},
+	}
+
+	for _, r := range recipients {
+		data, _ := json.Marshal(r)
+		file.Write(append(data, '\n'))
+	}
+	file.Close()
+
+	// Update agent-2's LastReadAt
+	timestamp := int64(1704067200000)
+	err = UpdateLastReadAt(tmpDir, "agent-2", timestamp)
+	if err != nil {
+		t.Fatalf("UpdateLastReadAt failed: %v", err)
+	}
+
+	// Verify all recipients are preserved
+	readBack, err := ReadAllRecipients(tmpDir)
+	if err != nil {
+		t.Fatalf("ReadAllRecipients failed: %v", err)
+	}
+
+	if len(readBack) != 3 {
+		t.Fatalf("Expected 3 recipients, got %d", len(readBack))
+	}
+
+	// Check each recipient
+	for _, r := range readBack {
+		switch r.Recipient {
+		case "agent-1":
+			if r.Status != StatusReady {
+				t.Errorf("agent-1 status should be ready, got %s", r.Status)
+			}
+		case "agent-2":
+			if r.LastReadAt != timestamp {
+				t.Errorf("agent-2 LastReadAt should be %d, got %d", timestamp, r.LastReadAt)
+			}
+			if r.Status != StatusWork {
+				t.Errorf("agent-2 status should be work, got %s", r.Status)
+			}
+		case "agent-3":
+			if r.Status != StatusOffline {
+				t.Errorf("agent-3 status should be offline, got %s", r.Status)
+			}
+		}
+	}
+}

@@ -202,10 +202,8 @@ func runForeground(repoRoot string, stdout, stderr io.Writer) int {
 	tracker := NewStatelessTracker(StatelessNotifyInterval)
 
 	// Create options for notification checks
-	loopStopChan := make(chan struct{})
 	opts := LoopOptions{
 		RepoRoot:         repoRoot,
-		StopChan:         loopStopChan,
 		SkipTmuxCheck:    false,   // Production mode: use real tmux
 		StatelessTracker: tracker, // Enable stateless agent notifications
 		Logger:           stdout,  // Log all actions in foreground mode
@@ -260,10 +258,7 @@ func runForeground(repoRoot string, stdout, stderr io.Writer) int {
 		<-sigChan
 	}
 
-	// Stop the notification loop
-	close(loopStopChan)
-
-	// Close file watcher if it was initialized
+	// Close file watcher to stop the notification loop
 	if fileWatcher != nil {
 		_ = fileWatcher.Close() // G104: best-effort cleanup
 	}

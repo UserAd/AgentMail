@@ -78,7 +78,6 @@ func (t *StatelessTracker) Cleanup(activeWindows []string) {
 // LoopOptions configures the notification check.
 type LoopOptions struct {
 	RepoRoot         string            // Repository root path
-	StopChan         chan struct{}     // Channel to stop the watcher
 	SkipTmuxCheck    bool              // Skip tmux check (for testing)
 	StatelessTracker *StatelessTracker // Tracker for stateless agents (T003)
 	Logger           io.Writer         // Logger for foreground mode (nil = no logging)

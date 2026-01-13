@@ -122,11 +122,11 @@
 
 ### Tests for User Story 3
 
-- [ ] T030 [US3] Add TestStatelessNotification_DaemonRestart_ImmediateEligibility in internal/daemon/loop_test.go (SC-004)
+- [X] T030 [US3] Add TestStatelessNotification_DaemonRestart_ImmediateEligibility in internal/daemon/loop_test.go (SC-004)
 
 ### Implementation for User Story 3
 
-- [ ] T031 [US3] Verify NewStatelessTracker initializes empty map (already done in T010, verify behavior) in internal/daemon/loop.go
+- [X] T031 [US3] Verify NewStatelessTracker initializes empty map (already done in T010, verify behavior) in internal/daemon/loop.go
 
 **Checkpoint**: User Story 3 complete. Test T030 should PASS. Daemon restart behavior works correctly.
 

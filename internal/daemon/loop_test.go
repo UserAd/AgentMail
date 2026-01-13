@@ -1322,3 +1322,55 @@ func TestStatelessNotification_TransitionToStated(t *testing.T) {
 		t.Errorf("Expected still 2 notifications (no re-notify for stated), got %d", notifyCount)
 	}
 }
+
+// =============================================================================
+// Phase 5: User Story 3 - Daemon Restart Behavior (T030-T031)
+// =============================================================================
+
+// T030: TestStatelessNotification_DaemonRestart_ImmediateEligibility (SC-004)
+// Tests that on daemon restart, all stateless agents become immediately eligible
+func TestStatelessNotification_DaemonRestart_ImmediateEligibility(t *testing.T) {
+	repoRoot := createTestMailDir(t)
+
+	// Create mailboxes for multiple stateless agents
+	createUnreadMessage(t, repoRoot, "agent-a", "sender", "Hello A!")
+	createUnreadMessage(t, repoRoot, "agent-b", "sender", "Hello B!")
+
+	// Simulate first daemon run
+	tracker1 := NewStatelessTracker(60 * time.Second)
+
+	notifyCount := 0
+	mockNotify := func(window string) error {
+		notifyCount++
+		return nil
+	}
+
+	opts := LoopOptions{
+		RepoRoot:         repoRoot,
+		SkipTmuxCheck:    true,
+		StatelessTracker: tracker1,
+	}
+
+	// First daemon: both agents notified
+	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	if err != nil {
+		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
+	}
+	if notifyCount != 2 {
+		t.Errorf("Expected 2 notifications on first daemon, got %d", notifyCount)
+	}
+
+	// Simulate daemon restart by creating a NEW tracker (T031 verification)
+	// This simulates what happens in runForeground() on restart
+	tracker2 := NewStatelessTracker(60 * time.Second)
+	opts.StatelessTracker = tracker2
+
+	// Second daemon: agents should be immediately eligible again (fresh tracker)
+	err = CheckAndNotifyWithNotifier(opts, mockNotify)
+	if err != nil {
+		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
+	}
+	if notifyCount != 4 {
+		t.Errorf("Expected 4 notifications after restart (2 + 2), got %d", notifyCount)
+	}
+}

@@ -77,9 +77,9 @@ Based on plan.md structure:
 
 ### Implementation for User Story 2
 
-- [ ] T017 [US2] Implement `FileWatcher.isRecipientsEvent(event fsnotify.Event) bool` helper to identify `recipients.jsonl` write events in `internal/daemon/watcher.go` (FR-005)
-- [ ] T018 [US2] Extend `FileWatcher.Run()` to handle Write events for `recipients.jsonl` - reload states and trigger notification check (FR-010a, FR-010b) in `internal/daemon/watcher.go`
-- [ ] T019 [US2] Handle case when `recipients.jsonl` doesn't exist at startup - watch parent directory for file creation (FR-008) in `internal/daemon/watcher.go`
+- [x] T017 [US2] Implement `FileWatcher.isRecipientsEvent(event fsnotify.Event) bool` helper to identify `recipients.jsonl` write events in `internal/daemon/watcher.go` (FR-005)
+- [x] T018 [US2] Extend `FileWatcher.Run()` to handle Write events for `recipients.jsonl` - reload states and trigger notification check (FR-010a, FR-010b) in `internal/daemon/watcher.go`
+- [x] T019 [US2] Handle case when `recipients.jsonl` doesn't exist at startup - watch parent directory for file creation (FR-008) in `internal/daemon/watcher.go`
 
 **Checkpoint**: User Stories 1 AND 2 complete - both mailbox and status changes trigger instant notifications
 

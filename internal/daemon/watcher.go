@@ -149,8 +149,29 @@ func (fw *FileWatcher) isMailboxEvent(event fsnotify.Event) bool {
 	return strings.HasSuffix(event.Name, ".jsonl")
 }
 
+// isRecipientsEvent checks if the event is a Write to recipients.jsonl (FR-005).
+func (fw *FileWatcher) isRecipientsEvent(event fsnotify.Event) bool {
+	// Must be Write operation (status changes are writes, not creates)
+	if !event.Has(fsnotify.Write) {
+		return false
+	}
+
+	// Must be recipients.jsonl in .agentmail/
+	expectedPath := filepath.Join(fw.agentmailDir, "recipients.jsonl")
+	return event.Name == expectedPath
+}
+
+// isMailboxDirCreate checks if the mailboxes directory was just created.
+// This handles the case where mailboxes/ doesn't exist at startup (FR-008).
+func (fw *FileWatcher) isMailboxDirCreate(event fsnotify.Event) bool {
+	if !event.Has(fsnotify.Create) {
+		return false
+	}
+	return event.Name == fw.mailboxDir
+}
+
 // Run starts the file watcher event loop.
-// It calls processFunc when mailbox changes are detected (debounced).
+// It calls processFunc when mailbox or recipients.jsonl changes are detected (debounced).
 // Returns when Close() is called or an error occurs.
 func (fw *FileWatcher) Run(processFunc func()) error {
 	// Create fallback ticker for safety net (FR-012)
@@ -171,6 +192,20 @@ func (fw *FileWatcher) Run(processFunc func()) error {
 			if fw.isMailboxEvent(event) {
 				// Trigger debounced notification check (FR-011)
 				fw.debouncer.Trigger(processFunc)
+				continue
+			}
+
+			// Check if this is a recipients.jsonl event (FR-005, FR-010a, FR-010b)
+			if fw.isRecipientsEvent(event) {
+				// Trigger debounced notification check - reloads states and checks notifications
+				fw.debouncer.Trigger(processFunc)
+				continue
+			}
+
+			// Check if mailboxes directory was created (FR-008)
+			if fw.isMailboxDirCreate(event) {
+				// Add watch for the newly created mailboxes directory
+				_ = fw.watcher.Add(fw.mailboxDir) // G104: best-effort, errors handled by fallback
 			}
 
 		case err, ok := <-fw.watcher.Errors:

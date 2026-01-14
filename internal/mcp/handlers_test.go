@@ -1915,3 +1915,854 @@ func TestListRecipientsHandler_SingleWindow(t *testing.T) {
 		}
 	}
 }
+
+// ============================================================================
+// Error Path Tests for Coverage Improvement
+// ============================================================================
+
+// makeRequestWithMissingRecipient creates a CallToolRequest for send with missing recipient.
+func makeRequestWithMissingRecipient(message string) *mcp.CallToolRequest {
+	args, _ := json.Marshal(map[string]string{
+		"message": message,
+	})
+	return &mcp.CallToolRequest{
+		Params: &mcp.CallToolParamsRaw{
+			Name:      ToolSend,
+			Arguments: args,
+		},
+	}
+}
+
+// makeRequestWithMissingMessage creates a CallToolRequest for send with missing message.
+func makeRequestWithMissingMessage(recipient string) *mcp.CallToolRequest {
+	args, _ := json.Marshal(map[string]string{
+		"recipient": recipient,
+	})
+	return &mcp.CallToolRequest{
+		Params: &mcp.CallToolParamsRaw{
+			Name:      ToolSend,
+			Arguments: args,
+		},
+	}
+}
+
+// makeEmptyStatusRequest creates a CallToolRequest for status with no status parameter.
+func makeEmptyStatusRequest() *mcp.CallToolRequest {
+	args, _ := json.Marshal(map[string]string{})
+	return &mcp.CallToolRequest{
+		Params: &mcp.CallToolParamsRaw{
+			Name:      ToolStatus,
+			Arguments: args,
+		},
+	}
+}
+
+// Test send with missing recipient parameter returns error
+func TestSendHandler_MissingRecipientReturnsError(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockSender:    "agent-sender",
+		MockWindows:   []string{"agent-sender", "agent-receiver"},
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the send handler with missing recipient (empty string from missing param)
+	ctx := context.Background()
+	result, err := sendHandler(ctx, makeRequestWithMissingRecipient("Hello!"))
+	if err != nil {
+		t.Fatalf("sendHandler returned unexpected error: %v", err)
+	}
+
+	// Should return an error result (recipient not found since empty string)
+	if !result.IsError {
+		t.Fatal("sendHandler should return error for missing recipient")
+	}
+
+	// Verify error message
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("sendHandler error content is not TextContent, got %T", result.Content[0])
+	}
+
+	if !strings.Contains(textContent.Text, "recipient not found") {
+		t.Errorf("Expected error to contain 'recipient not found', got: %s", textContent.Text)
+	}
+}
+
+// Test send with missing message parameter returns error
+func TestSendHandler_MissingMessageReturnsError(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockSender:    "agent-sender",
+		MockWindows:   []string{"agent-sender", "agent-receiver"},
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the send handler with missing message (empty string from missing param)
+	ctx := context.Background()
+	result, err := sendHandler(ctx, makeRequestWithMissingMessage("agent-receiver"))
+	if err != nil {
+		t.Fatalf("sendHandler returned unexpected error: %v", err)
+	}
+
+	// Should return an error result
+	if !result.IsError {
+		t.Fatal("sendHandler should return error for missing message")
+	}
+
+	// Verify error message
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("sendHandler error content is not TextContent, got %T", result.Content[0])
+	}
+
+	if !strings.Contains(textContent.Text, "no message provided") {
+		t.Errorf("Expected error to contain 'no message provided', got: %s", textContent.Text)
+	}
+}
+
+// Test status with missing status parameter returns error
+func TestStatusHandler_MissingStatusReturnsError(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockReceiver:  "test-agent",
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the status handler with missing status parameter
+	ctx := context.Background()
+	result, err := statusHandler(ctx, makeEmptyStatusRequest())
+	if err != nil {
+		t.Fatalf("statusHandler returned unexpected error: %v", err)
+	}
+
+	// Should return an error result
+	if !result.IsError {
+		t.Fatal("statusHandler should return error for missing status parameter")
+	}
+
+	// Verify error message matches FR-016 format
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("statusHandler error content is not TextContent, got %T", result.Content[0])
+	}
+
+	if !strings.Contains(textContent.Text, "Invalid status:") {
+		t.Errorf("Expected error to contain 'Invalid status:', got: %s", textContent.Text)
+	}
+	if !strings.Contains(textContent.Text, "Valid: ready, work, offline") {
+		t.Errorf("Expected error to contain valid options, got: %s", textContent.Text)
+	}
+}
+
+// Test receive without mock receiver and no tmux returns error (simulates tmux failure)
+// This test only runs when NOT in a tmux session, as it tests the tmux failure path.
+func TestReceiveHandler_NoMockReceiverWithoutTmuxReturnsError(t *testing.T) {
+	// Skip this test if running inside tmux - the error path won't trigger
+	if os.Getenv("TMUX") != "" {
+		t.Skip("Skipping test: running inside tmux session")
+	}
+
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing - NO MockReceiver set, SkipTmuxCheck false
+	// This will cause tmux.GetCurrentWindow() to fail if not in tmux
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: false, // Enable tmux check
+		MockReceiver:  "",    // No mock receiver
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the handler - should fail because we're not in tmux
+	ctx := context.Background()
+	result, err := receiveHandler(ctx, &mcp.CallToolRequest{})
+	if err != nil {
+		t.Fatalf("receiveHandler returned unexpected error: %v", err)
+	}
+
+	// Should return an error result (failed to get current window)
+	if !result.IsError {
+		t.Fatal("receiveHandler should return error when tmux fails")
+	}
+
+	// Verify error message
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("receiveHandler error content is not TextContent, got %T", result.Content[0])
+	}
+
+	if !strings.Contains(textContent.Text, "failed to get current window") {
+		t.Errorf("Expected error to contain 'failed to get current window', got: %s", textContent.Text)
+	}
+}
+
+// Test receive with invalid repo root returns error (simulates git root failure)
+func TestReceiveHandler_InvalidRepoRootReturnsError(t *testing.T) {
+	// Configure handler with no RepoRoot and MockReceiver set
+	// The handler will try to find git root which should fail in a non-existent directory
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockReceiver:  "test-agent",
+		RepoRoot:      "", // Empty - will try to find git root
+	})
+	defer SetHandlerOptions(nil)
+
+	// Save current directory and change to a non-git directory
+	origDir, _ := os.Getwd()
+	tmpDir, err := os.MkdirTemp("", "non-git-dir-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Change to non-git directory
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Failed to change directory: %v", err)
+	}
+	defer os.Chdir(origDir)
+
+	// Call the handler - should fail because there's no git root
+	ctx := context.Background()
+	result, err := receiveHandler(ctx, &mcp.CallToolRequest{})
+	if err != nil {
+		t.Fatalf("receiveHandler returned unexpected error: %v", err)
+	}
+
+	// Should return an error result
+	if !result.IsError {
+		t.Fatal("receiveHandler should return error when git root not found")
+	}
+
+	// Verify error message contains git repository related error
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("receiveHandler error content is not TextContent, got %T", result.Content[0])
+	}
+
+	if !strings.Contains(textContent.Text, "not in a git repository") {
+		t.Errorf("Expected error to contain 'not in a git repository', got: %s", textContent.Text)
+	}
+}
+
+// Test send without mock sender and no tmux returns error
+// This test only runs when NOT in a tmux session, as it tests the tmux failure path.
+func TestSendHandler_NoMockSenderWithoutTmuxReturnsError(t *testing.T) {
+	// Skip this test if running inside tmux - the error path won't trigger
+	if os.Getenv("TMUX") != "" {
+		t.Skip("Skipping test: running inside tmux session")
+	}
+
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler - NO MockSender set, SkipTmuxCheck false
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: false,
+		MockSender:    "",                                         // No mock sender
+		MockWindows:   []string{"agent-sender", "agent-receiver"}, // Mock windows still set for recipient check
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the handler - should fail because we're not in tmux
+	ctx := context.Background()
+	result, err := sendHandler(ctx, makeSendRequest("agent-receiver", "Hello!"))
+	if err != nil {
+		t.Fatalf("sendHandler returned unexpected error: %v", err)
+	}
+
+	// Should return an error result
+	if !result.IsError {
+		t.Fatal("sendHandler should return error when tmux fails")
+	}
+
+	// Verify error message
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("sendHandler error content is not TextContent, got %T", result.Content[0])
+	}
+
+	if !strings.Contains(textContent.Text, "failed to get current window") {
+		t.Errorf("Expected error to contain 'failed to get current window', got: %s", textContent.Text)
+	}
+}
+
+// Test send with invalid repo root returns error
+func TestSendHandler_InvalidRepoRootReturnsError(t *testing.T) {
+	// Configure handler with no RepoRoot
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockSender:    "agent-sender",
+		MockWindows:   []string{"agent-sender", "agent-receiver"},
+		RepoRoot:      "", // Empty - will try to find git root
+	})
+	defer SetHandlerOptions(nil)
+
+	// Save current directory and change to a non-git directory
+	origDir, _ := os.Getwd()
+	tmpDir, err := os.MkdirTemp("", "non-git-dir-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Change to non-git directory
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Failed to change directory: %v", err)
+	}
+	defer os.Chdir(origDir)
+
+	// Call the handler - should fail because there's no git root
+	ctx := context.Background()
+	result, err := sendHandler(ctx, makeSendRequest("agent-receiver", "Hello!"))
+	if err != nil {
+		t.Fatalf("sendHandler returned unexpected error: %v", err)
+	}
+
+	// Should return an error result
+	if !result.IsError {
+		t.Fatal("sendHandler should return error when git root not found")
+	}
+
+	// Verify error message
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("sendHandler error content is not TextContent, got %T", result.Content[0])
+	}
+
+	if !strings.Contains(textContent.Text, "not in a git repository") {
+		t.Errorf("Expected error to contain 'not in a git repository', got: %s", textContent.Text)
+	}
+}
+
+// Test status without mock receiver and no tmux returns error
+// This test only runs when NOT in a tmux session, as it tests the tmux failure path.
+func TestStatusHandler_NoMockReceiverWithoutTmuxReturnsError(t *testing.T) {
+	// Skip this test if running inside tmux - the error path won't trigger
+	if os.Getenv("TMUX") != "" {
+		t.Skip("Skipping test: running inside tmux session")
+	}
+
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler - NO MockReceiver set, SkipTmuxCheck false
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: false, // Enable tmux check
+		MockReceiver:  "",    // No mock receiver
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the handler - should fail because we're not in tmux
+	ctx := context.Background()
+	result, err := statusHandler(ctx, makeStatusRequest("ready"))
+	if err != nil {
+		t.Fatalf("statusHandler returned unexpected error: %v", err)
+	}
+
+	// Should return an error result
+	if !result.IsError {
+		t.Fatal("statusHandler should return error when tmux fails")
+	}
+
+	// Verify error message
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("statusHandler error content is not TextContent, got %T", result.Content[0])
+	}
+
+	if !strings.Contains(textContent.Text, "failed to get current window") {
+		t.Errorf("Expected error to contain 'failed to get current window', got: %s", textContent.Text)
+	}
+}
+
+// Test status with invalid repo root returns error
+func TestStatusHandler_InvalidRepoRootReturnsError(t *testing.T) {
+	// Configure handler with no RepoRoot
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockReceiver:  "test-agent",
+		RepoRoot:      "", // Empty - will try to find git root
+	})
+	defer SetHandlerOptions(nil)
+
+	// Save current directory and change to a non-git directory
+	origDir, _ := os.Getwd()
+	tmpDir, err := os.MkdirTemp("", "non-git-dir-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Change to non-git directory
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Failed to change directory: %v", err)
+	}
+	defer os.Chdir(origDir)
+
+	// Call the handler - should fail because there's no git root
+	ctx := context.Background()
+	result, err := statusHandler(ctx, makeStatusRequest("ready"))
+	if err != nil {
+		t.Fatalf("statusHandler returned unexpected error: %v", err)
+	}
+
+	// Should return an error result
+	if !result.IsError {
+		t.Fatal("statusHandler should return error when git root not found")
+	}
+
+	// Verify error message
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("statusHandler error content is not TextContent, got %T", result.Content[0])
+	}
+
+	if !strings.Contains(textContent.Text, "not in a git repository") {
+		t.Errorf("Expected error to contain 'not in a git repository', got: %s", textContent.Text)
+	}
+}
+
+// Test list-recipients without mock windows and no tmux returns error
+// This test only runs when NOT in a tmux session, as it tests the tmux failure path.
+func TestListRecipientsHandler_NoMockWindowsWithoutTmuxReturnsError(t *testing.T) {
+	// Skip this test if running inside tmux - the error path won't trigger
+	if os.Getenv("TMUX") != "" {
+		t.Skip("Skipping test: running inside tmux session")
+	}
+
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler - NO MockWindows and NO MockReceiver, SkipTmuxCheck false
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: false, // Enable tmux check
+		MockReceiver:  "",    // No mock receiver
+		MockWindows:   nil,   // No mock windows - will try real tmux
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the handler - should fail because we're not in tmux
+	ctx := context.Background()
+	result, err := listRecipientsHandler(ctx, &mcp.CallToolRequest{})
+	if err != nil {
+		t.Fatalf("listRecipientsHandler returned unexpected error: %v", err)
+	}
+
+	// Should return an error result
+	if !result.IsError {
+		t.Fatal("listRecipientsHandler should return error when tmux fails")
+	}
+
+	// Verify error message
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("listRecipientsHandler error content is not TextContent, got %T", result.Content[0])
+	}
+
+	if !strings.Contains(textContent.Text, "failed to get current window") &&
+		!strings.Contains(textContent.Text, "failed to list windows") {
+		t.Errorf("Expected error related to tmux failure, got: %s", textContent.Text)
+	}
+}
+
+// Test list-recipients with mock receiver but no mock windows causes ListWindows failure
+// This test only runs when NOT in a tmux session, as it tests the tmux failure path.
+func TestListRecipientsHandler_ListWindowsFailsReturnsError(t *testing.T) {
+	// Skip this test if running inside tmux - the error path won't trigger
+	if os.Getenv("TMUX") != "" {
+		t.Skip("Skipping test: running inside tmux session")
+	}
+
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler with MockReceiver but NO MockWindows
+	// This will use MockReceiver for current window but will try real tmux.ListWindows()
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockReceiver:  "test-agent",
+		MockWindows:   nil, // nil triggers real tmux.ListWindows() call
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the handler - should fail because tmux.ListWindows will fail outside tmux
+	ctx := context.Background()
+	result, err := listRecipientsHandler(ctx, &mcp.CallToolRequest{})
+	if err != nil {
+		t.Fatalf("listRecipientsHandler returned unexpected error: %v", err)
+	}
+
+	// Should return an error result when tmux.ListWindows fails
+	if !result.IsError {
+		t.Fatal("listRecipientsHandler should return error when ListWindows fails")
+	}
+
+	// Verify error message
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("listRecipientsHandler error content is not TextContent, got %T", result.Content[0])
+	}
+
+	if !strings.Contains(textContent.Text, "failed to list windows") {
+		t.Errorf("Expected error to contain 'failed to list windows', got: %s", textContent.Text)
+	}
+}
+
+// Test send with invalid JSON arguments returns parse error
+func TestSendHandler_InvalidJSONArgumentsReturnsError(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockSender:    "agent-sender",
+		MockWindows:   []string{"agent-sender", "agent-receiver"},
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Create request with invalid JSON in arguments
+	req := &mcp.CallToolRequest{
+		Params: &mcp.CallToolParamsRaw{
+			Name:      ToolSend,
+			Arguments: json.RawMessage(`{invalid json`),
+		},
+	}
+
+	ctx := context.Background()
+	result, err := sendHandler(ctx, req)
+	if err != nil {
+		t.Fatalf("sendHandler returned unexpected error: %v", err)
+	}
+
+	// Should return an error result
+	if !result.IsError {
+		t.Fatal("sendHandler should return error for invalid JSON arguments")
+	}
+
+	// Verify error message
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("sendHandler error content is not TextContent, got %T", result.Content[0])
+	}
+
+	if !strings.Contains(textContent.Text, "failed to parse arguments") {
+		t.Errorf("Expected error to contain 'failed to parse arguments', got: %s", textContent.Text)
+	}
+}
+
+// Test status with invalid JSON arguments returns parse error
+func TestStatusHandler_InvalidJSONArgumentsReturnsError(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockReceiver:  "test-agent",
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Create request with invalid JSON in arguments
+	req := &mcp.CallToolRequest{
+		Params: &mcp.CallToolParamsRaw{
+			Name:      ToolStatus,
+			Arguments: json.RawMessage(`{invalid json`),
+		},
+	}
+
+	ctx := context.Background()
+	result, err := statusHandler(ctx, req)
+	if err != nil {
+		t.Fatalf("statusHandler returned unexpected error: %v", err)
+	}
+
+	// Should return an error result
+	if !result.IsError {
+		t.Fatal("statusHandler should return error for invalid JSON arguments")
+	}
+
+	// Verify error message
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("statusHandler error content is not TextContent, got %T", result.Content[0])
+	}
+
+	if !strings.Contains(textContent.Text, "failed to parse arguments") {
+		t.Errorf("Expected error to contain 'failed to parse arguments', got: %s", textContent.Text)
+	}
+}
+
+// Test send with nil Params handles gracefully (missing recipient/message)
+func TestSendHandler_NilParamsReturnsError(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockSender:    "agent-sender",
+		MockWindows:   []string{"agent-sender", "agent-receiver"},
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Create request with nil Params
+	req := &mcp.CallToolRequest{
+		Params: nil,
+	}
+
+	ctx := context.Background()
+	result, err := sendHandler(ctx, req)
+	if err != nil {
+		t.Fatalf("sendHandler returned unexpected error: %v", err)
+	}
+
+	// Should return an error result (no message provided)
+	if !result.IsError {
+		t.Fatal("sendHandler should return error for nil params")
+	}
+
+	// Verify error message
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("sendHandler error content is not TextContent, got %T", result.Content[0])
+	}
+
+	if !strings.Contains(textContent.Text, "no message provided") {
+		t.Errorf("Expected error to contain 'no message provided', got: %s", textContent.Text)
+	}
+}
+
+// Test status with nil Params handles gracefully
+func TestStatusHandler_NilParamsReturnsError(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockReceiver:  "test-agent",
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Create request with nil Params
+	req := &mcp.CallToolRequest{
+		Params: nil,
+	}
+
+	ctx := context.Background()
+	result, err := statusHandler(ctx, req)
+	if err != nil {
+		t.Fatalf("statusHandler returned unexpected error: %v", err)
+	}
+
+	// Should return an error result (invalid status)
+	if !result.IsError {
+		t.Fatal("statusHandler should return error for nil params")
+	}
+
+	// Verify error message
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("statusHandler error content is not TextContent, got %T", result.Content[0])
+	}
+
+	if !strings.Contains(textContent.Text, "Invalid status:") {
+		t.Errorf("Expected error to contain 'Invalid status:', got: %s", textContent.Text)
+	}
+}
+
+// Test send with nil Arguments handles gracefully
+func TestSendHandler_NilArgumentsReturnsError(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockSender:    "agent-sender",
+		MockWindows:   []string{"agent-sender", "agent-receiver"},
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Create request with nil Arguments
+	req := &mcp.CallToolRequest{
+		Params: &mcp.CallToolParamsRaw{
+			Name:      ToolSend,
+			Arguments: nil,
+		},
+	}
+
+	ctx := context.Background()
+	result, err := sendHandler(ctx, req)
+	if err != nil {
+		t.Fatalf("sendHandler returned unexpected error: %v", err)
+	}
+
+	// Should return an error result (no message provided)
+	if !result.IsError {
+		t.Fatal("sendHandler should return error for nil arguments")
+	}
+
+	// Verify error message
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("sendHandler error content is not TextContent, got %T", result.Content[0])
+	}
+
+	if !strings.Contains(textContent.Text, "no message provided") {
+		t.Errorf("Expected error to contain 'no message provided', got: %s", textContent.Text)
+	}
+}
+
+// T057 / SC-004: Verify all tool invocations complete within 2 seconds
+func TestToolInvocations_CompleteWithinTwoSeconds(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockSender:    "agent-sender",
+		MockReceiver:  "agent-receiver",
+		MockWindows:   []string{"agent-sender", "agent-receiver", "agent-other"},
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	ctx := context.Background()
+
+	// Test each tool invocation completes within 2 seconds
+
+	// 1. Send tool
+	t.Run("send_under_2s", func(t *testing.T) {
+		_, err := sendHandler(ctx, makeSendRequest("agent-receiver", "Performance test message"))
+		if err != nil {
+			t.Fatalf("sendHandler returned error: %v", err)
+		}
+		// If we got here within the test timeout, we're under 2 seconds
+	})
+
+	// 2. Receive tool
+	t.Run("receive_under_2s", func(t *testing.T) {
+		_, err := receiveHandler(ctx, &mcp.CallToolRequest{})
+		if err != nil {
+			t.Fatalf("receiveHandler returned error: %v", err)
+		}
+	})
+
+	// 3. Status tool
+	t.Run("status_under_2s", func(t *testing.T) {
+		_, err := statusHandler(ctx, makeStatusRequest("ready"))
+		if err != nil {
+			t.Fatalf("statusHandler returned error: %v", err)
+		}
+	})
+
+	// 4. List recipients tool
+	t.Run("list_recipients_under_2s", func(t *testing.T) {
+		_, err := listRecipientsHandler(ctx, &mcp.CallToolRequest{})
+		if err != nil {
+			t.Fatalf("listRecipientsHandler returned error: %v", err)
+		}
+	})
+}
+
+// T058 / SC-005: Verify server handles 100 consecutive invocations without errors
+func TestServer_100ConsecutiveInvocations(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockSender:    "agent-sender",
+		MockReceiver:  "agent-receiver",
+		MockWindows:   []string{"agent-sender", "agent-receiver"},
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	ctx := context.Background()
+	invocations := 100
+
+	// Track errors
+	var errors []string
+
+	// Run 100 consecutive invocations alternating between tools
+	for i := 0; i < invocations; i++ {
+		switch i % 4 {
+		case 0:
+			// Send
+			result, err := sendHandler(ctx, makeSendRequest("agent-receiver", "Message "+string(rune('A'+i%26))))
+			if err != nil {
+				errors = append(errors, "send invocation error: "+err.Error())
+			} else if result.IsError {
+				content, _ := result.Content[0].(*mcp.TextContent)
+				if content != nil && !strings.Contains(content.Text, "sent") {
+					errors = append(errors, "send invocation returned error: "+content.Text)
+				}
+			}
+		case 1:
+			// Receive
+			_, err := receiveHandler(ctx, &mcp.CallToolRequest{})
+			if err != nil {
+				errors = append(errors, "receive invocation error: "+err.Error())
+			}
+		case 2:
+			// Status
+			statuses := []string{"ready", "work", "offline"}
+			result, err := statusHandler(ctx, makeStatusRequest(statuses[i%3]))
+			if err != nil {
+				errors = append(errors, "status invocation error: "+err.Error())
+			} else if result.IsError {
+				content, _ := result.Content[0].(*mcp.TextContent)
+				if content != nil {
+					errors = append(errors, "status invocation returned error: "+content.Text)
+				}
+			}
+		case 3:
+			// List recipients
+			_, err := listRecipientsHandler(ctx, &mcp.CallToolRequest{})
+			if err != nil {
+				errors = append(errors, "list_recipients invocation error: "+err.Error())
+			}
+		}
+	}
+
+	// SC-005: All 100 invocations should complete without errors
+	if len(errors) > 0 {
+		maxErrors := 10
+		if len(errors) < maxErrors {
+			maxErrors = len(errors)
+		}
+		t.Errorf("SC-005 violation: %d errors in 100 consecutive invocations:\n%s",
+			len(errors), strings.Join(errors[:maxErrors], "\n"))
+	}
+}

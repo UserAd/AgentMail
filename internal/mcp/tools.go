@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -43,7 +44,7 @@ type ListRecipientsArgs struct{}
 // sendToolSchema returns the JSON schema for the send tool input.
 // We define this manually to include maxLength constraint on message.
 func sendToolSchema() json.RawMessage {
-	return json.RawMessage(`{
+	return json.RawMessage(fmt.Sprintf(`{
 		"type": "object",
 		"properties": {
 			"recipient": {
@@ -53,18 +54,20 @@ func sendToolSchema() json.RawMessage {
 			"message": {
 				"type": "string",
 				"description": "The message content to send (max 64KB)",
-				"maxLength": 65536
+				"maxLength": %d
 			}
 		},
-		"required": ["recipient", "message"]
-	}`)
+		"required": ["recipient", "message"],
+		"additionalProperties": false
+	}`, MaxMessageSize))
 }
 
 // receiveToolSchema returns the JSON schema for the receive tool input.
 func receiveToolSchema() json.RawMessage {
 	return json.RawMessage(`{
 		"type": "object",
-		"properties": {}
+		"properties": {},
+		"additionalProperties": false
 	}`)
 }
 
@@ -80,7 +83,8 @@ func statusToolSchema() json.RawMessage {
 				"enum": ["ready", "work", "offline"]
 			}
 		},
-		"required": ["status"]
+		"required": ["status"],
+		"additionalProperties": false
 	}`)
 }
 
@@ -88,13 +92,14 @@ func statusToolSchema() json.RawMessage {
 func listRecipientsToolSchema() json.RawMessage {
 	return json.RawMessage(`{
 		"type": "object",
-		"properties": {}
+		"properties": {},
+		"additionalProperties": false
 	}`)
 }
 
 // RegisterTools registers all AgentMail tools with the MCP server.
-// Tool handlers are stubs that return "not implemented" - actual implementation
-// will be added in later phases.
+// Each tool is registered with its JSON schema and corresponding handler
+// that delegates to the implementation in handlers.go.
 func RegisterTools(s *Server) {
 	mcpServer := s.MCPServer()
 

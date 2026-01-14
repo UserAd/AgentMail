@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -57,9 +58,8 @@ func TestNewServer_SkipTmuxCheck(t *testing.T) {
 }
 
 func TestNewServer_NilOptions(t *testing.T) {
-	// Test that nil options uses real tmux check (which will fail outside tmux)
-	// This test documents the behavior but will only pass in tmux
-	// We use t.Setenv to simulate non-tmux environment
+	// Test that nil options uses real tmux check
+	// We simulate non-tmux environment to verify it returns an error
 	t.Setenv("TMUX", "")
 
 	_, err := NewServer(nil)
@@ -186,7 +186,7 @@ func TestServer_Run_SkipTmuxCheck(t *testing.T) {
 	})
 
 	// We expect context.Canceled since we canceled immediately
-	if err != nil && err != context.Canceled {
+	if err != nil && !errors.Is(err, context.Canceled) {
 		t.Errorf("Run should return context.Canceled or nil, got: %v", err)
 	}
 }

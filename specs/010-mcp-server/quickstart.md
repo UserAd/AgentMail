@@ -20,7 +20,7 @@ The server reads JSON-RPC requests from stdin and writes responses to stdout. Lo
 
 ### Claude Code / Claude Desktop
 
-Add to your MCP configuration (`~/.config/claude/mcp.json` or similar):
+Add to `~/.claude/settings.json` or your project's `.mcp.json`:
 
 ```json
 {

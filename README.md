@@ -349,26 +349,31 @@ See [Gemini CLI MCP documentation](https://geminicli.com/docs/tools/mcp-server/)
 ### MCP Tool Responses
 
 **send** returns:
+
 ```json
 {"message_id": "xK7mN2pQ"}
 ```
 
 **receive** returns (message available):
+
 ```json
 {"from": "agent-1", "id": "xK7mN2pQ", "message": "Hello!"}
 ```
 
 **receive** returns (no messages):
+
 ```json
 {"status": "No unread messages"}
 ```
 
 **status** returns:
+
 ```json
 {"status": "ok"}
 ```
 
 **list-recipients** returns:
+
 ```json
 {
   "recipients": [

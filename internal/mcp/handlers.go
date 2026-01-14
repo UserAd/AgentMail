@@ -126,7 +126,7 @@ func doSend(ctx context.Context, recipient, message string) (any, error) {
 
 	// Check if sending to self (not allowed)
 	if recipient == sender {
-		return nil, fmt.Errorf("recipient not found")
+		return nil, fmt.Errorf("cannot send message to self")
 	}
 
 	// Load and check ignore list

@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -387,7 +388,9 @@ func TestReceiveHandler_ConsecutiveReceivesFIFOOrder(t *testing.T) {
 	result1, _ := receiveHandler(ctx, &mcp.CallToolRequest{})
 	text1 := result1.Content[0].(*mcp.TextContent).Text
 	var resp1 ReceiveResponse
-	json.Unmarshal([]byte(text1), &resp1)
+	if err := json.Unmarshal([]byte(text1), &resp1); err != nil {
+		t.Fatalf("Failed to unmarshal first response: %v", err)
+	}
 	if resp1.ID != "msg001" {
 		t.Errorf("First receive: expected 'msg001', got '%s'", resp1.ID)
 	}
@@ -396,7 +399,9 @@ func TestReceiveHandler_ConsecutiveReceivesFIFOOrder(t *testing.T) {
 	result2, _ := receiveHandler(ctx, &mcp.CallToolRequest{})
 	text2 := result2.Content[0].(*mcp.TextContent).Text
 	var resp2 ReceiveResponse
-	json.Unmarshal([]byte(text2), &resp2)
+	if err := json.Unmarshal([]byte(text2), &resp2); err != nil {
+		t.Fatalf("Failed to unmarshal second response: %v", err)
+	}
 	if resp2.ID != "msg002" {
 		t.Errorf("Second receive: expected 'msg002', got '%s'", resp2.ID)
 	}
@@ -405,7 +410,9 @@ func TestReceiveHandler_ConsecutiveReceivesFIFOOrder(t *testing.T) {
 	result3, _ := receiveHandler(ctx, &mcp.CallToolRequest{})
 	text3 := result3.Content[0].(*mcp.TextContent).Text
 	var resp3 ReceiveResponse
-	json.Unmarshal([]byte(text3), &resp3)
+	if err := json.Unmarshal([]byte(text3), &resp3); err != nil {
+		t.Fatalf("Failed to unmarshal third response: %v", err)
+	}
 	if resp3.ID != "msg003" {
 		t.Errorf("Third receive: expected 'msg003', got '%s'", resp3.ID)
 	}
@@ -414,7 +421,9 @@ func TestReceiveHandler_ConsecutiveReceivesFIFOOrder(t *testing.T) {
 	result4, _ := receiveHandler(ctx, &mcp.CallToolRequest{})
 	text4 := result4.Content[0].(*mcp.TextContent).Text
 	var resp4 ReceiveEmptyResponse
-	json.Unmarshal([]byte(text4), &resp4)
+	if err := json.Unmarshal([]byte(text4), &resp4); err != nil {
+		t.Fatalf("Failed to unmarshal fourth response: %v", err)
+	}
 	if resp4.Status != "No unread messages" {
 		t.Errorf("Fourth receive: expected 'No unread messages', got '%s'", resp4.Status)
 	}
@@ -775,7 +784,7 @@ func TestSendHandler_SendToSelfReturnsError(t *testing.T) {
 		t.Fatal("sendHandler should return error for sending to self")
 	}
 
-	// Verify error message contains "recipient not found"
+	// Verify error message contains "cannot send message to self"
 	if len(result.Content) == 0 {
 		t.Fatal("sendHandler returned empty error content")
 	}
@@ -785,8 +794,8 @@ func TestSendHandler_SendToSelfReturnsError(t *testing.T) {
 		t.Fatalf("sendHandler error content is not TextContent, got %T", result.Content[0])
 	}
 
-	if !strings.Contains(textContent.Text, "recipient not found") {
-		t.Errorf("Expected error to contain 'recipient not found', got: %s", textContent.Text)
+	if !strings.Contains(textContent.Text, "cannot send message to self") {
+		t.Errorf("Expected error to contain 'cannot send message to self', got: %s", textContent.Text)
 	}
 }
 
@@ -2721,12 +2730,12 @@ func TestServer_100ConsecutiveInvocations(t *testing.T) {
 		switch i % 4 {
 		case 0:
 			// Send
-			result, err := sendHandler(ctx, makeSendRequest("agent-receiver", "Message "+string(rune('A'+i%26))))
+			result, err := sendHandler(ctx, makeSendRequest("agent-receiver", fmt.Sprintf("Message %d", i)))
 			if err != nil {
 				errors = append(errors, "send invocation error: "+err.Error())
 			} else if result.IsError {
 				content, _ := result.Content[0].(*mcp.TextContent)
-				if content != nil && !strings.Contains(content.Text, "sent") {
+				if content != nil {
 					errors = append(errors, "send invocation returned error: "+content.Text)
 				}
 			}

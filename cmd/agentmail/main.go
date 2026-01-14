@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -276,7 +277,7 @@ Examples:
 			// Run the server (blocks until shutdown)
 			if err := server.Run(ctx, nil); err != nil {
 				// Context cancellation is normal shutdown
-				if err == ctx.Err() {
+				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 					return nil
 				}
 				fmt.Fprintf(os.Stderr, "error: %v\n", err)

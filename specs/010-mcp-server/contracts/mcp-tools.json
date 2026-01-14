@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentMail MCP Tools",
+  "description": "MCP tool definitions for AgentMail inter-agent communication",
+  "version": "1.0.0",
+  "tools": [
+    {
+      "name": "send",
+      "description": "Send a message to another agent in a tmux window",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "recipient": {
+            "type": "string",
+            "description": "The tmux window name of the recipient agent"
+          },
+          "message": {
+            "type": "string",
+            "description": "The message content to send (max 64KB)",
+            "maxLength": 65536
+          }
+        },
+        "required": ["recipient", "message"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "message_id": {
+                "type": "string",
+                "description": "The unique identifier of the sent message"
+              }
+            },
+            "required": ["message_id"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string",
+                "description": "Error message if send failed"
+              }
+            },
+            "required": ["error"]
+          }
+        ]
+      }
+    },
+    {
+      "name": "receive",
+      "description": "Read the oldest unread message from your mailbox",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "description": "The sender's tmux window name"
+              },
+              "id": {
+                "type": "string",
+                "description": "The message identifier"
+              },
+              "message": {
+                "type": "string",
+                "description": "The message content"
+              }
+            },
+            "required": ["from", "id", "message"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "const": "No unread messages"
+              }
+            },
+            "required": ["status"]
+          }
+        ]
+      }
+    },
+    {
+      "name": "status",
+      "description": "Set your agent's availability status",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["ready", "work", "offline"],
+            "description": "The availability status to set"
+          }
+        },
+        "required": ["status"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "const": "ok"
+              }
+            },
+            "required": ["status"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string",
+                "description": "Error message if status update failed"
+              }
+            },
+            "required": ["error"]
+          }
+        ]
+      }
+    },
+    {
+      "name": "list-recipients",
+      "description": "List all available agents that can receive messages",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "recipients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "The tmux window name"
+                },
+                "is_current": {
+                  "type": "boolean",
+                  "description": "True if this is your own window"
+                }
+              },
+              "required": ["name", "is_current"]
+            }
+          }
+        },
+        "required": ["recipients"]
+      }
+    }
+  ]
+}

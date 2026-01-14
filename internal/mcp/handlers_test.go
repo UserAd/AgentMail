@@ -11,6 +11,20 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// makeSendRequest creates a CallToolRequest for the send tool with the given arguments.
+func makeSendRequest(recipient, message string) *mcp.CallToolRequest {
+	args, _ := json.Marshal(map[string]string{
+		"recipient": recipient,
+		"message":   message,
+	})
+	return &mcp.CallToolRequest{
+		Params: &mcp.CallToolParamsRaw{
+			Name:      ToolSend,
+			Arguments: args,
+		},
+	}
+}
+
 // setupTestMailbox creates a temporary directory with the .agentmail structure
 // and returns the path. Caller is responsible for cleanup.
 func setupTestMailbox(t *testing.T) string {
@@ -541,5 +555,501 @@ func TestReceiveHandler_MCPClientIntegration(t *testing.T) {
 	}
 	if response.Message != "MCP integration test" {
 		t.Errorf("Expected Message 'MCP integration test', got '%s'", response.Message)
+	}
+}
+
+// ============================================================================
+// Send Handler Tests
+// ============================================================================
+
+// T027: Test send handler delivers message and returns ID (FR-004)
+func TestSendHandler_DeliversMessageAndReturnsID(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockSender:    "agent-sender",
+		MockWindows:   []string{"agent-sender", "agent-receiver"},
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the send handler
+	ctx := context.Background()
+	result, err := sendHandler(ctx, makeSendRequest("agent-receiver", "Hello from MCP!"))
+	if err != nil {
+		t.Fatalf("sendHandler returned error: %v", err)
+	}
+
+	// Should not be an error result
+	if result.IsError {
+		t.Fatalf("sendHandler returned error result: %v", result.Content)
+	}
+
+	// Parse the response
+	if len(result.Content) == 0 {
+		t.Fatal("sendHandler returned empty content")
+	}
+
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("sendHandler content is not TextContent, got %T", result.Content[0])
+	}
+
+	var response SendResponse
+	if err := json.Unmarshal([]byte(textContent.Text), &response); err != nil {
+		t.Fatalf("Failed to parse response JSON: %v", err)
+	}
+
+	// FR-004: Should return a message ID
+	if response.MessageID == "" {
+		t.Error("Expected non-empty message_id in response")
+	}
+
+	// Verify the message was stored in the mailbox
+	mailboxPath := filepath.Join(tmpDir, ".agentmail", "mailboxes", "agent-receiver.jsonl")
+	data, err := os.ReadFile(mailboxPath)
+	if err != nil {
+		t.Fatalf("Failed to read mailbox file: %v", err)
+	}
+
+	if !strings.Contains(string(data), "Hello from MCP!") {
+		t.Errorf("Message not found in mailbox. Content: %s", data)
+	}
+	if !strings.Contains(string(data), response.MessageID) {
+		t.Errorf("Message ID not found in mailbox. Content: %s", data)
+	}
+}
+
+// T028: Test send with invalid recipient returns error (FR-009)
+func TestSendHandler_InvalidRecipientReturnsError(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing - nonexistent-agent not in MockWindows
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockSender:    "agent-sender",
+		MockWindows:   []string{"agent-sender", "agent-receiver"},
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the send handler with invalid recipient
+	ctx := context.Background()
+	result, err := sendHandler(ctx, makeSendRequest("nonexistent-agent", "This should fail"))
+	if err != nil {
+		t.Fatalf("sendHandler returned unexpected error: %v", err)
+	}
+
+	// FR-009: Should return an error result
+	if !result.IsError {
+		t.Fatal("sendHandler should return error for invalid recipient")
+	}
+
+	// Verify error message contains "recipient not found"
+	if len(result.Content) == 0 {
+		t.Fatal("sendHandler returned empty error content")
+	}
+
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("sendHandler error content is not TextContent, got %T", result.Content[0])
+	}
+
+	if !strings.Contains(textContent.Text, "recipient not found") {
+		t.Errorf("Expected error to contain 'recipient not found', got: %s", textContent.Text)
+	}
+}
+
+// T029: Test send with message > 64KB returns error (FR-013)
+func TestSendHandler_OversizedMessageReturnsError(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockSender:    "agent-sender",
+		MockWindows:   []string{"agent-sender", "agent-receiver"},
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Create a message larger than 64KB (65536 bytes)
+	oversizedMessage := strings.Repeat("x", 65537)
+
+	// Call the send handler with oversized message
+	ctx := context.Background()
+	result, err := sendHandler(ctx, makeSendRequest("agent-receiver", oversizedMessage))
+	if err != nil {
+		t.Fatalf("sendHandler returned unexpected error: %v", err)
+	}
+
+	// FR-013: Should return an error result
+	if !result.IsError {
+		t.Fatal("sendHandler should return error for oversized message")
+	}
+
+	// Verify error message indicates size limit
+	if len(result.Content) == 0 {
+		t.Fatal("sendHandler returned empty error content")
+	}
+
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("sendHandler error content is not TextContent, got %T", result.Content[0])
+	}
+
+	if !strings.Contains(textContent.Text, "64KB") && !strings.Contains(textContent.Text, "size") {
+		t.Errorf("Expected error to mention size limit, got: %s", textContent.Text)
+	}
+}
+
+// Test send with empty message returns error
+func TestSendHandler_EmptyMessageReturnsError(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockSender:    "agent-sender",
+		MockWindows:   []string{"agent-sender", "agent-receiver"},
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the send handler with empty message
+	ctx := context.Background()
+	result, err := sendHandler(ctx, makeSendRequest("agent-receiver", ""))
+	if err != nil {
+		t.Fatalf("sendHandler returned unexpected error: %v", err)
+	}
+
+	// Should return an error result
+	if !result.IsError {
+		t.Fatal("sendHandler should return error for empty message")
+	}
+
+	// Verify error message
+	if len(result.Content) == 0 {
+		t.Fatal("sendHandler returned empty error content")
+	}
+
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("sendHandler error content is not TextContent, got %T", result.Content[0])
+	}
+
+	if !strings.Contains(textContent.Text, "no message provided") {
+		t.Errorf("Expected error to contain 'no message provided', got: %s", textContent.Text)
+	}
+}
+
+// Test send to self returns error
+func TestSendHandler_SendToSelfReturnsError(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockSender:    "agent-self",
+		MockWindows:   []string{"agent-self"},
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the send handler with recipient = sender
+	ctx := context.Background()
+	result, err := sendHandler(ctx, makeSendRequest("agent-self", "Hello myself!"))
+	if err != nil {
+		t.Fatalf("sendHandler returned unexpected error: %v", err)
+	}
+
+	// Should return an error result (self-send not allowed)
+	if !result.IsError {
+		t.Fatal("sendHandler should return error for sending to self")
+	}
+
+	// Verify error message contains "recipient not found"
+	if len(result.Content) == 0 {
+		t.Fatal("sendHandler returned empty error content")
+	}
+
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("sendHandler error content is not TextContent, got %T", result.Content[0])
+	}
+
+	if !strings.Contains(textContent.Text, "recipient not found") {
+		t.Errorf("Expected error to contain 'recipient not found', got: %s", textContent.Text)
+	}
+}
+
+// Test send to ignored recipient returns error
+func TestSendHandler_IgnoredRecipientReturnsError(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Create .agentmailignore file
+	ignoreFile := filepath.Join(tmpDir, ".agentmailignore")
+	if err := os.WriteFile(ignoreFile, []byte("ignored-agent\n"), 0644); err != nil {
+		t.Fatalf("Failed to create ignore file: %v", err)
+	}
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck:  true,
+		MockSender:     "agent-sender",
+		MockWindows:    []string{"agent-sender", "ignored-agent"},
+		RepoRoot:       tmpDir,
+		MockIgnoreList: map[string]bool{"ignored-agent": true},
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the send handler with ignored recipient
+	ctx := context.Background()
+	result, err := sendHandler(ctx, makeSendRequest("ignored-agent", "This should fail"))
+	if err != nil {
+		t.Fatalf("sendHandler returned unexpected error: %v", err)
+	}
+
+	// Should return an error result
+	if !result.IsError {
+		t.Fatal("sendHandler should return error for ignored recipient")
+	}
+
+	// Verify error message contains "recipient not found"
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("sendHandler error content is not TextContent, got %T", result.Content[0])
+	}
+
+	if !strings.Contains(textContent.Text, "recipient not found") {
+		t.Errorf("Expected error to contain 'recipient not found', got: %s", textContent.Text)
+	}
+}
+
+// Test send response format matches data-model.md
+func TestSendHandler_ResponseFormat(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockSender:    "agent-sender",
+		MockWindows:   []string{"agent-sender", "agent-receiver"},
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the send handler
+	ctx := context.Background()
+	result, err := sendHandler(ctx, makeSendRequest("agent-receiver", "Test message"))
+	if err != nil {
+		t.Fatalf("sendHandler returned error: %v", err)
+	}
+
+	// Parse the response
+	textContent := result.Content[0].(*mcp.TextContent)
+
+	// Verify JSON structure matches data-model.md SendResponse
+	var responseMap map[string]any
+	if err := json.Unmarshal([]byte(textContent.Text), &responseMap); err != nil {
+		t.Fatalf("Failed to parse response JSON: %v", err)
+	}
+
+	// Should have only "message_id" field
+	if len(responseMap) != 1 {
+		t.Errorf("Expected 1 field, got %d: %v", len(responseMap), responseMap)
+	}
+	if _, ok := responseMap["message_id"]; !ok {
+		t.Error("Response missing 'message_id' field")
+	}
+
+	// Verify message_id is a non-empty string
+	messageID, ok := responseMap["message_id"].(string)
+	if !ok {
+		t.Errorf("message_id is not a string: %T", responseMap["message_id"])
+	}
+	if messageID == "" {
+		t.Error("message_id should not be empty")
+	}
+}
+
+// T034 / SC-002: Verify MCP send creates message readable via CLI
+func TestSendHandler_MessageReadableViaCLI(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockSender:    "mcp-sender",
+		MockReceiver:  "cli-receiver",
+		MockWindows:   []string{"mcp-sender", "cli-receiver"},
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Send a message via MCP
+	ctx := context.Background()
+	sendResult, err := sendHandler(ctx, makeSendRequest("cli-receiver", "MCP to CLI test message"))
+	if err != nil {
+		t.Fatalf("sendHandler returned error: %v", err)
+	}
+
+	if sendResult.IsError {
+		t.Fatalf("sendHandler returned error result: %v", sendResult.Content)
+	}
+
+	// Get the message ID from send response
+	textContent := sendResult.Content[0].(*mcp.TextContent)
+	var sendResponse SendResponse
+	if err := json.Unmarshal([]byte(textContent.Text), &sendResponse); err != nil {
+		t.Fatalf("Failed to parse send response: %v", err)
+	}
+
+	// Now receive the message via MCP receive handler (simulates CLI receive)
+	receiveResult, err := receiveHandler(ctx, &mcp.CallToolRequest{})
+	if err != nil {
+		t.Fatalf("receiveHandler returned error: %v", err)
+	}
+
+	if receiveResult.IsError {
+		t.Fatalf("receiveHandler returned error result: %v", receiveResult.Content)
+	}
+
+	// Parse receive response
+	receiveTextContent := receiveResult.Content[0].(*mcp.TextContent)
+	var receiveResponse ReceiveResponse
+	if err := json.Unmarshal([]byte(receiveTextContent.Text), &receiveResponse); err != nil {
+		t.Fatalf("Failed to parse receive response: %v", err)
+	}
+
+	// SC-002: Verify the received message matches what was sent
+	if receiveResponse.ID != sendResponse.MessageID {
+		t.Errorf("Message ID mismatch: sent %s, received %s", sendResponse.MessageID, receiveResponse.ID)
+	}
+	if receiveResponse.From != "mcp-sender" {
+		t.Errorf("Sender mismatch: expected 'mcp-sender', got '%s'", receiveResponse.From)
+	}
+	if receiveResponse.Message != "MCP to CLI test message" {
+		t.Errorf("Message mismatch: expected 'MCP to CLI test message', got '%s'", receiveResponse.Message)
+	}
+}
+
+// Test send via MCP client integration
+func TestSendHandler_MCPClientIntegration(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockSender:    "mcp-client-sender",
+		MockWindows:   []string{"mcp-client-sender", "mcp-client-receiver"},
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Set up test server and client
+	_, clientSession := setupTestServer(t)
+	defer clientSession.Close()
+
+	ctx := context.Background()
+
+	// Call send tool via MCP client
+	result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: ToolSend,
+		Arguments: map[string]any{
+			"recipient": "mcp-client-receiver",
+			"message":   "MCP client integration test",
+		},
+	})
+	if err != nil {
+		t.Fatalf("CallTool(send) failed: %v", err)
+	}
+
+	if result.IsError {
+		textContent := result.Content[0].(*mcp.TextContent)
+		t.Fatalf("CallTool(send) returned error: %s", textContent.Text)
+	}
+
+	if len(result.Content) == 0 {
+		t.Fatal("CallTool(send) returned empty content")
+	}
+
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("CallTool(send) content is not TextContent")
+	}
+
+	// Parse and verify response
+	var response SendResponse
+	if err := json.Unmarshal([]byte(textContent.Text), &response); err != nil {
+		t.Fatalf("Failed to parse response JSON: %v", err)
+	}
+
+	if response.MessageID == "" {
+		t.Error("Expected non-empty message_id")
+	}
+
+	// Verify message was stored
+	mailboxPath := filepath.Join(tmpDir, ".agentmail", "mailboxes", "mcp-client-receiver.jsonl")
+	data, err := os.ReadFile(mailboxPath)
+	if err != nil {
+		t.Fatalf("Failed to read mailbox file: %v", err)
+	}
+
+	if !strings.Contains(string(data), "MCP client integration test") {
+		t.Errorf("Message not found in mailbox. Content: %s", data)
+	}
+}
+
+// Test send exactly at 64KB boundary succeeds
+func TestSendHandler_ExactlyMaxSizeSucceeds(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockSender:    "agent-sender",
+		MockWindows:   []string{"agent-sender", "agent-receiver"},
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Create a message exactly at 64KB (65536 bytes)
+	exactMessage := strings.Repeat("x", 65536)
+
+	// Call the send handler with exact max size message
+	ctx := context.Background()
+	result, err := sendHandler(ctx, makeSendRequest("agent-receiver", exactMessage))
+	if err != nil {
+		t.Fatalf("sendHandler returned unexpected error: %v", err)
+	}
+
+	// Should succeed
+	if result.IsError {
+		textContent := result.Content[0].(*mcp.TextContent)
+		t.Fatalf("sendHandler should succeed for message exactly at 64KB, got error: %s", textContent.Text)
+	}
+
+	// Verify response has message_id
+	textContent := result.Content[0].(*mcp.TextContent)
+	var response SendResponse
+	if err := json.Unmarshal([]byte(textContent.Text), &response); err != nil {
+		t.Fatalf("Failed to parse response JSON: %v", err)
+	}
+
+	if response.MessageID == "" {
+		t.Error("Expected non-empty message_id")
 	}
 }

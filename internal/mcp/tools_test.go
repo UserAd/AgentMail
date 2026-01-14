@@ -398,7 +398,7 @@ func TestToolDiscovery_Performance(t *testing.T) {
 
 func TestToolHandlers_ReturnNotImplemented(t *testing.T) {
 	// Test that stub tool handlers return "not implemented"
-	// Note: receive tool is now implemented - tested in handlers_test.go
+	// Note: receive and send tools are now implemented - tested in handlers_test.go
 	_, clientSession := setupTestServer(t)
 	defer clientSession.Close()
 
@@ -409,14 +409,7 @@ func TestToolHandlers_ReturnNotImplemented(t *testing.T) {
 		toolName  string
 		arguments map[string]any
 	}{
-		{
-			name:     "send tool",
-			toolName: ToolSend,
-			arguments: map[string]any{
-				"recipient": "test-window",
-				"message":   "test message",
-			},
-		},
+		// send tool is now implemented - see handlers_test.go
 		// receive tool is now implemented - see handlers_test.go
 		{
 			name:     "status tool",

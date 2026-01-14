@@ -128,13 +128,9 @@ func RegisterTools(s *Server) {
 }
 
 // sendHandler handles the send tool invocation.
-// Stub implementation - will be replaced in later phases.
-func sendHandler(_ context.Context, _ *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			&mcp.TextContent{Text: "not implemented"},
-		},
-	}, nil
+// Delegates to handleSend in handlers.go for actual implementation.
+func sendHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return handleSend(ctx, req)
 }
 
 // receiveHandler handles the receive tool invocation.

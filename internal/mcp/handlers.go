@@ -17,6 +17,12 @@ type HandlerOptions struct {
 	SkipTmuxCheck bool
 	// MockReceiver is the mock receiver window name (for testing).
 	MockReceiver string
+	// MockSender is the mock sender window name (for testing).
+	MockSender string
+	// MockWindows is the mock list of tmux windows (for testing).
+	MockWindows []string
+	// MockIgnoreList is the mock ignore list (for testing).
+	MockIgnoreList map[string]bool
 	// RepoRoot is the repository root (defaults to git root).
 	RepoRoot string
 }
@@ -31,6 +37,11 @@ func SetHandlerOptions(opts *HandlerOptions) {
 	handlerOptions = opts
 }
 
+// SendResponse represents a successful send response.
+type SendResponse struct {
+	MessageID string `json:"message_id"` // Generated message ID
+}
+
 // ReceiveResponse represents a successful receive response with a message.
 type ReceiveResponse struct {
 	From    string `json:"from"`    // Sender window name
@@ -41,6 +52,169 @@ type ReceiveResponse struct {
 // ReceiveEmptyResponse represents a response when no messages are available.
 type ReceiveEmptyResponse struct {
 	Status string `json:"status"` // "No unread messages"
+}
+
+// MaxMessageSizeBytes is the maximum allowed message size (64KB per FR-013).
+const MaxMessageSizeBytes = 65536
+
+// doSend implements the send handler logic.
+// It validates the message, stores it, and returns the response or an error.
+func doSend(ctx context.Context, recipient, message string) (any, error) {
+	opts := handlerOptions
+	if opts == nil {
+		opts = &HandlerOptions{}
+	}
+
+	// Validate message is not empty
+	if message == "" {
+		return nil, fmt.Errorf("no message provided")
+	}
+
+	// FR-013: Validate message size (64KB limit)
+	if len(message) > MaxMessageSizeBytes {
+		return nil, fmt.Errorf("message exceeds maximum size of 64KB")
+	}
+
+	// Get sender identity
+	var sender string
+	if opts.MockSender != "" {
+		sender = opts.MockSender
+	} else {
+		var err error
+		sender, err = tmux.GetCurrentWindow()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get current window: %w", err)
+		}
+	}
+
+	// FR-009: Validate recipient exists
+	var recipientExists bool
+	if opts.MockWindows != nil {
+		for _, w := range opts.MockWindows {
+			if w == recipient {
+				recipientExists = true
+				break
+			}
+		}
+	} else {
+		var err error
+		recipientExists, err = tmux.WindowExists(recipient)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check recipient: %w", err)
+		}
+	}
+
+	if !recipientExists {
+		return nil, fmt.Errorf("recipient not found")
+	}
+
+	// Check if sending to self (not allowed)
+	if recipient == sender {
+		return nil, fmt.Errorf("recipient not found")
+	}
+
+	// Load and check ignore list
+	var ignoreList map[string]bool
+	if opts.MockIgnoreList != nil {
+		ignoreList = opts.MockIgnoreList
+	} else {
+		// Determine git root for loading ignore list
+		gitRoot := opts.RepoRoot
+		if gitRoot == "" {
+			gitRoot, _ = mail.FindGitRoot()
+		}
+		if gitRoot != "" {
+			ignoreList, _ = mail.LoadIgnoreList(gitRoot)
+		}
+	}
+
+	// Check if recipient is in ignore list
+	if ignoreList != nil && ignoreList[recipient] {
+		return nil, fmt.Errorf("recipient not found")
+	}
+
+	// Generate message ID
+	id, err := mail.GenerateID()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate message ID: %w", err)
+	}
+
+	// Determine repository root
+	repoRoot := opts.RepoRoot
+	if repoRoot == "" {
+		repoRoot, err = mail.FindGitRoot()
+		if err != nil {
+			return nil, fmt.Errorf("not in a git repository: %w", err)
+		}
+	}
+
+	// Store message
+	msg := mail.Message{
+		ID:       id,
+		From:     sender,
+		To:       recipient,
+		Message:  message,
+		ReadFlag: false,
+	}
+
+	if err := mail.Append(repoRoot, msg); err != nil {
+		return nil, fmt.Errorf("failed to write message: %w", err)
+	}
+
+	// FR-004: Return response with message_id
+	return SendResponse{
+		MessageID: id,
+	}, nil
+}
+
+// sendParams holds the unmarshaled parameters for the send tool.
+type sendParams struct {
+	Recipient string `json:"recipient"`
+	Message   string `json:"message"`
+}
+
+// handleSend is the MCP handler function for the send tool.
+// It wraps doSend and formats the response as MCP content.
+func handleSend(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// Extract parameters from request by unmarshaling JSON
+	var params sendParams
+	if req.Params != nil && req.Params.Arguments != nil {
+		if err := json.Unmarshal(req.Params.Arguments, &params); err != nil {
+			return &mcp.CallToolResult{
+				IsError: true,
+				Content: []mcp.Content{
+					&mcp.TextContent{Text: fmt.Sprintf("failed to parse arguments: %v", err)},
+				},
+			}, nil
+		}
+	}
+
+	response, err := doSend(ctx, params.Recipient, params.Message)
+	if err != nil {
+		return &mcp.CallToolResult{
+			IsError: true,
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: err.Error()},
+			},
+		}, nil
+	}
+
+	// Encode response as JSON
+	jsonBytes, err := json.Marshal(response)
+	if err != nil {
+		return &mcp.CallToolResult{
+			IsError: true,
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: fmt.Sprintf("failed to encode response: %v", err)},
+			},
+		}, nil
+	}
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: string(jsonBytes)},
+		},
+	}, nil
 }
 
 // doReceive implements the receive handler logic.

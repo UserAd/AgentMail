@@ -138,13 +138,9 @@ func sendHandler(_ context.Context, _ *mcp.CallToolRequest) (*mcp.CallToolResult
 }
 
 // receiveHandler handles the receive tool invocation.
-// Stub implementation - will be replaced in later phases.
-func receiveHandler(_ context.Context, _ *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			&mcp.TextContent{Text: "not implemented"},
-		},
-	}, nil
+// Delegates to handleReceive in handlers.go for actual implementation.
+func receiveHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return handleReceive(ctx, req)
 }
 
 // statusHandler handles the status tool invocation.

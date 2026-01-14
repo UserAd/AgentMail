@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"agentmail/internal/mail"
 	"agentmail/internal/tmux"
@@ -29,12 +30,25 @@ type HandlerOptions struct {
 
 // handlerOptions holds the current handler options.
 // Set via SetHandlerOptions for testing, nil for production.
-var handlerOptions *HandlerOptions
+// Protected by handlerOptionsMu for thread-safe access.
+var (
+	handlerOptions   *HandlerOptions
+	handlerOptionsMu sync.RWMutex
+)
 
 // SetHandlerOptions sets the handler options for testing.
 // Pass nil to reset to production behavior.
 func SetHandlerOptions(opts *HandlerOptions) {
+	handlerOptionsMu.Lock()
+	defer handlerOptionsMu.Unlock()
 	handlerOptions = opts
+}
+
+// getHandlerOptions returns the current handler options in a thread-safe manner.
+func getHandlerOptions() *HandlerOptions {
+	handlerOptionsMu.RLock()
+	defer handlerOptionsMu.RUnlock()
+	return handlerOptions
 }
 
 // SendResponse represents a successful send response.
@@ -70,13 +84,10 @@ type RecipientInfo struct {
 	IsCurrent bool   `json:"is_current"` // True if this is the caller's window
 }
 
-// MaxMessageSizeBytes is the maximum allowed message size (64KB per FR-013).
-const MaxMessageSizeBytes = 65536
-
 // doSend implements the send handler logic.
 // It validates the message, stores it, and returns the response or an error.
 func doSend(ctx context.Context, recipient, message string) (any, error) {
-	opts := handlerOptions
+	opts := getHandlerOptions()
 	if opts == nil {
 		opts = &HandlerOptions{}
 	}
@@ -87,7 +98,7 @@ func doSend(ctx context.Context, recipient, message string) (any, error) {
 	}
 
 	// FR-013: Validate message size (64KB limit)
-	if len(message) > MaxMessageSizeBytes {
+	if len(message) > MaxMessageSize {
 		return nil, fmt.Errorf("message exceeds maximum size of 64KB")
 	}
 
@@ -134,13 +145,16 @@ func doSend(ctx context.Context, recipient, message string) (any, error) {
 	if opts.MockIgnoreList != nil {
 		ignoreList = opts.MockIgnoreList
 	} else {
-		// Determine git root for loading ignore list
+		// Determine git root for loading ignore list.
+		// Errors are intentionally ignored: if we can't find git root or load
+		// the ignore list, we proceed without filtering - this is acceptable
+		// as the ignore list is optional.
 		gitRoot := opts.RepoRoot
 		if gitRoot == "" {
-			gitRoot, _ = mail.FindGitRoot()
+			gitRoot, _ = mail.FindGitRoot() // Error ignored: proceed without ignore list
 		}
 		if gitRoot != "" {
-			ignoreList, _ = mail.LoadIgnoreList(gitRoot)
+			ignoreList, _ = mail.LoadIgnoreList(gitRoot) // Error ignored: proceed without ignore list
 		}
 	}
 
@@ -236,7 +250,7 @@ func handleSend(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolRes
 // doReceive implements the receive handler logic.
 // It returns the response as a map for JSON encoding, or an error.
 func doReceive(ctx context.Context) (any, error) {
-	opts := handlerOptions
+	opts := getHandlerOptions()
 	if opts == nil {
 		opts = &HandlerOptions{}
 	}
@@ -339,7 +353,7 @@ func validateStatus(status string) bool {
 // doStatus implements the status handler logic.
 // It validates the status, updates the recipient state, and returns the response or an error.
 func doStatus(ctx context.Context, status string) (any, error) {
-	opts := handlerOptions
+	opts := getHandlerOptions()
 	if opts == nil {
 		opts = &HandlerOptions{}
 	}
@@ -439,7 +453,7 @@ func handleStatus(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolR
 // It returns all available agents (tmux windows) with the current window marked.
 // Ignored windows are excluded, but current window is always shown.
 func doListRecipients(ctx context.Context) (any, error) {
-	opts := handlerOptions
+	opts := getHandlerOptions()
 	if opts == nil {
 		opts = &HandlerOptions{}
 	}
@@ -473,13 +487,16 @@ func doListRecipients(ctx context.Context) (any, error) {
 	if opts.MockIgnoreList != nil {
 		ignoreList = opts.MockIgnoreList
 	} else {
-		// Determine git root for loading ignore list
+		// Determine git root for loading ignore list.
+		// Errors are intentionally ignored: if we can't find git root or load
+		// the ignore list, we proceed without filtering - this is acceptable
+		// as the ignore list is optional.
 		gitRoot := opts.RepoRoot
 		if gitRoot == "" {
-			gitRoot, _ = mail.FindGitRoot()
+			gitRoot, _ = mail.FindGitRoot() // Error ignored: proceed without ignore list
 		}
 		if gitRoot != "" {
-			ignoreList, _ = mail.LoadIgnoreList(gitRoot)
+			ignoreList, _ = mail.LoadIgnoreList(gitRoot) // Error ignored: proceed without ignore list
 		}
 	}
 

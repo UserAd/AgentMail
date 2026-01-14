@@ -197,6 +197,9 @@ func TestReceiveHandler_AllMessagesReadReturnsEmptyStatus(t *testing.T) {
 	}
 
 	// Parse the response
+	if len(result.Content) == 0 {
+		t.Fatal("receiveHandler returned empty content")
+	}
 	textContent, ok := result.Content[0].(*mcp.TextContent)
 	if !ok {
 		t.Fatalf("receiveHandler content is not TextContent")

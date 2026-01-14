@@ -200,3 +200,22 @@ func TestVersion_Default(t *testing.T) {
 		t.Logf("Version is set to: %s (may be set by build flags)", Version)
 	}
 }
+
+func TestVersion_CanBeOverridden(t *testing.T) {
+	// This test documents how to override the Version constant at build time.
+	// The Version variable can be set via ldflags during compilation:
+	//
+	//   go build -ldflags="-X agentmail/internal/mcp.Version=1.0.0" ./cmd/agentmail
+	//
+	// For releases, the GitHub Actions workflow sets this automatically:
+	//
+	//   go build -ldflags="-s -w -X main.version=${VERSION}" ./cmd/agentmail
+	//
+	// Note: The version is typically set on main.version, which is then used
+	// to initialize mcp.Version or passed to the MCP server.
+	//
+	// This test cannot verify ldflags behavior at runtime, but documents the pattern.
+	t.Log("Version can be overridden at build time using:")
+	t.Log("  go build -ldflags=\"-X agentmail/internal/mcp.Version=1.0.0\" ./cmd/agentmail")
+	t.Logf("Current Version value: %s", Version)
+}

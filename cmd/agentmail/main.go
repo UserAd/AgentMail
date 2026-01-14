@@ -151,7 +151,7 @@ Valid statuses:
   work     Agent is busy working (resets notification flag)
   offline  Agent is offline (resets notification flag)
 
-The status is stored in .git/mail-recipients.jsonl and used by the
+The status is stored in .agentmail/recipients.jsonl and used by the
 mailman daemon for notification decisions.
 
 When transitioning to 'work' or 'offline', the notified flag is reset
@@ -291,7 +291,7 @@ Examples:
 	rootHelp := `agentmail - Inter-agent communication for tmux sessions
 
 Agents running in different tmux windows can send and receive messages
-through a simple file-based mail system stored in .git/mail/.
+through a simple file-based mail system stored in .agentmail/.
 
 Commands:
   send        Send a message to a tmux window

@@ -22,7 +22,7 @@ A Go CLI tool for inter-agent communication within tmux sessions. Agents running
 
 ## Requirements
 
-- Go 1.23 or later
+- Go 1.25 or later
 - tmux (must be running inside a tmux session)
 - Linux or macOS
 
@@ -417,8 +417,9 @@ The plugin configures hooks that automatically:
 | Event | Action | Status |
 |-------|--------|--------|
 | **SessionStart** | Sets status to ready, runs onboarding | `ready` |
-| **SessionEnd** | Sets status to offline | `offline` |
+| **UserPromptSubmit** | Sets status to work (agent is busy) | `work` |
 | **Stop** (end of turn) | Sets status to ready, checks for messages | `ready` |
+| **SessionEnd** | Sets status to offline | `offline` |
 
 ### Plugin Commands
 
@@ -585,10 +586,10 @@ go vet ./...
 
 ### Testing in CI Environment
 
-To match the CI environment (Go 1.23, Linux):
+To match the CI environment (Go 1.25, Linux):
 
 ```bash
-docker run --rm -v $(pwd):/app -w /app golang:1.23 go test -v -race ./...
+docker run --rm -v $(pwd):/app -w /app golang:1.25 go test -v -race ./...
 ```
 
 ## Project Structure

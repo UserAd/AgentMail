@@ -449,7 +449,6 @@ Add to your Claude Code settings (`.claude/settings.json` in your project or `~/
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "",
         "hooks": [
           {
             "type": "command",
@@ -460,7 +459,6 @@ Add to your Claude Code settings (`.claude/settings.json` in your project or `~/
     ],
     "SessionEnd": [
       {
-        "matcher": "",
         "hooks": [
           {
             "type": "command",
@@ -471,7 +469,6 @@ Add to your Claude Code settings (`.claude/settings.json` in your project or `~/
     ],
     "Stop": [
       {
-        "matcher": "",
         "hooks": [
           {
             "type": "command",
@@ -482,7 +479,6 @@ Add to your Claude Code settings (`.claude/settings.json` in your project or `~/
     ],
     "UserPromptSubmit": [
       {
-        "matcher": "",
         "hooks": [
           {
             "type": "command",

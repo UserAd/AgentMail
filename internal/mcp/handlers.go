@@ -59,6 +59,17 @@ type StatusResponse struct {
 	Status string `json:"status"` // "ok" on success
 }
 
+// ListRecipientsResponse represents the response from the list-recipients tool.
+type ListRecipientsResponse struct {
+	Recipients []RecipientInfo `json:"recipients"`
+}
+
+// RecipientInfo represents a single recipient in the list-recipients response.
+type RecipientInfo struct {
+	Name      string `json:"name"`       // Window name
+	IsCurrent bool   `json:"is_current"` // True if this is the caller's window
+}
+
 // MaxMessageSizeBytes is the maximum allowed message size (64KB per FR-013).
 const MaxMessageSizeBytes = 65536
 
@@ -397,6 +408,108 @@ func handleStatus(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolR
 	}
 
 	response, err := doStatus(ctx, params.Status)
+	if err != nil {
+		return &mcp.CallToolResult{
+			IsError: true,
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: err.Error()},
+			},
+		}, nil
+	}
+
+	// Encode response as JSON
+	jsonBytes, err := json.Marshal(response)
+	if err != nil {
+		return &mcp.CallToolResult{
+			IsError: true,
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: fmt.Sprintf("failed to encode response: %v", err)},
+			},
+		}, nil
+	}
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: string(jsonBytes)},
+		},
+	}, nil
+}
+
+// doListRecipients implements the list-recipients handler logic.
+// It returns all available agents (tmux windows) with the current window marked.
+// Ignored windows are excluded, but current window is always shown.
+func doListRecipients(ctx context.Context) (any, error) {
+	opts := handlerOptions
+	if opts == nil {
+		opts = &HandlerOptions{}
+	}
+
+	// Get current window (agent identity)
+	var currentWindow string
+	if opts.MockReceiver != "" {
+		currentWindow = opts.MockReceiver
+	} else {
+		var err error
+		currentWindow, err = tmux.GetCurrentWindow()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get current window: %w", err)
+		}
+	}
+
+	// Get list of all windows
+	var windows []string
+	if opts.MockWindows != nil {
+		windows = opts.MockWindows
+	} else {
+		var err error
+		windows, err = tmux.ListWindows()
+		if err != nil {
+			return nil, fmt.Errorf("failed to list windows: %w", err)
+		}
+	}
+
+	// Load ignore list
+	var ignoreList map[string]bool
+	if opts.MockIgnoreList != nil {
+		ignoreList = opts.MockIgnoreList
+	} else {
+		// Determine git root for loading ignore list
+		gitRoot := opts.RepoRoot
+		if gitRoot == "" {
+			gitRoot, _ = mail.FindGitRoot()
+		}
+		if gitRoot != "" {
+			ignoreList, _ = mail.LoadIgnoreList(gitRoot)
+		}
+	}
+
+	// Build recipients list, filtering ignored windows but always including current
+	recipients := []RecipientInfo{}
+	for _, window := range windows {
+		// Current window is always shown (even if in ignore list)
+		if window == currentWindow {
+			recipients = append(recipients, RecipientInfo{
+				Name:      window,
+				IsCurrent: true,
+			})
+		} else if ignoreList == nil || !ignoreList[window] {
+			// Only show non-current windows if they're not in the ignore list
+			recipients = append(recipients, RecipientInfo{
+				Name:      window,
+				IsCurrent: false,
+			})
+		}
+	}
+
+	return ListRecipientsResponse{
+		Recipients: recipients,
+	}, nil
+}
+
+// handleListRecipients is the MCP handler function for the list-recipients tool.
+// It wraps doListRecipients and formats the response as MCP content.
+func handleListRecipients(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	response, err := doListRecipients(ctx)
 	if err != nil {
 		return &mcp.CallToolResult{
 			IsError: true,

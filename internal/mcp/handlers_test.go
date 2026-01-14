@@ -1462,3 +1462,456 @@ func TestStatusHandler_AllValidStatuses(t *testing.T) {
 		})
 	}
 }
+
+// ============================================================================
+// List-Recipients Handler Tests
+// ============================================================================
+
+// T042: Test list-recipients returns all agents (FR-006)
+func TestListRecipientsHandler_ReturnsAllAgents(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing with multiple windows
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockReceiver:  "agent-1",
+		MockWindows:   []string{"agent-1", "agent-2", "agent-3"},
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the handler
+	ctx := context.Background()
+	result, err := listRecipientsHandler(ctx, &mcp.CallToolRequest{})
+	if err != nil {
+		t.Fatalf("listRecipientsHandler returned error: %v", err)
+	}
+
+	// Should not be an error result
+	if result.IsError {
+		t.Fatalf("listRecipientsHandler returned error result: %v", result.Content)
+	}
+
+	// Parse the response
+	if len(result.Content) == 0 {
+		t.Fatal("listRecipientsHandler returned empty content")
+	}
+
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("listRecipientsHandler content is not TextContent, got %T", result.Content[0])
+	}
+
+	var response ListRecipientsResponse
+	if err := json.Unmarshal([]byte(textContent.Text), &response); err != nil {
+		t.Fatalf("Failed to parse response JSON: %v", err)
+	}
+
+	// FR-006: Should return all 3 windows
+	if len(response.Recipients) != 3 {
+		t.Errorf("Expected 3 recipients, got %d", len(response.Recipients))
+	}
+
+	// Verify all windows are present
+	found := make(map[string]bool)
+	for _, r := range response.Recipients {
+		found[r.Name] = true
+	}
+	for _, expected := range []string{"agent-1", "agent-2", "agent-3"} {
+		if !found[expected] {
+			t.Errorf("Expected recipient '%s' not found", expected)
+		}
+	}
+}
+
+// T043: Test current window is marked with is_current: true
+func TestListRecipientsHandler_CurrentWindowMarkedIsCurrent(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockReceiver:  "agent-2",
+		MockWindows:   []string{"agent-1", "agent-2", "agent-3"},
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the handler
+	ctx := context.Background()
+	result, err := listRecipientsHandler(ctx, &mcp.CallToolRequest{})
+	if err != nil {
+		t.Fatalf("listRecipientsHandler returned error: %v", err)
+	}
+
+	// Should not be an error result
+	if result.IsError {
+		t.Fatalf("listRecipientsHandler returned error result: %v", result.Content)
+	}
+
+	// Parse the response
+	textContent := result.Content[0].(*mcp.TextContent)
+	var response ListRecipientsResponse
+	if err := json.Unmarshal([]byte(textContent.Text), &response); err != nil {
+		t.Fatalf("Failed to parse response JSON: %v", err)
+	}
+
+	// Verify current window is marked correctly
+	currentCount := 0
+	for _, r := range response.Recipients {
+		if r.Name == "agent-2" {
+			if !r.IsCurrent {
+				t.Error("Current window 'agent-2' should have is_current: true")
+			}
+			currentCount++
+		} else {
+			if r.IsCurrent {
+				t.Errorf("Non-current window '%s' should have is_current: false", r.Name)
+			}
+		}
+	}
+
+	// Should have exactly one current window
+	if currentCount != 1 {
+		t.Errorf("Expected exactly 1 current window, found %d", currentCount)
+	}
+}
+
+// T044: Test ignored windows are excluded from list
+func TestListRecipientsHandler_IgnoredWindowsExcluded(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing with ignored windows
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck:  true,
+		MockReceiver:   "agent-1",
+		MockWindows:    []string{"agent-1", "agent-2", "ignored-agent", "agent-3"},
+		MockIgnoreList: map[string]bool{"ignored-agent": true},
+		RepoRoot:       tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the handler
+	ctx := context.Background()
+	result, err := listRecipientsHandler(ctx, &mcp.CallToolRequest{})
+	if err != nil {
+		t.Fatalf("listRecipientsHandler returned error: %v", err)
+	}
+
+	// Should not be an error result
+	if result.IsError {
+		t.Fatalf("listRecipientsHandler returned error result: %v", result.Content)
+	}
+
+	// Parse the response
+	textContent := result.Content[0].(*mcp.TextContent)
+	var response ListRecipientsResponse
+	if err := json.Unmarshal([]byte(textContent.Text), &response); err != nil {
+		t.Fatalf("Failed to parse response JSON: %v", err)
+	}
+
+	// Should return 3 recipients (ignored-agent excluded)
+	if len(response.Recipients) != 3 {
+		t.Errorf("Expected 3 recipients (ignored excluded), got %d", len(response.Recipients))
+	}
+
+	// Verify ignored window is not in the list
+	for _, r := range response.Recipients {
+		if r.Name == "ignored-agent" {
+			t.Error("Ignored window 'ignored-agent' should not be in recipients list")
+		}
+	}
+}
+
+// Test current window shown even if in ignore list
+func TestListRecipientsHandler_CurrentWindowShownEvenIfIgnored(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler where current window is in ignore list
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck:  true,
+		MockReceiver:   "ignored-current",
+		MockWindows:    []string{"agent-1", "ignored-current", "agent-2"},
+		MockIgnoreList: map[string]bool{"ignored-current": true},
+		RepoRoot:       tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the handler
+	ctx := context.Background()
+	result, err := listRecipientsHandler(ctx, &mcp.CallToolRequest{})
+	if err != nil {
+		t.Fatalf("listRecipientsHandler returned error: %v", err)
+	}
+
+	// Should not be an error result
+	if result.IsError {
+		t.Fatalf("listRecipientsHandler returned error result: %v", result.Content)
+	}
+
+	// Parse the response
+	textContent := result.Content[0].(*mcp.TextContent)
+	var response ListRecipientsResponse
+	if err := json.Unmarshal([]byte(textContent.Text), &response); err != nil {
+		t.Fatalf("Failed to parse response JSON: %v", err)
+	}
+
+	// Should return 3 recipients (current window shown even though ignored)
+	if len(response.Recipients) != 3 {
+		t.Errorf("Expected 3 recipients (current shown even if ignored), got %d", len(response.Recipients))
+	}
+
+	// Verify current window is in the list and marked as current
+	found := false
+	for _, r := range response.Recipients {
+		if r.Name == "ignored-current" {
+			found = true
+			if !r.IsCurrent {
+				t.Error("Current window 'ignored-current' should have is_current: true")
+			}
+		}
+	}
+	if !found {
+		t.Error("Current window 'ignored-current' should be in recipients list even though ignored")
+	}
+}
+
+// Test response format matches data-model.md
+func TestListRecipientsHandler_ResponseFormat(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockReceiver:  "test-agent",
+		MockWindows:   []string{"test-agent", "other-agent"},
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the handler
+	ctx := context.Background()
+	result, err := listRecipientsHandler(ctx, &mcp.CallToolRequest{})
+	if err != nil {
+		t.Fatalf("listRecipientsHandler returned error: %v", err)
+	}
+
+	// Parse the response
+	textContent := result.Content[0].(*mcp.TextContent)
+
+	// Verify JSON structure matches data-model.md
+	var responseMap map[string]any
+	if err := json.Unmarshal([]byte(textContent.Text), &responseMap); err != nil {
+		t.Fatalf("Failed to parse response JSON: %v", err)
+	}
+
+	// Should have "recipients" field
+	if _, ok := responseMap["recipients"]; !ok {
+		t.Error("Response missing 'recipients' field")
+	}
+
+	// Verify recipients is an array
+	recipients, ok := responseMap["recipients"].([]any)
+	if !ok {
+		t.Fatalf("recipients is not an array: %T", responseMap["recipients"])
+	}
+
+	// Verify each recipient has required fields
+	for i, r := range recipients {
+		recipient, ok := r.(map[string]any)
+		if !ok {
+			t.Fatalf("recipient %d is not an object", i)
+		}
+		if _, ok := recipient["name"]; !ok {
+			t.Errorf("recipient %d missing 'name' field", i)
+		}
+		if _, ok := recipient["is_current"]; !ok {
+			t.Errorf("recipient %d missing 'is_current' field", i)
+		}
+	}
+}
+
+// Test empty windows list
+func TestListRecipientsHandler_EmptyWindowsList(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler with no windows (edge case)
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockReceiver:  "",
+		MockWindows:   []string{},
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the handler
+	ctx := context.Background()
+	result, err := listRecipientsHandler(ctx, &mcp.CallToolRequest{})
+	if err != nil {
+		t.Fatalf("listRecipientsHandler returned error: %v", err)
+	}
+
+	// Should not be an error result
+	if result.IsError {
+		t.Fatalf("listRecipientsHandler returned error result: %v", result.Content)
+	}
+
+	// Parse the response
+	textContent := result.Content[0].(*mcp.TextContent)
+	var response ListRecipientsResponse
+	if err := json.Unmarshal([]byte(textContent.Text), &response); err != nil {
+		t.Fatalf("Failed to parse response JSON: %v", err)
+	}
+
+	// Should return empty recipients array
+	if len(response.Recipients) != 0 {
+		t.Errorf("Expected 0 recipients for empty windows list, got %d", len(response.Recipients))
+	}
+}
+
+// Test list-recipients via MCP client integration
+func TestListRecipientsHandler_MCPClientIntegration(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockReceiver:  "mcp-agent",
+		MockWindows:   []string{"mcp-agent", "other-agent"},
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Set up test server and client
+	_, clientSession := setupTestServer(t)
+	defer clientSession.Close()
+
+	ctx := context.Background()
+
+	// Call list-recipients tool via MCP client
+	result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name:      ToolListRecipients,
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("CallTool(list-recipients) failed: %v", err)
+	}
+
+	if result.IsError {
+		textContent := result.Content[0].(*mcp.TextContent)
+		t.Fatalf("CallTool(list-recipients) returned error: %s", textContent.Text)
+	}
+
+	if len(result.Content) == 0 {
+		t.Fatal("CallTool(list-recipients) returned empty content")
+	}
+
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("CallTool(list-recipients) content is not TextContent")
+	}
+
+	// Parse and verify response
+	var response ListRecipientsResponse
+	if err := json.Unmarshal([]byte(textContent.Text), &response); err != nil {
+		t.Fatalf("Failed to parse response JSON: %v", err)
+	}
+
+	// Verify response contains expected recipients
+	if len(response.Recipients) != 2 {
+		t.Errorf("Expected 2 recipients, got %d", len(response.Recipients))
+	}
+}
+
+// Test multiple ignored windows are all excluded
+func TestListRecipientsHandler_MultipleIgnoredWindowsExcluded(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler with multiple ignored windows
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck:  true,
+		MockReceiver:   "agent-1",
+		MockWindows:    []string{"agent-1", "ignored-1", "agent-2", "ignored-2", "agent-3"},
+		MockIgnoreList: map[string]bool{"ignored-1": true, "ignored-2": true},
+		RepoRoot:       tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the handler
+	ctx := context.Background()
+	result, err := listRecipientsHandler(ctx, &mcp.CallToolRequest{})
+	if err != nil {
+		t.Fatalf("listRecipientsHandler returned error: %v", err)
+	}
+
+	// Parse the response
+	textContent := result.Content[0].(*mcp.TextContent)
+	var response ListRecipientsResponse
+	if err := json.Unmarshal([]byte(textContent.Text), &response); err != nil {
+		t.Fatalf("Failed to parse response JSON: %v", err)
+	}
+
+	// Should return 3 recipients (both ignored windows excluded)
+	if len(response.Recipients) != 3 {
+		t.Errorf("Expected 3 recipients, got %d", len(response.Recipients))
+	}
+
+	// Verify neither ignored window is in the list
+	for _, r := range response.Recipients {
+		if r.Name == "ignored-1" || r.Name == "ignored-2" {
+			t.Errorf("Ignored window '%s' should not be in recipients list", r.Name)
+		}
+	}
+}
+
+// Test single window (only current)
+func TestListRecipientsHandler_SingleWindow(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler with only one window
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockReceiver:  "solo-agent",
+		MockWindows:   []string{"solo-agent"},
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the handler
+	ctx := context.Background()
+	result, err := listRecipientsHandler(ctx, &mcp.CallToolRequest{})
+	if err != nil {
+		t.Fatalf("listRecipientsHandler returned error: %v", err)
+	}
+
+	// Parse the response
+	textContent := result.Content[0].(*mcp.TextContent)
+	var response ListRecipientsResponse
+	if err := json.Unmarshal([]byte(textContent.Text), &response); err != nil {
+		t.Fatalf("Failed to parse response JSON: %v", err)
+	}
+
+	// Should return 1 recipient
+	if len(response.Recipients) != 1 {
+		t.Errorf("Expected 1 recipient, got %d", len(response.Recipients))
+	}
+
+	// Should be marked as current
+	if len(response.Recipients) > 0 {
+		if response.Recipients[0].Name != "solo-agent" {
+			t.Errorf("Expected name 'solo-agent', got '%s'", response.Recipients[0].Name)
+		}
+		if !response.Recipients[0].IsCurrent {
+			t.Error("Solo window should be marked as current")
+		}
+	}
+}

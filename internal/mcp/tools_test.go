@@ -396,54 +396,11 @@ func TestToolDiscovery_Performance(t *testing.T) {
 	}
 }
 
-func TestToolHandlers_ReturnNotImplemented(t *testing.T) {
-	// Test that stub tool handlers return "not implemented"
-	// Note: receive, send, and status tools are now implemented - tested in handlers_test.go
-	_, clientSession := setupTestServer(t)
-	defer clientSession.Close()
-
-	ctx := context.Background()
-
-	testCases := []struct {
-		name      string
-		toolName  string
-		arguments map[string]any
-	}{
-		// send tool is now implemented - see handlers_test.go
-		// receive tool is now implemented - see handlers_test.go
-		// status tool is now implemented - see handlers_test.go
-		{
-			name:      "list-recipients tool",
-			toolName:  ToolListRecipients,
-			arguments: map[string]any{},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
-				Name:      tc.toolName,
-				Arguments: tc.arguments,
-			})
-			if err != nil {
-				t.Fatalf("CallTool(%s) failed: %v", tc.toolName, err)
-			}
-
-			if len(result.Content) == 0 {
-				t.Fatalf("CallTool(%s) returned empty content", tc.toolName)
-			}
-
-			textContent, ok := result.Content[0].(*mcp.TextContent)
-			if !ok {
-				t.Fatalf("CallTool(%s) content is not TextContent", tc.toolName)
-			}
-
-			if textContent.Text != "not implemented" {
-				t.Errorf("CallTool(%s) returned %q, expected 'not implemented'", tc.toolName, textContent.Text)
-			}
-		})
-	}
-}
+// TestToolHandlers_ReturnNotImplemented is no longer needed since all tools are now implemented.
+// - send tool: implemented and tested in handlers_test.go
+// - receive tool: implemented and tested in handlers_test.go
+// - status tool: implemented and tested in handlers_test.go
+// - list-recipients tool: implemented and tested in handlers_test.go
 
 func TestToolConstants(t *testing.T) {
 	// Verify tool name constants match expected values

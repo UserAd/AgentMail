@@ -146,11 +146,7 @@ func statusHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallTool
 }
 
 // listRecipientsHandler handles the list-recipients tool invocation.
-// Stub implementation - will be replaced in later phases.
-func listRecipientsHandler(_ context.Context, _ *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			&mcp.TextContent{Text: "not implemented"},
-		},
-	}, nil
+// Delegates to handleListRecipients in handlers.go for actual implementation.
+func listRecipientsHandler(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return handleListRecipients(ctx, req)
 }

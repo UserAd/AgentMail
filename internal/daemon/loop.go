@@ -12,9 +12,6 @@ import (
 	"agentmail/internal/tmux"
 )
 
-// DefaultLoopInterval is the default interval between notification checks.
-const DefaultLoopInterval = 10 * time.Second
-
 // DefaultStaleThreshold is the default threshold for cleaning stale states.
 const DefaultStaleThreshold = time.Hour
 
@@ -78,11 +75,9 @@ func (t *StatelessTracker) Cleanup(activeWindows []string) {
 	}
 }
 
-// LoopOptions configures the notification loop.
+// LoopOptions configures the notification check.
 type LoopOptions struct {
 	RepoRoot         string            // Repository root path
-	Interval         time.Duration     // Loop interval (default 10s)
-	StopChan         chan struct{}     // Channel to stop the loop
 	SkipTmuxCheck    bool              // Skip tmux check (for testing)
 	StatelessTracker *StatelessTracker // Tracker for stateless agents (T003)
 	Logger           io.Writer         // Logger for foreground mode (nil = no logging)
@@ -274,45 +269,6 @@ func CheckAndNotifyWithNotifier(opts LoopOptions, notify NotifyFunc) error {
 
 	opts.log("Notification cycle complete")
 	return nil
-}
-
-// RunLoop runs the notification loop at the configured interval.
-// It stops when the StopChan is closed.
-func RunLoop(opts LoopOptions) {
-	// Set default interval if not specified
-	interval := opts.Interval
-	if interval == 0 {
-		interval = DefaultLoopInterval
-	}
-
-	opts.log("Starting notification loop with interval %v", interval)
-
-	// Create ticker for the loop
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	// Run initial check immediately
-	opts.log("Running initial notification check")
-	_ = CheckAndNotify(opts) // G104: errors are logged but don't stop the loop
-
-	// Also clean stale states periodically
-	cleanStaleStates(opts.RepoRoot, opts.Logger)
-
-	// Loop until stopped
-	for {
-		select {
-		case <-opts.StopChan:
-			opts.log("Received stop signal, shutting down notification loop")
-			return
-		case <-ticker.C:
-			opts.log("Loop tick: running notification check")
-			// Perform notification check
-			_ = CheckAndNotify(opts) // G104: errors are logged but don't stop the loop
-
-			// Clean stale states periodically
-			cleanStaleStates(opts.RepoRoot, opts.Logger)
-		}
-	}
 }
 
 // cleanStaleStates removes recipient states older than the threshold.

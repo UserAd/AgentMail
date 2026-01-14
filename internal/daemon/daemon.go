@@ -181,7 +181,7 @@ func StartDaemon(repoRoot string, daemonize bool, stdout, stderr io.Writer) int 
 // runForeground runs the daemon in foreground mode.
 // Writes PID file and outputs startup message.
 // Sets up signal handling for graceful shutdown on SIGTERM/SIGINT.
-// Attempts to use file watching for instant notifications, falling back to polling.
+// Uses file watching for instant notifications (required).
 func runForeground(repoRoot string, stdout, stderr io.Writer) int {
 	currentPID := os.Getpid()
 
@@ -201,57 +201,50 @@ func runForeground(repoRoot string, stdout, stderr io.Writer) int {
 	// T025: Initialize StatelessTracker for stateless agent notifications (FR-010, FR-012)
 	tracker := NewStatelessTracker(StatelessNotifyInterval)
 
-	// Create loop options for both file watching and polling modes
-	loopStopChan := make(chan struct{})
+	// Create options for notification checks
 	opts := LoopOptions{
 		RepoRoot:         repoRoot,
-		Interval:         DefaultLoopInterval,
-		StopChan:         loopStopChan,
 		SkipTmuxCheck:    false,   // Production mode: use real tmux
 		StatelessTracker: tracker, // Enable stateless agent notifications
 		Logger:           stdout,  // Log all actions in foreground mode
 	}
 
-	// Try to initialize file watcher for instant notifications (FR-001, FR-002a)
+	// Initialize file watcher for event-driven notifications (required)
 	loopDone := make(chan struct{})
 	fileWatcher, watcherErr := NewFileWatcher(repoRoot)
-	if watcherErr == nil {
-		fileWatcher.SetLogger(stdout) // Enable logging in foreground mode
-		watcherErr = fileWatcher.AddWatches()
+	if watcherErr != nil {
+		fmt.Fprintf(stderr, "error: failed to initialize file watcher: %v\n", watcherErr)
+		_ = DeletePID(repoRoot) // G104: best-effort cleanup
+		return 1
 	}
 
-	if watcherErr == nil {
-		// File watching mode (FR-002a)
-		fmt.Fprintf(stdout, "[mailman] File watching enabled\n")
-
-		go func() {
-			// Create process function that wraps CheckAndNotify AND cleanStaleStates
-			// This ensures stale cleanup runs on events and fallback timer (not just at startup)
-			processFunc := func() {
-				_ = CheckAndNotify(opts) // G104: errors are logged but don't stop the loop
-				cleanStaleStates(repoRoot, stdout)
-			}
-
-			// Run initial check immediately (includes stale cleanup)
-			processFunc()
-
-			// Run the file watcher event loop
-			if err := fileWatcher.Run(processFunc); err != nil {
-				// Watcher error - fall back to polling (FR-014a, FR-014b)
-				fmt.Fprintf(stdout, "[mailman] File watcher error: %v, falling back to polling\n", err)
-				RunLoop(opts)
-			}
-			close(loopDone)
-		}()
-	} else {
-		// File watching unavailable - use polling mode (FR-003a, FR-003b)
-		fmt.Fprintf(stdout, "[mailman] File watching unavailable, using polling\n")
-
-		go func() {
-			RunLoop(opts)
-			close(loopDone)
-		}()
+	fileWatcher.SetLogger(stdout)
+	if err := fileWatcher.AddWatches(); err != nil {
+		fmt.Fprintf(stderr, "error: failed to add file watches: %v\n", err)
+		_ = fileWatcher.Close() // G104: best-effort cleanup
+		_ = DeletePID(repoRoot) // G104: best-effort cleanup
+		return 1
 	}
+
+	fmt.Fprintf(stdout, "[mailman] File watching enabled\n")
+
+	go func() {
+		// Create process function that wraps CheckAndNotify AND cleanStaleStates
+		// This ensures stale cleanup runs on events and fallback timer
+		processFunc := func() {
+			_ = CheckAndNotify(opts) // G104: errors are logged but don't stop the watcher
+			cleanStaleStates(repoRoot, stdout)
+		}
+
+		// Run initial check immediately (includes stale cleanup)
+		processFunc()
+
+		// Run the file watcher event loop
+		if err := fileWatcher.Run(processFunc); err != nil {
+			fmt.Fprintf(stderr, "[mailman] File watcher error: %v\n", err)
+		}
+		close(loopDone)
+	}()
 
 	// Wait for shutdown signal or test stop
 	if stopChan != nil {
@@ -265,10 +258,7 @@ func runForeground(repoRoot string, stdout, stderr io.Writer) int {
 		<-sigChan
 	}
 
-	// Stop the notification loop
-	close(loopStopChan)
-
-	// Close file watcher if it was initialized
+	// Close file watcher to stop the notification loop
 	if fileWatcher != nil {
 		_ = fileWatcher.Close() // G104: best-effort cleanup
 	}

@@ -92,34 +92,6 @@ func readRecipientState(t *testing.T, repoRoot, recipient string) *mail.Recipien
 }
 
 // =============================================================================
-// T043: Test for notification loop interval (10s default)
-// =============================================================================
-
-func TestLoopOptions_DefaultInterval(t *testing.T) {
-	opts := LoopOptions{}
-
-	// Default interval should be 10 seconds
-	if opts.Interval != 0 {
-		t.Errorf("Default Interval should be zero value, actual default is set in RunLoop")
-	}
-
-	// Verify the default constant
-	if DefaultLoopInterval != 10*time.Second {
-		t.Errorf("DefaultLoopInterval should be 10 seconds, got %v", DefaultLoopInterval)
-	}
-}
-
-func TestLoopOptions_CustomInterval(t *testing.T) {
-	opts := LoopOptions{
-		Interval: 5 * time.Second,
-	}
-
-	if opts.Interval != 5*time.Second {
-		t.Errorf("Custom interval should be 5 seconds, got %v", opts.Interval)
-	}
-}
-
-// =============================================================================
 // T044: Test for ready agent notification
 // =============================================================================
 
@@ -512,81 +484,6 @@ func TestListMailboxRecipients_IgnoresNonJSONLFiles(t *testing.T) {
 
 	if len(recipients) > 0 && recipients[0] != "agent-1" {
 		t.Errorf("Expected agent-1, got %s", recipients[0])
-	}
-}
-
-// =============================================================================
-// T052: Test for RunLoop
-// =============================================================================
-
-func TestRunLoop_RespondsToStopChannel(t *testing.T) {
-	repoRoot := createTestMailDir(t)
-
-	stopCh := make(chan struct{})
-	opts := LoopOptions{
-		RepoRoot:      repoRoot,
-		Interval:      100 * time.Millisecond, // Short interval for testing
-		StopChan:      stopCh,
-		SkipTmuxCheck: true,
-	}
-
-	done := make(chan struct{})
-	go func() {
-		RunLoop(opts)
-		close(done)
-	}()
-
-	// Let it run briefly
-	time.Sleep(50 * time.Millisecond)
-
-	// Stop the loop
-	close(stopCh)
-
-	// Wait for loop to finish (with timeout)
-	select {
-	case <-done:
-		// Success
-	case <-time.After(2 * time.Second):
-		t.Error("RunLoop did not stop within 2 seconds")
-	}
-}
-
-func TestRunLoop_RunsCheckAndNotify(t *testing.T) {
-	repoRoot := createTestMailDir(t)
-
-	// Create a ready agent with unread messages
-	now := time.Now()
-	createRecipientState(t, repoRoot, "agent-1", mail.StatusReady, false, now)
-	createUnreadMessage(t, repoRoot, "agent-1", "sender", "Hello!")
-
-	stopCh := make(chan struct{})
-	opts := LoopOptions{
-		RepoRoot:      repoRoot,
-		Interval:      100 * time.Millisecond,
-		StopChan:      stopCh,
-		SkipTmuxCheck: true,
-	}
-
-	done := make(chan struct{})
-	go func() {
-		RunLoop(opts)
-		close(done)
-	}()
-
-	// Let it run one cycle
-	time.Sleep(150 * time.Millisecond)
-
-	// Stop the loop
-	close(stopCh)
-	<-done
-
-	// Verify the notified flag was set (indicating CheckAndNotify ran)
-	state := readRecipientState(t, repoRoot, "agent-1")
-	if state == nil {
-		t.Fatal("agent-1 state not found")
-	}
-	if !state.Notified {
-		t.Error("Expected agent-1 to be marked as notified after loop cycle")
 	}
 }
 
@@ -1577,43 +1474,6 @@ func TestCheckAndNotify_WithNotifier(t *testing.T) {
 	}
 	if !state.Notified {
 		t.Error("Expected Notified=true even with nil notifier")
-	}
-}
-
-// TestRunLoop_WithStatelessTracker tests RunLoop with stateless tracker
-func TestRunLoop_WithStatelessTracker(t *testing.T) {
-	repoRoot := createTestMailDir(t)
-
-	// Create a stateless agent
-	createUnreadMessage(t, repoRoot, "stateless-agent", "sender", "Hello!")
-
-	tracker := NewStatelessTracker(60 * time.Second)
-
-	stopCh := make(chan struct{})
-	opts := LoopOptions{
-		RepoRoot:         repoRoot,
-		Interval:         50 * time.Millisecond,
-		StopChan:         stopCh,
-		SkipTmuxCheck:    true,
-		StatelessTracker: tracker,
-	}
-
-	done := make(chan struct{})
-	go func() {
-		RunLoop(opts)
-		close(done)
-	}()
-
-	// Let it run one cycle
-	time.Sleep(100 * time.Millisecond)
-
-	// Stop the loop
-	close(stopCh)
-	<-done
-
-	// Verify tracker was used
-	if tracker.ShouldNotify("stateless-agent") {
-		t.Error("stateless-agent should have been marked as notified")
 	}
 }
 

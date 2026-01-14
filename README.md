@@ -222,8 +222,8 @@ agentmail mailman [--daemon]
 - `--daemon` - Run in background (daemonize)
 
 **Behavior:**
-- Uses file watching for instant notification on mailbox changes
-- Falls back to 60-second polling if file watching fails
+- Uses file watching (fsnotify) for instant notification on mailbox changes
+- Includes 60-second safety timer that runs alongside watching
 - Sends notifications to agents with `ready` status that have unread mail
 - Notifications sent via tmux: `tmux send-keys -t <window> "Check your agentmail"`
 - Stores PID in `.agentmail/mailman.pid`
@@ -240,6 +240,7 @@ agentmail mailman --daemon
 
 **Exit codes:**
 - `0` - Daemon started/stopped successfully
+- `1` - Error (failed to start, PID file error, etc.)
 - `2` - Daemon already running
 
 ### onboard

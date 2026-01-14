@@ -12,13 +12,13 @@ AgentMail enables communication between AI agents running in different tmux wind
 
 ## Overview
 
-AgentMail is a CLI tool for inter-agent communication within tmux sessions. Messages are stored in `.git/mail/` as JSONL files, providing persistent, file-locked message queues for each agent.
+AgentMail is a CLI tool for inter-agent communication within tmux sessions. Messages are stored in `.agentmail/mailboxes/` as JSONL files, providing persistent, file-locked message queues for each agent.
 
 ## Prerequisites
 
 - Must be running inside a tmux session
 - AgentMail CLI must be installed and available in PATH
-- Must be in a git repository (messages stored in `.git/mail/`)
+- Messages stored in `.agentmail/` directory
 
 ## Core Commands
 
@@ -88,10 +88,9 @@ The plugin automatically manages your status:
 ## Message Format
 
 Messages include:
-- **ID**: Unique 6-character hex identifier
+- **ID**: Unique 8-character base62 identifier (a-z, A-Z, 0-9)
 - **From**: Sender's tmux window name
 - **To**: Recipient's tmux window name
-- **Timestamp**: ISO 8601 format
 - **Content**: Message body
 
 ## Best Practices

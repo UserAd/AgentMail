@@ -120,15 +120,18 @@ type RecipientInfo struct {
 ## State Transitions
 
 ### Message Lifecycle
-```
+
+```text
 [Created] --send--> [Unread] --receive--> [Read]
 ```
+
 - Created: Message written to recipient's mailbox file
 - Unread: `read_flag: false`
 - Read: `read_flag: true` after receive tool returns message
 
 ### Recipient Status Lifecycle
-```
+
+```text
 [Any] --status ready--> [Ready]
 [Any] --status work--> [Work] (notified flag reset)
 [Any] --status offline--> [Offline] (notified flag reset)

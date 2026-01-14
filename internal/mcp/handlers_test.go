@@ -527,8 +527,8 @@ func TestReceiveHandler_MCPClientIntegration(t *testing.T) {
 	defer SetHandlerOptions(nil)
 
 	// Set up test server and client
-	_, clientSession := setupTestServer(t)
-	defer clientSession.Close()
+	_, clientSession, cleanup := setupTestServer(t)
+	defer cleanup()
 
 	ctx := context.Background()
 
@@ -968,8 +968,8 @@ func TestSendHandler_MCPClientIntegration(t *testing.T) {
 	defer SetHandlerOptions(nil)
 
 	// Set up test server and client
-	_, clientSession := setupTestServer(t)
-	defer clientSession.Close()
+	_, clientSession, cleanup := setupTestServer(t)
+	defer cleanup()
 
 	ctx := context.Background()
 
@@ -1377,8 +1377,8 @@ func TestStatusHandler_MCPClientIntegration(t *testing.T) {
 	defer SetHandlerOptions(nil)
 
 	// Set up test server and client
-	_, clientSession := setupTestServer(t)
-	defer clientSession.Close()
+	_, clientSession, cleanup := setupTestServer(t)
+	defer cleanup()
 
 	ctx := context.Background()
 
@@ -1800,8 +1800,8 @@ func TestListRecipientsHandler_MCPClientIntegration(t *testing.T) {
 	defer SetHandlerOptions(nil)
 
 	// Set up test server and client
-	_, clientSession := setupTestServer(t)
-	defer clientSession.Close()
+	_, clientSession, cleanup := setupTestServer(t)
+	defer cleanup()
 
 	ctx := context.Background()
 

@@ -59,6 +59,7 @@ Send a message to another agent.
 - `message` (string, required): Message content (max 64KB)
 
 **Example:**
+
 ```json
 {
   "name": "send",
@@ -70,6 +71,7 @@ Send a message to another agent.
 ```
 
 **Response:**
+
 ```json
 {
   "message_id": "ABC123"
@@ -83,6 +85,7 @@ Read the oldest unread message.
 **Parameters:** None
 
 **Example:**
+
 ```json
 {
   "name": "receive",
@@ -91,6 +94,7 @@ Read the oldest unread message.
 ```
 
 **Response (message available):**
+
 ```json
 {
   "from": "agent2",
@@ -100,6 +104,7 @@ Read the oldest unread message.
 ```
 
 **Response (no messages):**
+
 ```json
 {
   "status": "No unread messages"
@@ -114,6 +119,7 @@ Set your availability status for agent coordination. Setting status to `work` or
 - `status` (string, required): One of `ready`, `work`, `offline`
 
 **Example:**
+
 ```json
 {
   "name": "status",
@@ -124,6 +130,7 @@ Set your availability status for agent coordination. Setting status to `work` or
 ```
 
 **Response:**
+
 ```json
 {
   "status": "ok"
@@ -137,6 +144,7 @@ List available agents.
 **Parameters:** None
 
 **Example:**
+
 ```json
 {
   "name": "list-recipients",
@@ -145,6 +153,7 @@ List available agents.
 ```
 
 **Response:**
+
 ```json
 {
   "recipients": [

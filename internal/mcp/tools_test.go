@@ -13,7 +13,8 @@ import (
 var testImpl = &mcp.Implementation{Name: "agentmail-test", Version: "test"}
 
 // setupTestServer creates a connected server and client for testing tools.
-func setupTestServer(t *testing.T) (*Server, *mcp.ClientSession) {
+// Returns server, clientSession, and a cleanup function that closes both sessions.
+func setupTestServer(t *testing.T) (*Server, *mcp.ClientSession, func()) {
 	t.Helper()
 
 	// Create server with tmux check skipped
@@ -29,7 +30,7 @@ func setupTestServer(t *testing.T) (*Server, *mcp.ClientSession) {
 
 	// Connect server
 	ctx := context.Background()
-	_, err = server.MCPServer().Connect(ctx, serverTransport, nil)
+	serverSession, err := server.MCPServer().Connect(ctx, serverTransport, nil)
 	if err != nil {
 		t.Fatalf("Server connect failed: %v", err)
 	}
@@ -41,13 +42,18 @@ func setupTestServer(t *testing.T) (*Server, *mcp.ClientSession) {
 		t.Fatalf("Client connect failed: %v", err)
 	}
 
-	return server, clientSession
+	cleanup := func() {
+		clientSession.Close()
+		serverSession.Close()
+	}
+
+	return server, clientSession, cleanup
 }
 
 func TestRegisterTools_FourToolsExposed(t *testing.T) {
 	// T010: Test that all 4 tools are registered
-	_, clientSession := setupTestServer(t)
-	defer clientSession.Close()
+	_, clientSession, cleanup := setupTestServer(t)
+	defer cleanup()
 
 	ctx := context.Background()
 	result, err := clientSession.ListTools(ctx, nil)
@@ -84,8 +90,8 @@ func TestRegisterTools_FourToolsExposed(t *testing.T) {
 
 func TestRegisterTools_EachToolHasDescription(t *testing.T) {
 	// T011: Test that each tool has a description (FR-011)
-	_, clientSession := setupTestServer(t)
-	defer clientSession.Close()
+	_, clientSession, cleanup := setupTestServer(t)
+	defer cleanup()
 
 	ctx := context.Background()
 	result, err := clientSession.ListTools(ctx, nil)
@@ -102,8 +108,8 @@ func TestRegisterTools_EachToolHasDescription(t *testing.T) {
 
 func TestRegisterTools_EachToolHasInputSchema(t *testing.T) {
 	// T011: Test that each tool has an input schema (FR-011)
-	_, clientSession := setupTestServer(t)
-	defer clientSession.Close()
+	_, clientSession, cleanup := setupTestServer(t)
+	defer cleanup()
 
 	ctx := context.Background()
 	result, err := clientSession.ListTools(ctx, nil)
@@ -120,8 +126,8 @@ func TestRegisterTools_EachToolHasInputSchema(t *testing.T) {
 
 func TestSendTool_SchemaValidation(t *testing.T) {
 	// T013: Test send tool schema has recipient and message parameters
-	_, clientSession := setupTestServer(t)
-	defer clientSession.Close()
+	_, clientSession, cleanup := setupTestServer(t)
+	defer cleanup()
 
 	ctx := context.Background()
 	result, err := clientSession.ListTools(ctx, nil)
@@ -203,8 +209,8 @@ func TestSendTool_SchemaValidation(t *testing.T) {
 
 func TestReceiveTool_SchemaValidation(t *testing.T) {
 	// T014: Test receive tool schema has no required parameters
-	_, clientSession := setupTestServer(t)
-	defer clientSession.Close()
+	_, clientSession, cleanup := setupTestServer(t)
+	defer cleanup()
 
 	ctx := context.Background()
 	result, err := clientSession.ListTools(ctx, nil)
@@ -244,8 +250,8 @@ func TestReceiveTool_SchemaValidation(t *testing.T) {
 
 func TestStatusTool_SchemaValidation(t *testing.T) {
 	// T015: Test status tool schema has status enum parameter
-	_, clientSession := setupTestServer(t)
-	defer clientSession.Close()
+	_, clientSession, cleanup := setupTestServer(t)
+	defer cleanup()
 
 	ctx := context.Background()
 	result, err := clientSession.ListTools(ctx, nil)
@@ -336,8 +342,8 @@ func TestStatusTool_SchemaValidation(t *testing.T) {
 
 func TestListRecipientsTool_SchemaValidation(t *testing.T) {
 	// T016: Test list-recipients tool schema has no required parameters
-	_, clientSession := setupTestServer(t)
-	defer clientSession.Close()
+	_, clientSession, cleanup := setupTestServer(t)
+	defer cleanup()
 
 	ctx := context.Background()
 	result, err := clientSession.ListTools(ctx, nil)
@@ -381,8 +387,8 @@ func TestToolDiscovery_Performance(t *testing.T) {
 	}
 
 	// T018: Verify tool discovery completes within 1 second (SC-001)
-	_, clientSession := setupTestServer(t)
-	defer clientSession.Close()
+	_, clientSession, cleanup := setupTestServer(t)
+	defer cleanup()
 
 	ctx := context.Background()
 

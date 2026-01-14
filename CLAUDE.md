@@ -94,6 +94,8 @@ Templates are stored in `.specify/templates/` and project constitution in `.spec
 - Go 1.21+ (per IC-001) + Standard library only (time, sync) (008-stale-agent-mailman)
 - JSONL files in `.agentmail/` (existing), in-memory tracker (new) (008-stale-agent-mailman)
 - Go 1.21+ (per constitution IC-001) + Standard library only (os, time, syscall) + fsnotify (external - requires justification) (009-watch-files)
+- Go 1.23 (per go.mod, constitution requires 1.21+) + github.com/modelcontextprotocol/go-sdk (official MCP SDK) (010-mcp-server)
+- JSONL files in `.agentmail/` directory (existing infrastructure), MCP server via STDIO transport (010-mcp-server)
 
 ## Recent Changes
 - 001-agent-mail-structure: Added Go 1.21+ (per IC-001) + Standard library only (os/exec for tmux, encoding/json for JSONL)

@@ -17,6 +17,7 @@ A Go CLI tool for inter-agent communication within tmux sessions. Agents running
 - **Stdin support** - Pipe messages from other commands
 - **Daemon notifications** - Background mailman daemon monitors mailboxes and notifies agents
 - **Agent status tracking** - Agents can set status (ready/work/offline) for smart notifications
+- **MCP server** - Model Context Protocol server for Claude Code, Codex CLI, and Gemini CLI
 - **Claude Code integration** - Plugin and hooks for AI agent orchestration
 
 ## Requirements
@@ -280,6 +281,108 @@ monitoring
 - Your current window is always shown even if listed
 - Missing file means no exclusions
 
+## MCP Server
+
+AgentMail includes a built-in MCP (Model Context Protocol) server that enables AI agents to communicate via a standardized interface. The MCP server exposes four tools:
+
+| Tool | Description |
+|------|-------------|
+| `send` | Send a message to another agent (max 64KB) |
+| `receive` | Receive the oldest unread message (FIFO) |
+| `status` | Set agent availability (ready/work/offline) |
+| `list-recipients` | List available agents in the session |
+
+### Running the MCP Server
+
+```bash
+agentmail mcp
+```
+
+The server uses STDIO transport and must be run inside a tmux session.
+
+### Claude Code Configuration
+
+Add to `~/.claude/settings.json` or your project's `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "agentmail": {
+      "command": "agentmail",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+See [Claude Code MCP documentation](https://code.claude.com/docs/en/mcp) for more details.
+
+### OpenAI Codex CLI Configuration
+
+Add to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.agentmail]
+command = "agentmail"
+args = ["mcp"]
+```
+
+See [Codex MCP documentation](https://developers.openai.com/codex/mcp/) for more details.
+
+### Google Gemini CLI Configuration
+
+Add to `~/.gemini/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "agentmail": {
+      "command": "agentmail",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+See [Gemini CLI MCP documentation](https://geminicli.com/docs/tools/mcp-server/) for more details.
+
+### MCP Tool Responses
+
+**send** returns:
+
+```json
+{"message_id": "xK7mN2pQ"}
+```
+
+**receive** returns (message available):
+
+```json
+{"from": "agent-1", "id": "xK7mN2pQ", "message": "Hello!"}
+```
+
+**receive** returns (no messages):
+
+```json
+{"status": "No unread messages"}
+```
+
+**status** returns:
+
+```json
+{"status": "ok"}
+```
+
+**list-recipients** returns:
+
+```json
+{
+  "recipients": [
+    {"name": "agent-1", "is_current": true},
+    {"name": "agent-2", "is_current": false}
+  ]
+}
+```
+
 ## Claude Code Plugin
 
 AgentMail provides a Claude Code plugin for seamless integration with AI agents. The plugin automatically manages agent status and checks for messages.
@@ -495,6 +598,7 @@ AgentMail/
 │   ├── cli/                # Command implementations
 │   ├── daemon/             # Mailman daemon and notification loop
 │   ├── mail/               # Message and mailbox logic
+│   ├── mcp/                # MCP server implementation
 │   └── tmux/               # tmux integration
 ├── claude-plugin/          # Claude Code plugin
 ├── .github/workflows/      # CI/CD automation

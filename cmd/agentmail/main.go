@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
 
 	"agentmail/internal/cli"
+	"agentmail/internal/mcp"
 
 	"github.com/peterbourgon/ff/v3/ffcli"
 )
@@ -239,6 +241,52 @@ Examples:
 		},
 	}
 
+	// MCP command (no flags)
+	mcpFlagSet := flag.NewFlagSet("agentmail mcp", flag.ContinueOnError)
+
+	mcpCmd := &ffcli.Command{
+		Name:       "mcp",
+		ShortUsage: "agentmail mcp",
+		ShortHelp:  "Start MCP server (STDIO transport)",
+		LongHelp: `Start the Model Context Protocol (MCP) server for AI agent integration.
+
+The MCP server exposes AgentMail functionality through four tools:
+  send            Send a message to another agent
+  receive         Receive the oldest unread message
+  status          Set agent availability status
+  list-recipients List available agents in the session
+
+The server uses STDIO transport and communicates via JSON-RPC 2.0.
+It must be run inside a tmux session.
+
+Exit codes:
+  0  Normal shutdown
+  1  Not in tmux session or tmux context lost
+
+Examples:
+  agentmail mcp`,
+		FlagSet: mcpFlagSet,
+		Exec: func(ctx context.Context, args []string) error {
+			// Create and run MCP server
+			server, err := mcp.NewServer(nil)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error: %v\n", err)
+				os.Exit(1)
+			}
+
+			// Run the server (blocks until shutdown)
+			if err := server.Run(ctx, nil); err != nil {
+				// Context cancellation is normal shutdown
+				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+					return nil
+				}
+				fmt.Fprintf(os.Stderr, "error: %v\n", err)
+				os.Exit(1)
+			}
+			return nil
+		},
+	}
+
 	// Root command help text
 	rootHelp := `agentmail - Inter-agent communication for tmux sessions
 
@@ -252,6 +300,7 @@ Commands:
   status      Set agent availability status
   mailman     Start the mailman daemon
   onboard     Output agent onboarding context
+  mcp         Start MCP server (STDIO transport)
 
 Use "agentmail <command> --help" for more information about a command.`
 
@@ -261,7 +310,7 @@ Use "agentmail <command> --help" for more information about a command.`
 		ShortHelp:   "Inter-agent communication for tmux sessions",
 		LongHelp:    rootHelp,
 		FlagSet:     rootFlagSet,
-		Subcommands: []*ffcli.Command{sendCmd, receiveCmd, recipientsCmd, statusCmd, mailmanCmd, onboardCmd},
+		Subcommands: []*ffcli.Command{sendCmd, receiveCmd, recipientsCmd, statusCmd, mailmanCmd, onboardCmd, mcpCmd},
 		Exec: func(ctx context.Context, args []string) error {
 			// No subcommand provided, show help
 			fmt.Fprintln(os.Stderr, rootHelp)

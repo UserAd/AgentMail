@@ -325,7 +325,10 @@ Add to `~/.codex/config.toml`:
 [mcp_servers.agentmail]
 command = "agentmail"
 args = ["mcp"]
+env_vars = ["TMUX", "TMUX_PANE"]
 ```
+
+The `env_vars` setting is required to pass TMUX environment variables to the MCP server, enabling tmux session and window detection.
 
 See [Codex MCP documentation](https://developers.openai.com/codex/mcp/) for more details.
 

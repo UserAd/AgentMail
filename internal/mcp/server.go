@@ -64,6 +64,9 @@ func NewServer(opts *ServerOptions) (*Server, error) {
 		logger:    logger,
 	}
 
+	// T017: Register all AgentMail tools with the MCP server
+	RegisterTools(s)
+
 	return s, nil
 }
 

@@ -1742,9 +1742,10 @@ func TestListRecipientsHandler_EmptyWindowsList(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	// Configure handler with no windows (edge case)
+	// MockReceiver must be non-empty to be recognized as mocked
 	SetHandlerOptions(&HandlerOptions{
 		SkipTmuxCheck: true,
-		MockReceiver:  "",
+		MockReceiver:  "test-window",
 		MockWindows:   []string{},
 		RepoRoot:      tmpDir,
 	})

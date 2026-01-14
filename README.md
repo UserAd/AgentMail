@@ -438,7 +438,7 @@ The plugin includes the `agentmail` skill with complete documentation for sendin
 
 ## Claude Code Hooks (Manual Setup)
 
-If you prefer manual configuration instead of the plugin, AgentMail integrates with Claude Code hooks to notify you when other agents send messages. Configure it as a `user-prompt-submit` hook to check for mail before each prompt.
+If you prefer manual configuration instead of the plugin, AgentMail integrates with Claude Code hooks to manage agent status and check for messages automatically.
 
 ### Setup
 
@@ -447,24 +447,64 @@ Add to your Claude Code settings (`.claude/settings.json` in your project or `~/
 ```json
 {
   "hooks": {
-    "user-prompt-submit": {
-      "command": "agentmail receive --hook"
-    }
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "agentmail status ready && agentmail onboard"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "agentmail status offline"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "agentmail status ready && agentmail receive --hook"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "agentmail status work"
+          }
+        ]
+      }
+    ]
   }
 }
 ```
 
 ### How It Works
 
-1. Before each prompt submission, Claude Code runs `agentmail receive --hook`
-2. If you have unread mail:
-   - The message appears in Claude Code's output (via STDERR)
-   - Exit code 2 signals a notification
-3. If no mail or not in tmux:
-   - Silent exit (no output, exit code 0)
-   - Your workflow continues uninterrupted
+| Hook Event | Command | Purpose |
+|------------|---------|---------|
+| **SessionStart** | `agentmail status ready && agentmail onboard` | Sets agent ready, outputs onboarding context |
+| **SessionEnd** | `agentmail status offline` | Marks agent as offline when session ends |
+| **Stop** | `agentmail status ready && agentmail receive --hook` | Sets ready after each turn, checks for mail |
+| **UserPromptSubmit** | `agentmail status work` | Marks agent as busy when processing |
 
-### Hook Mode Behavior
+### Hook Mode Behavior (`--hook` flag)
 
 | Condition | Output | Exit Code |
 |-----------|--------|-----------|
@@ -477,7 +517,7 @@ Hook mode is designed to be non-disruptive: errors exit silently rather than int
 
 ### Example Output
 
-When you have mail, Claude Code will display:
+When you have mail (on Stop hook), Claude Code will display:
 
 ```
 You got new mail

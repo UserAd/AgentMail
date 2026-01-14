@@ -222,7 +222,8 @@ agentmail mailman [--daemon]
 - `--daemon` - Run in background (daemonize)
 
 **Behavior:**
-- Monitors all mailboxes every 10 seconds
+- Uses file watching for instant notification on mailbox changes
+- Falls back to 60-second polling if file watching fails
 - Sends notifications to agents with `ready` status that have unread mail
 - Notifications sent via tmux: `tmux send-keys -t <window> "Check your agentmail"`
 - Stores PID in `.agentmail/mailman.pid`
@@ -532,11 +533,13 @@ The mailman daemon provides proactive notifications for agents:
 ┌─────────────────────────────────────────────────────────────┐
 │                     Mailman Daemon                          │
 │                                                             │
-│  1. Read recipient states from .agentmail/recipients.jsonl │
-│  2. For each "ready" agent:                                 │
-│     - Check if unread messages exist                        │
-│     - If yes and not already notified: send notification    │
-│  3. Sleep 10 seconds, repeat                                │
+│  1. Watch .agentmail/ for file changes (fsnotify)          │
+│  2. On change (debounced 500ms) or 60s fallback timer:     │
+│     - Read recipient states from recipients.jsonl          │
+│     - For each "ready" agent with unread messages:         │
+│       - If not already notified: send notification         │
+│  3. Also notifies stateless agents (no recipient state)    │
+│     every 60 seconds if they have unread messages          │
 └─────────────────────────────────────────────────────────────┘
 ```
 

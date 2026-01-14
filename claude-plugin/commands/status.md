@@ -13,6 +13,6 @@ If argument is missing, ask the user which status to set:
 - `work` - Busy working (notifications suppressed)
 - `offline` - Offline (notifications suppressed)
 
-Run `agentmail status <status>` to update. Status is stored in `.git/mail-recipients.jsonl` and used by the mailman daemon.
+Run `agentmail status <status>` to update. Status is stored in `.agentmail/recipients.jsonl` and used by the mailman daemon.
 
 Note: The plugin automatically manages status via hooks (SessionStart→ready, SessionEnd→offline, Stop→ready).

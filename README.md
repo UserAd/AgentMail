@@ -22,7 +22,7 @@ A Go CLI tool for inter-agent communication within tmux sessions. Agents running
 
 ## Requirements
 
-- Go 1.23 or later
+- Go 1.25 or later
 - tmux (must be running inside a tmux session)
 - Linux or macOS
 
@@ -222,7 +222,8 @@ agentmail mailman [--daemon]
 - `--daemon` - Run in background (daemonize)
 
 **Behavior:**
-- Monitors all mailboxes every 10 seconds
+- Uses file watching (fsnotify) for instant notification on mailbox changes
+- Includes 60-second safety timer that runs alongside watching
 - Sends notifications to agents with `ready` status that have unread mail
 - Notifications sent via tmux: `tmux send-keys -t <window> "Check your agentmail"`
 - Stores PID in `.agentmail/mailman.pid`
@@ -239,6 +240,7 @@ agentmail mailman --daemon
 
 **Exit codes:**
 - `0` - Daemon started/stopped successfully
+- `1` - Error (failed to start, PID file error, etc.)
 - `2` - Daemon already running
 
 ### onboard
@@ -417,8 +419,9 @@ The plugin configures hooks that automatically:
 | Event | Action | Status |
 |-------|--------|--------|
 | **SessionStart** | Sets status to ready, runs onboarding | `ready` |
-| **SessionEnd** | Sets status to offline | `offline` |
+| **UserPromptSubmit** | Sets status to work (agent is busy) | `work` |
 | **Stop** (end of turn) | Sets status to ready, checks for messages | `ready` |
+| **SessionEnd** | Sets status to offline | `offline` |
 
 ### Plugin Commands
 
@@ -531,11 +534,13 @@ The mailman daemon provides proactive notifications for agents:
 ┌─────────────────────────────────────────────────────────────┐
 │                     Mailman Daemon                          │
 │                                                             │
-│  1. Read recipient states from .agentmail/recipients.jsonl │
-│  2. For each "ready" agent:                                 │
-│     - Check if unread messages exist                        │
-│     - If yes and not already notified: send notification    │
-│  3. Sleep 10 seconds, repeat                                │
+│  1. Watch .agentmail/ for file changes (fsnotify)          │
+│  2. On change (debounced 500ms) or 60s fallback timer:     │
+│     - Read recipient states from recipients.jsonl          │
+│     - For each "ready" agent with unread messages:         │
+│       - If not already notified: send notification         │
+│  3. Also notifies stateless agents (no recipient state)    │
+│     every 60 seconds if they have unread messages          │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -585,10 +590,10 @@ go vet ./...
 
 ### Testing in CI Environment
 
-To match the CI environment (Go 1.23, Linux):
+To match the CI environment (Go 1.25, Linux):
 
 ```bash
-docker run --rm -v $(pwd):/app -w /app golang:1.23 go test -v -race ./...
+docker run --rm -v $(pwd):/app -w /app golang:1.25 go test -v -race ./...
 ```
 
 ## Project Structure

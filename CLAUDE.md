@@ -54,9 +54,9 @@ Once Go source files are added:
 
 ## Testing in CI Environment
 
-To run tests in a container matching CI (Go 1.21, Linux):
+To run tests in a container matching CI (Go 1.25, Linux):
 ```bash
-docker run --rm -v $(pwd):/app -w /app golang:1.21 go test -v -race ./...
+docker run --rm -v $(pwd):/app -w /app golang:1.25 go test -v -race ./...
 ```
 
 This helps catch issues that only manifest in the CI environment (e.g., running as root, different Go version).

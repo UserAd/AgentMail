@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -2656,6 +2657,10 @@ func TestSendHandler_NilArgumentsReturnsError(t *testing.T) {
 
 // T057 / SC-004: Verify all tool invocations complete within 2 seconds
 func TestToolInvocations_CompleteWithinTwoSeconds(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping performance test in short mode")
+	}
+
 	tmpDir := setupTestMailbox(t)
 	defer os.RemoveAll(tmpDir)
 
@@ -2670,39 +2675,59 @@ func TestToolInvocations_CompleteWithinTwoSeconds(t *testing.T) {
 	defer SetHandlerOptions(nil)
 
 	ctx := context.Background()
-
-	// Test each tool invocation completes within 2 seconds
+	// SC-004: Each tool invocation must complete within 2 seconds
+	// Allow 2.5s to account for CI variability
+	maxDuration := 2500 * time.Millisecond
 
 	// 1. Send tool
 	t.Run("send_under_2s", func(t *testing.T) {
+		start := time.Now()
 		_, err := sendHandler(ctx, makeSendRequest("agent-receiver", "Performance test message"))
+		elapsed := time.Since(start)
 		if err != nil {
 			t.Fatalf("sendHandler returned error: %v", err)
 		}
-		// If we got here within the test timeout, we're under 2 seconds
+		if elapsed > maxDuration {
+			t.Errorf("sendHandler took %v, expected < %v", elapsed, maxDuration)
+		}
 	})
 
 	// 2. Receive tool
 	t.Run("receive_under_2s", func(t *testing.T) {
+		start := time.Now()
 		_, err := receiveHandler(ctx, &mcp.CallToolRequest{})
+		elapsed := time.Since(start)
 		if err != nil {
 			t.Fatalf("receiveHandler returned error: %v", err)
+		}
+		if elapsed > maxDuration {
+			t.Errorf("receiveHandler took %v, expected < %v", elapsed, maxDuration)
 		}
 	})
 
 	// 3. Status tool
 	t.Run("status_under_2s", func(t *testing.T) {
+		start := time.Now()
 		_, err := statusHandler(ctx, makeStatusRequest("ready"))
+		elapsed := time.Since(start)
 		if err != nil {
 			t.Fatalf("statusHandler returned error: %v", err)
+		}
+		if elapsed > maxDuration {
+			t.Errorf("statusHandler took %v, expected < %v", elapsed, maxDuration)
 		}
 	})
 
 	// 4. List recipients tool
 	t.Run("list_recipients_under_2s", func(t *testing.T) {
+		start := time.Now()
 		_, err := listRecipientsHandler(ctx, &mcp.CallToolRequest{})
+		elapsed := time.Since(start)
 		if err != nil {
 			t.Fatalf("listRecipientsHandler returned error: %v", err)
+		}
+		if elapsed > maxDuration {
+			t.Errorf("listRecipientsHandler took %v, expected < %v", elapsed, maxDuration)
 		}
 	})
 }

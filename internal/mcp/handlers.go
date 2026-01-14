@@ -54,6 +54,11 @@ type ReceiveEmptyResponse struct {
 	Status string `json:"status"` // "No unread messages"
 }
 
+// StatusResponse represents a successful status update response.
+type StatusResponse struct {
+	Status string `json:"status"` // "ok" on success
+}
+
 // MaxMessageSizeBytes is the maximum allowed message size (64KB per FR-013).
 const MaxMessageSizeBytes = 65536
 
@@ -280,6 +285,118 @@ func doReceive(ctx context.Context) (any, error) {
 // It wraps doReceive and formats the response as MCP content.
 func handleReceive(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	response, err := doReceive(ctx)
+	if err != nil {
+		return &mcp.CallToolResult{
+			IsError: true,
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: err.Error()},
+			},
+		}, nil
+	}
+
+	// Encode response as JSON
+	jsonBytes, err := json.Marshal(response)
+	if err != nil {
+		return &mcp.CallToolResult{
+			IsError: true,
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: fmt.Sprintf("failed to encode response: %v", err)},
+			},
+		}, nil
+	}
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: string(jsonBytes)},
+		},
+	}, nil
+}
+
+// ValidStatus values for the status tool.
+var validStatuses = map[string]bool{
+	mail.StatusReady:   true,
+	mail.StatusWork:    true,
+	mail.StatusOffline: true,
+}
+
+// validateStatus checks if the provided status is valid.
+// Returns true if valid, false otherwise.
+func validateStatus(status string) bool {
+	return validStatuses[status]
+}
+
+// doStatus implements the status handler logic.
+// It validates the status, updates the recipient state, and returns the response or an error.
+func doStatus(ctx context.Context, status string) (any, error) {
+	opts := handlerOptions
+	if opts == nil {
+		opts = &HandlerOptions{}
+	}
+
+	// T039: Validate status value (ready/work/offline only)
+	if !validateStatus(status) {
+		// T040: Return error message matching FR-016 format
+		return nil, fmt.Errorf("Invalid status: %s. Valid: ready, work, offline", status)
+	}
+
+	// Get agent identity (current tmux window)
+	var agent string
+	if opts.MockReceiver != "" {
+		agent = opts.MockReceiver
+	} else {
+		var err error
+		agent, err = tmux.GetCurrentWindow()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get current window: %w", err)
+		}
+	}
+
+	// Determine repository root
+	repoRoot := opts.RepoRoot
+	if repoRoot == "" {
+		var err error
+		repoRoot, err = mail.FindGitRoot()
+		if err != nil {
+			return nil, fmt.Errorf("not in a git repository: %w", err)
+		}
+	}
+
+	// Reset notified flag when status is work or offline
+	resetNotified := (status == mail.StatusWork || status == mail.StatusOffline)
+
+	// Update recipient state using existing mail infrastructure
+	if err := mail.UpdateRecipientState(repoRoot, agent, status, resetNotified); err != nil {
+		return nil, fmt.Errorf("failed to update status: %w", err)
+	}
+
+	// T041: Return {"status": "ok"} on success
+	return StatusResponse{
+		Status: "ok",
+	}, nil
+}
+
+// statusParams holds the unmarshaled parameters for the status tool.
+type statusParams struct {
+	Status string `json:"status"`
+}
+
+// handleStatus is the MCP handler function for the status tool.
+// It wraps doStatus and formats the response as MCP content.
+func handleStatus(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// Extract parameters from request by unmarshaling JSON
+	var params statusParams
+	if req.Params != nil && req.Params.Arguments != nil {
+		if err := json.Unmarshal(req.Params.Arguments, &params); err != nil {
+			return &mcp.CallToolResult{
+				IsError: true,
+				Content: []mcp.Content{
+					&mcp.TextContent{Text: fmt.Sprintf("failed to parse arguments: %v", err)},
+				},
+			}, nil
+		}
+	}
+
+	response, err := doStatus(ctx, params.Status)
 	if err != nil {
 		return &mcp.CallToolResult{
 			IsError: true,

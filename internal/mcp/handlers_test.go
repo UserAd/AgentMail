@@ -1053,3 +1053,412 @@ func TestSendHandler_ExactlyMaxSizeSucceeds(t *testing.T) {
 		t.Error("Expected non-empty message_id")
 	}
 }
+
+// ============================================================================
+// Status Handler Tests
+// ============================================================================
+
+// makeStatusRequest creates a CallToolRequest for the status tool with the given status.
+func makeStatusRequest(status string) *mcp.CallToolRequest {
+	args, _ := json.Marshal(map[string]string{
+		"status": status,
+	})
+	return &mcp.CallToolRequest{
+		Params: &mcp.CallToolParamsRaw{
+			Name:      ToolStatus,
+			Arguments: args,
+		},
+	}
+}
+
+// T035: Test status handler updates status and returns "ok" (FR-005)
+func TestStatusHandler_UpdatesStatusAndReturnsOk(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockReceiver:  "test-agent",
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the status handler with "ready"
+	ctx := context.Background()
+	result, err := statusHandler(ctx, makeStatusRequest("ready"))
+	if err != nil {
+		t.Fatalf("statusHandler returned error: %v", err)
+	}
+
+	// Should not be an error result
+	if result.IsError {
+		t.Fatalf("statusHandler returned error result: %v", result.Content)
+	}
+
+	// Parse the response
+	if len(result.Content) == 0 {
+		t.Fatal("statusHandler returned empty content")
+	}
+
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("statusHandler content is not TextContent, got %T", result.Content[0])
+	}
+
+	var response StatusResponse
+	if err := json.Unmarshal([]byte(textContent.Text), &response); err != nil {
+		t.Fatalf("Failed to parse response JSON: %v", err)
+	}
+
+	// FR-005: Should return status "ok"
+	if response.Status != "ok" {
+		t.Errorf("Expected status 'ok', got '%s'", response.Status)
+	}
+
+	// Verify the status was persisted to recipients.jsonl
+	recipientsPath := filepath.Join(tmpDir, ".agentmail", "recipients.jsonl")
+	data, err := os.ReadFile(recipientsPath)
+	if err != nil {
+		t.Fatalf("Failed to read recipients file: %v", err)
+	}
+
+	if !strings.Contains(string(data), `"recipient":"test-agent"`) {
+		t.Errorf("Recipient not found in recipients file. Content: %s", data)
+	}
+	if !strings.Contains(string(data), `"status":"ready"`) {
+		t.Errorf("Status 'ready' not found in recipients file. Content: %s", data)
+	}
+}
+
+// T036: Test status with invalid value returns error (FR-016)
+func TestStatusHandler_InvalidValueReturnsError(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockReceiver:  "test-agent",
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Test various invalid status values
+	invalidStatuses := []string{"invalid", "busy", "available", "READY", "Ready", ""}
+
+	for _, status := range invalidStatuses {
+		ctx := context.Background()
+		result, err := statusHandler(ctx, makeStatusRequest(status))
+		if err != nil {
+			t.Fatalf("statusHandler returned unexpected error for '%s': %v", status, err)
+		}
+
+		// FR-016: Should return an error result
+		if !result.IsError {
+			t.Errorf("statusHandler should return error for invalid status '%s'", status)
+			continue
+		}
+
+		// Verify error message matches FR-016 format
+		if len(result.Content) == 0 {
+			t.Errorf("statusHandler returned empty error content for '%s'", status)
+			continue
+		}
+
+		textContent, ok := result.Content[0].(*mcp.TextContent)
+		if !ok {
+			t.Errorf("statusHandler error content is not TextContent for '%s', got %T", status, result.Content[0])
+			continue
+		}
+
+		expectedPrefix := "Invalid status:"
+		if !strings.Contains(textContent.Text, expectedPrefix) {
+			t.Errorf("Error message should contain '%s', got: %s", expectedPrefix, textContent.Text)
+		}
+		if !strings.Contains(textContent.Text, "Valid: ready, work, offline") {
+			t.Errorf("Error message should contain valid options, got: %s", textContent.Text)
+		}
+	}
+}
+
+// T037: Test notified flag reset when status set to work/offline
+func TestStatusHandler_ResetsNotifiedFlagOnWorkOrOffline(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Create a recipients file with a notified agent
+	recipientsDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(recipientsDir, 0755); err != nil {
+		t.Fatalf("Failed to create recipients dir: %v", err)
+	}
+
+	// Write initial state with notified = true
+	initialContent := `{"recipient":"test-agent","status":"ready","updated_at":"2024-01-01T00:00:00Z","notified":true}
+`
+	recipientsPath := filepath.Join(recipientsDir, "recipients.jsonl")
+	if err := os.WriteFile(recipientsPath, []byte(initialContent), 0644); err != nil {
+		t.Fatalf("Failed to write initial recipients file: %v", err)
+	}
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockReceiver:  "test-agent",
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	testCases := []struct {
+		status      string
+		shouldReset bool
+		description string
+	}{
+		{"work", true, "work should reset notified flag"},
+		{"offline", true, "offline should reset notified flag"},
+	}
+
+	for _, tc := range testCases {
+		// Reset the file with notified = true before each test
+		if err := os.WriteFile(recipientsPath, []byte(initialContent), 0644); err != nil {
+			t.Fatalf("Failed to reset recipients file for %s: %v", tc.status, err)
+		}
+
+		ctx := context.Background()
+		result, err := statusHandler(ctx, makeStatusRequest(tc.status))
+		if err != nil {
+			t.Fatalf("statusHandler returned error for %s: %v", tc.status, err)
+		}
+
+		if result.IsError {
+			t.Fatalf("statusHandler returned error result for %s: %v", tc.status, result.Content)
+		}
+
+		// Read the updated recipients file
+		data, err := os.ReadFile(recipientsPath)
+		if err != nil {
+			t.Fatalf("Failed to read recipients file for %s: %v", tc.status, err)
+		}
+
+		// Verify notified flag was reset to false
+		if tc.shouldReset {
+			if strings.Contains(string(data), `"notified":true`) {
+				t.Errorf("%s: %s. File content: %s", tc.status, tc.description, data)
+			}
+			if !strings.Contains(string(data), `"notified":false`) {
+				t.Errorf("%s: Expected notified:false in file. Content: %s", tc.status, data)
+			}
+		}
+	}
+}
+
+// Test status handler with "ready" does not reset notified flag
+func TestStatusHandler_ReadyDoesNotResetNotifiedFlag(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Create a recipients file with a notified agent
+	recipientsDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(recipientsDir, 0755); err != nil {
+		t.Fatalf("Failed to create recipients dir: %v", err)
+	}
+
+	// Write initial state with notified = true
+	initialContent := `{"recipient":"test-agent","status":"work","updated_at":"2024-01-01T00:00:00Z","notified":true}
+`
+	recipientsPath := filepath.Join(recipientsDir, "recipients.jsonl")
+	if err := os.WriteFile(recipientsPath, []byte(initialContent), 0644); err != nil {
+		t.Fatalf("Failed to write initial recipients file: %v", err)
+	}
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockReceiver:  "test-agent",
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Set status to ready
+	ctx := context.Background()
+	result, err := statusHandler(ctx, makeStatusRequest("ready"))
+	if err != nil {
+		t.Fatalf("statusHandler returned error: %v", err)
+	}
+
+	if result.IsError {
+		t.Fatalf("statusHandler returned error result: %v", result.Content)
+	}
+
+	// Read the updated recipients file
+	data, err := os.ReadFile(recipientsPath)
+	if err != nil {
+		t.Fatalf("Failed to read recipients file: %v", err)
+	}
+
+	// Verify status was updated to ready
+	if !strings.Contains(string(data), `"status":"ready"`) {
+		t.Errorf("Status should be 'ready'. Content: %s", data)
+	}
+
+	// Verify notified flag was NOT reset (should remain true)
+	if !strings.Contains(string(data), `"notified":true`) {
+		t.Errorf("ready should NOT reset notified flag. Content: %s", data)
+	}
+}
+
+// Test status response format matches data-model.md
+func TestStatusHandler_ResponseFormat(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockReceiver:  "test-agent",
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Call the status handler
+	ctx := context.Background()
+	result, err := statusHandler(ctx, makeStatusRequest("ready"))
+	if err != nil {
+		t.Fatalf("statusHandler returned error: %v", err)
+	}
+
+	// Parse the response
+	textContent := result.Content[0].(*mcp.TextContent)
+
+	// Verify JSON structure matches data-model.md StatusResponse
+	var responseMap map[string]any
+	if err := json.Unmarshal([]byte(textContent.Text), &responseMap); err != nil {
+		t.Fatalf("Failed to parse response JSON: %v", err)
+	}
+
+	// Should have only "status" field
+	if len(responseMap) != 1 {
+		t.Errorf("Expected 1 field, got %d: %v", len(responseMap), responseMap)
+	}
+	if _, ok := responseMap["status"]; !ok {
+		t.Error("Response missing 'status' field")
+	}
+
+	// Verify status value is "ok"
+	status, ok := responseMap["status"].(string)
+	if !ok {
+		t.Errorf("status is not a string: %T", responseMap["status"])
+	}
+	if status != "ok" {
+		t.Errorf("status should be 'ok', got '%s'", status)
+	}
+}
+
+// Test status handler via MCP client integration
+func TestStatusHandler_MCPClientIntegration(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Configure handler for testing
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck: true,
+		MockReceiver:  "mcp-status-agent",
+		RepoRoot:      tmpDir,
+	})
+	defer SetHandlerOptions(nil)
+
+	// Set up test server and client
+	_, clientSession := setupTestServer(t)
+	defer clientSession.Close()
+
+	ctx := context.Background()
+
+	// Call status tool via MCP client
+	result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: ToolStatus,
+		Arguments: map[string]any{
+			"status": "work",
+		},
+	})
+	if err != nil {
+		t.Fatalf("CallTool(status) failed: %v", err)
+	}
+
+	if result.IsError {
+		textContent := result.Content[0].(*mcp.TextContent)
+		t.Fatalf("CallTool(status) returned error: %s", textContent.Text)
+	}
+
+	if len(result.Content) == 0 {
+		t.Fatal("CallTool(status) returned empty content")
+	}
+
+	textContent, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("CallTool(status) content is not TextContent")
+	}
+
+	// Parse and verify response
+	var response StatusResponse
+	if err := json.Unmarshal([]byte(textContent.Text), &response); err != nil {
+		t.Fatalf("Failed to parse response JSON: %v", err)
+	}
+
+	if response.Status != "ok" {
+		t.Errorf("Expected status 'ok', got '%s'", response.Status)
+	}
+}
+
+// Test all valid status values
+func TestStatusHandler_AllValidStatuses(t *testing.T) {
+	validStatuses := []string{"ready", "work", "offline"}
+
+	for _, status := range validStatuses {
+		t.Run(status, func(t *testing.T) {
+			tmpDir := setupTestMailbox(t)
+			defer os.RemoveAll(tmpDir)
+
+			// Configure handler for testing
+			SetHandlerOptions(&HandlerOptions{
+				SkipTmuxCheck: true,
+				MockReceiver:  "test-agent",
+				RepoRoot:      tmpDir,
+			})
+			defer SetHandlerOptions(nil)
+
+			ctx := context.Background()
+			result, err := statusHandler(ctx, makeStatusRequest(status))
+			if err != nil {
+				t.Fatalf("statusHandler returned error for '%s': %v", status, err)
+			}
+
+			if result.IsError {
+				textContent := result.Content[0].(*mcp.TextContent)
+				t.Fatalf("statusHandler should succeed for valid status '%s', got error: %s", status, textContent.Text)
+			}
+
+			// Verify response
+			textContent := result.Content[0].(*mcp.TextContent)
+			var response StatusResponse
+			if err := json.Unmarshal([]byte(textContent.Text), &response); err != nil {
+				t.Fatalf("Failed to parse response JSON: %v", err)
+			}
+
+			if response.Status != "ok" {
+				t.Errorf("Expected status 'ok', got '%s'", response.Status)
+			}
+
+			// Verify the status was persisted
+			recipientsPath := filepath.Join(tmpDir, ".agentmail", "recipients.jsonl")
+			data, err := os.ReadFile(recipientsPath)
+			if err != nil {
+				t.Fatalf("Failed to read recipients file: %v", err)
+			}
+
+			expectedStatus := `"status":"` + status + `"`
+			if !strings.Contains(string(data), expectedStatus) {
+				t.Errorf("Status '%s' not found in recipients file. Content: %s", status, data)
+			}
+		})
+	}
+}

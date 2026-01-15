@@ -28,9 +28,9 @@ func TestReceiveCommand_NoMessages(t *testing.T) {
 	exitCode := Receive(&stdout, &stderr, ReceiveOptions{
 		SkipTmuxCheck:       true,
 		SkipTimestampUpdate: true,
-		MockReceiver:  "agent-2",
-		MockWindows:   []string{"agent-1", "agent-2"},
-		RepoRoot:      tmpDir,
+		MockReceiver:        "agent-2",
+		MockWindows:         []string{"agent-1", "agent-2"},
+		RepoRoot:            tmpDir,
 	})
 
 	if exitCode != 0 {
@@ -68,9 +68,9 @@ func TestReceiveCommand_AllMessagesRead(t *testing.T) {
 	exitCode := Receive(&stdout, &stderr, ReceiveOptions{
 		SkipTmuxCheck:       true,
 		SkipTimestampUpdate: true,
-		MockReceiver:  "agent-2",
-		MockWindows:   []string{"agent-1", "agent-2"},
-		RepoRoot:      tmpDir,
+		MockReceiver:        "agent-2",
+		MockWindows:         []string{"agent-1", "agent-2"},
+		RepoRoot:            tmpDir,
 	})
 
 	if exitCode != 0 {
@@ -110,9 +110,9 @@ func TestReceiveCommand_Success(t *testing.T) {
 	exitCode := Receive(&stdout, &stderr, ReceiveOptions{
 		SkipTmuxCheck:       true,
 		SkipTimestampUpdate: true,
-		MockReceiver:  "agent-2",
-		MockWindows:   []string{"agent-1", "agent-2"},
-		RepoRoot:      tmpDir,
+		MockReceiver:        "agent-2",
+		MockWindows:         []string{"agent-1", "agent-2"},
+		RepoRoot:            tmpDir,
 	})
 
 	if exitCode != 0 {
@@ -170,9 +170,9 @@ func TestReceiveCommand_FIFO_Order(t *testing.T) {
 	exitCode := Receive(&stdout, &stderr, ReceiveOptions{
 		SkipTmuxCheck:       true,
 		SkipTimestampUpdate: true,
-		MockReceiver:  "agent-2",
-		MockWindows:   []string{"agent-1", "agent-2", "agent-3"},
-		RepoRoot:      tmpDir,
+		MockReceiver:        "agent-2",
+		MockWindows:         []string{"agent-1", "agent-2", "agent-3"},
+		RepoRoot:            tmpDir,
 	})
 
 	if exitCode != 0 {
@@ -221,9 +221,9 @@ func TestReceiveCommand_CurrentWindowNotInSession(t *testing.T) {
 	exitCode := Receive(&stdout, &stderr, ReceiveOptions{
 		SkipTmuxCheck:       true,
 		SkipTimestampUpdate: true,
-		MockReceiver:  "orphan-window",
-		MockWindows:   []string{"agent-1", "agent-2"}, // orphan-window not in list
-		RepoRoot:      tmpDir,
+		MockReceiver:        "orphan-window",
+		MockWindows:         []string{"agent-1", "agent-2"}, // orphan-window not in list
+		RepoRoot:            tmpDir,
 	})
 
 	if exitCode != 1 {
@@ -262,10 +262,10 @@ func TestReceiveCommand_HookMode_WithMessages(t *testing.T) {
 	exitCode := Receive(&stdout, &stderr, ReceiveOptions{
 		SkipTmuxCheck:       true,
 		SkipTimestampUpdate: true,
-		MockReceiver:  "agent-2",
-		MockWindows:   []string{"agent-1", "agent-2"},
-		RepoRoot:      tmpDir,
-		HookMode:      true,
+		MockReceiver:        "agent-2",
+		MockWindows:         []string{"agent-1", "agent-2"},
+		RepoRoot:            tmpDir,
+		HookMode:            true,
 	})
 
 	// FR-001b: Exit code should be 2
@@ -324,10 +324,10 @@ func TestReceiveCommand_HookMode_NoMessages(t *testing.T) {
 	exitCode := Receive(&stdout, &stderr, ReceiveOptions{
 		SkipTmuxCheck:       true,
 		SkipTimestampUpdate: true,
-		MockReceiver:  "agent-2",
-		MockWindows:   []string{"agent-1", "agent-2"},
-		RepoRoot:      tmpDir,
-		HookMode:      true,
+		MockReceiver:        "agent-2",
+		MockWindows:         []string{"agent-1", "agent-2"},
+		RepoRoot:            tmpDir,
+		HookMode:            true,
 	})
 
 	// FR-002: Exit code should be 0
@@ -387,10 +387,10 @@ func TestReceiveCommand_HookMode_WindowNotInSession(t *testing.T) {
 	exitCode := Receive(&stdout, &stderr, ReceiveOptions{
 		SkipTmuxCheck:       true,
 		SkipTimestampUpdate: true,
-		MockReceiver:  "orphan-window",
-		MockWindows:   []string{"agent-1", "agent-2"}, // orphan-window not in list
-		RepoRoot:      tmpDir,
-		HookMode:      true,
+		MockReceiver:        "orphan-window",
+		MockWindows:         []string{"agent-1", "agent-2"}, // orphan-window not in list
+		RepoRoot:            tmpDir,
+		HookMode:            true,
 	})
 
 	// FR-004a: Exit code should be 0 (silent error)
@@ -432,10 +432,10 @@ func TestReceiveCommand_HookMode_AllMessagesRead(t *testing.T) {
 	exitCode := Receive(&stdout, &stderr, ReceiveOptions{
 		SkipTmuxCheck:       true,
 		SkipTimestampUpdate: true,
-		MockReceiver:  "agent-2",
-		MockWindows:   []string{"agent-1", "agent-2"},
-		RepoRoot:      tmpDir,
-		HookMode:      true,
+		MockReceiver:        "agent-2",
+		MockWindows:         []string{"agent-1", "agent-2"},
+		RepoRoot:            tmpDir,
+		HookMode:            true,
 	})
 
 	// Exit code should be 0 (no unread messages)
@@ -474,10 +474,10 @@ func TestReceiveCommand_NormalMode_Unchanged(t *testing.T) {
 	exitCode := Receive(&stdout, &stderr, ReceiveOptions{
 		SkipTmuxCheck:       true,
 		SkipTimestampUpdate: true,
-		MockReceiver:  "agent-2",
-		MockWindows:   []string{"agent-1", "agent-2"},
-		RepoRoot:      tmpDir,
-		HookMode:      false, // Explicitly false
+		MockReceiver:        "agent-2",
+		MockWindows:         []string{"agent-1", "agent-2"},
+		RepoRoot:            tmpDir,
+		HookMode:            false, // Explicitly false
 	})
 
 	// Normal mode should exit 0 with message

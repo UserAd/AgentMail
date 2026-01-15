@@ -281,8 +281,11 @@ func CleanStaleStates(repoRoot string, threshold time.Duration) error {
 		}
 	}
 
-	// Write back while still holding lock
-	writeErr := writeAllRecipientsLocked(file, fresh)
+	// Only write if states were actually removed
+	var writeErr error
+	if len(fresh) != len(recipients) {
+		writeErr = writeAllRecipientsLocked(file, fresh)
+	}
 
 	// Unlock before close (correct order)
 	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result

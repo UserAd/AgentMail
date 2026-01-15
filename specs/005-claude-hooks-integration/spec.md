@@ -2,7 +2,7 @@
 
 **Feature Branch**: `005-claude-hooks-integration`
 **Created**: 2026-01-12
-**Status**: Draft
+**Status**: Implemented
 **Input**: User description: "Add integration with Claude hooks for agentmail. Add --hook flag to receive command: (1) no messages or not in tmux = silent exit code 0, (2) new messages = output to STDERR with 'You got new mail' and exit code 2, (3) README.md section for hook installation"
 
 ## User Scenarios & Testing *(mandatory)*

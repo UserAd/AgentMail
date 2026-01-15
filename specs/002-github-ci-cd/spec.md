@@ -2,7 +2,7 @@
 
 **Feature Branch**: `002-github-ci-cd`
 **Created**: 2026-01-11
-**Status**: Draft
+**Status**: Implemented
 **Input**: User description: "I want to setup github pipeline for automatic run tests on pull requests. After building to main pipeline should create release and publish builds (linux, macos) to releases. Version should be managed by semantic versioning."
 
 ## Clarifications

@@ -368,3 +368,81 @@ func TestMarkAsRead_NonexistentMessage(t *testing.T) {
 		t.Errorf("MarkAsRead should not error for nonexistent message: %v", err)
 	}
 }
+
+// Tests for safePath security function (path traversal prevention)
+
+func TestSafePath_ValidFilename(t *testing.T) {
+	result, err := safePath("/base/dir", "file.jsonl")
+	if err != nil {
+		t.Errorf("safePath should accept valid filename: %v", err)
+	}
+	expected := filepath.Join("/base/dir", "file.jsonl")
+	if result != expected {
+		t.Errorf("Expected %q, got %q", expected, result)
+	}
+}
+
+func TestSafePath_DirectoryTraversal(t *testing.T) {
+	tests := []struct {
+		name     string
+		baseDir  string
+		filename string
+	}{
+		{"simple traversal", "/base/dir", "../etc/passwd"},
+		{"double traversal", "/base/dir", "../../etc/passwd"},
+		{"triple traversal", "/base/dir", "../../../etc/passwd"},
+		{"hidden traversal", "/base/dir", "foo/../../../etc/passwd"},
+		{"traversal with extension", "/base/dir", "../secret.jsonl"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := safePath(tt.baseDir, tt.filename)
+			if err != ErrInvalidPath {
+				t.Errorf("safePath should reject %q with ErrInvalidPath, got: %v", tt.filename, err)
+			}
+		})
+	}
+}
+
+func TestSafePath_AbsolutePath(t *testing.T) {
+	tests := []struct {
+		name     string
+		filename string
+	}{
+		{"absolute unix path", "/etc/passwd"},
+		{"absolute with extension", "/var/log/secret.jsonl"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := safePath("/base/dir", tt.filename)
+			if err != ErrInvalidPath {
+				t.Errorf("safePath should reject absolute path %q with ErrInvalidPath, got: %v", tt.filename, err)
+			}
+		})
+	}
+}
+
+func TestSafePath_ValidSubdirectory(t *testing.T) {
+	result, err := safePath("/base/dir", "subdir/file.jsonl")
+	if err != nil {
+		t.Errorf("safePath should accept valid subdirectory path: %v", err)
+	}
+	expected := filepath.Join("/base/dir", "subdir/file.jsonl")
+	if result != expected {
+		t.Errorf("Expected %q, got %q", expected, result)
+	}
+}
+
+func TestSafePath_DotInFilename(t *testing.T) {
+	// Single dot in path component should be cleaned but allowed
+	result, err := safePath("/base/dir", "./file.jsonl")
+	if err != nil {
+		t.Errorf("safePath should accept path with single dot: %v", err)
+	}
+	expected := filepath.Join("/base/dir", "file.jsonl")
+	if result != expected {
+		t.Errorf("Expected %q, got %q", expected, result)
+	}
+}

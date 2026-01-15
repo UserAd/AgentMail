@@ -2,7 +2,7 @@
 
 **Feature Branch**: `008-stale-agent-mailman`
 **Created**: 2026-01-13
-**Status**: Draft
+**Status**: Implemented
 **Input**: User description: "Implement stale agent handling and notifying - fallback notification support for agents without Claude hooks that cannot register their status"
 
 ## User Scenarios & Testing *(mandatory)*

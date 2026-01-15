@@ -2,7 +2,7 @@
 
 **Feature Branch**: `010-mcp-server`
 **Created**: 2026-01-14
-**Status**: Draft
+**Status**: Implemented
 **Input**: User description: "I want to have ability to communicate with agentmail via mcp interface. Due to limitation of some assistants hook mechanism is not good enough for handling statuses and invoking of shell command can be difficult for sending and receiving messages. For these agents I want to have MCP functionality with stdio transport."
 
 ## Clarifications

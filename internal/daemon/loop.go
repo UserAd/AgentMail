@@ -157,7 +157,7 @@ func notifyStatedAgents(opts LoopOptions, notify NotifyFunc) (map[string]struct{
 func processStatedAgent(opts LoopOptions, notify NotifyFunc, recipient mail.RecipientState) {
 	// Skip non-ready agents
 	if recipient.Status != mail.StatusReady {
-		if !recipient.ShouldNotify() {
+		if recipient.IsProtected() {
 			opts.log("Skipping stated agent %q: status=%s, protected for 1h", recipient.Recipient, recipient.Status)
 		} else {
 			opts.log("Skipping stated agent %q: status=%s (not ready)", recipient.Recipient, recipient.Status)
@@ -165,7 +165,7 @@ func processStatedAgent(opts LoopOptions, notify NotifyFunc, recipient mail.Reci
 		return
 	}
 
-	// Check 60s debounce
+	// Check 60s debounce for ready agents
 	if !recipient.ShouldNotify() {
 		opts.log("Skipping stated agent %q: notified within last 60s", recipient.Recipient)
 		return

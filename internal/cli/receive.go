@@ -12,11 +12,12 @@ import (
 // ReceiveOptions configures the Receive command behavior.
 // Used for testing to mock tmux and file system operations.
 type ReceiveOptions struct {
-	SkipTmuxCheck bool     // Skip tmux environment check
-	MockWindows   []string // Mock list of tmux windows
-	MockReceiver  string   // Mock receiver window name
-	RepoRoot      string   // Repository root (defaults to current directory)
-	HookMode      bool     // Enable hook mode for Claude Code integration
+	SkipTmuxCheck       bool     // Skip tmux environment check
+	SkipTimestampUpdate bool     // Skip updating last_read_at timestamp (for testing)
+	MockWindows         []string // Mock list of tmux windows
+	MockReceiver        string   // Mock receiver window name
+	RepoRoot            string   // Repository root (defaults to current directory)
+	HookMode            bool     // Enable hook mode for Claude Code integration
 }
 
 // receiveError represents an error during receive with context.
@@ -94,8 +95,8 @@ func (opts *ReceiveOptions) receiveCore() (*mail.Message, *receiveError) {
 		return nil, &receiveError{"failed to mark message as read: " + err.Error(), 1}
 	}
 
-	// Update last_read_at timestamp (best-effort)
-	if !opts.SkipTmuxCheck {
+	// Update last_read_at timestamp (best-effort, skipped in tests)
+	if !opts.SkipTimestampUpdate {
 		_ = mail.UpdateLastReadAt(repoRoot, receiver, time.Now().UnixMilli())
 	}
 

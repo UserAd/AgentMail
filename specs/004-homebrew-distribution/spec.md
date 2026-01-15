@@ -2,7 +2,7 @@
 
 **Feature Branch**: `004-homebrew-distribution`
 **Created**: 2026-01-12
-**Status**: Draft
+**Status**: Implemented
 **Input**: User description: "I want to have ability to distribute releases via homebrew for mac. It should have all required preparations and files and clear instruction in README.md"
 
 ## Clarifications

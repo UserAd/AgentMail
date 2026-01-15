@@ -2,7 +2,7 @@
 
 **Feature Branch**: `007-storage-restructure`
 **Created**: 2026-01-13
-**Status**: Draft
+**Status**: Implemented
 **Input**: User description: "Change storage structure for AgentMail to use .agentmail/ directory instead of .git/mail/"
 
 ## Clarifications

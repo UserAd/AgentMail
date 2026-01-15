@@ -2,7 +2,7 @@
 
 **Feature Branch**: `009-watch-files`
 **Created**: 2026-01-13
-**Status**: Draft
+**Status**: Implemented
 **Input**: User description: "I want to mailman watch for file changes instead of timer (with fallback if OS not support watching) to check mailbox adding/updating and agents status changing. As additional thing I want to agentmail tracks in recipients.jsonl when agent reads his mail last time."
 
 ## Clarifications

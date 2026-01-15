@@ -2,7 +2,7 @@
 
 **Feature Branch**: `003-recipients-help-stdin`
 **Created**: 2026-01-12
-**Status**: Draft
+**Status**: Implemented
 **Input**: User description: "Recipients command to list active windows, help flag for command documentation, stdin support for sending messages, with .agentmailignore filtering"
 
 ## User Scenarios & Testing *(mandatory)*

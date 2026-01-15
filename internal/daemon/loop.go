@@ -93,6 +93,9 @@ func (opts *LoopOptions) log(format string, args ...interface{}) {
 // NotifyFunc is the function signature for notifying an agent.
 type NotifyFunc func(window string) error
 
+// WindowCheckerFunc is the function signature for checking if a window exists.
+type WindowCheckerFunc func(window string) (bool, error)
+
 // NotifyAgent sends a notification to an agent's tmux window.
 // Notification protocol:
 // 1. tmux send-keys -t <window> "Check your agentmail"
@@ -122,18 +125,19 @@ func NotifyAgent(window string) error {
 func CheckAndNotify(opts LoopOptions) error {
 	if opts.SkipTmuxCheck {
 		// In test mode, skip actual notifications but still update flags
-		return CheckAndNotifyWithNotifier(opts, nil)
+		return CheckAndNotifyWithNotifier(opts, nil, nil)
 	}
-	return CheckAndNotifyWithNotifier(opts, NotifyAgent)
+	return CheckAndNotifyWithNotifier(opts, NotifyAgent, tmux.WindowExists)
 }
 
 // CheckAndNotifyWithNotifier performs a single notification cycle with a custom notifier.
 // This allows for testing without actual tmux calls.
 // When notify is non-nil, it will be called for each agent that should be notified.
+// When windowChecker is non-nil, it will be used to verify window existence before notifying.
 // The function handles two types of agents:
 // - Phase 1: Stated agents (with recipient state in recipients.jsonl)
 // - Phase 2: Stateless agents (mailbox but no recipient state)
-func CheckAndNotifyWithNotifier(opts LoopOptions, notify NotifyFunc) error {
+func CheckAndNotifyWithNotifier(opts LoopOptions, notify NotifyFunc, windowChecker WindowCheckerFunc) error {
 	opts.log("Starting notification cycle")
 
 	// =========================================================================
@@ -246,13 +250,25 @@ func CheckAndNotifyWithNotifier(opts LoopOptions, notify NotifyFunc) error {
 			continue
 		}
 
+		// Check if window exists before attempting notification
+		if windowChecker != nil {
+			exists, err := windowChecker(mailboxRecipient)
+			if err != nil {
+				opts.log("Error checking window existence for %q: %v", mailboxRecipient, err)
+				continue
+			}
+			if !exists {
+				opts.log("Skipping stateless agent %q: window does not exist", mailboxRecipient)
+				continue
+			}
+		}
+
 		// Send notification
 		if notify != nil {
 			opts.log("Notifying stateless agent %q", mailboxRecipient)
 			if err := notify(mailboxRecipient); err != nil {
 				opts.log("Notification failed for stateless agent %q: %v", mailboxRecipient, err)
-				// T023: Mark as notified even on failure to rate-limit retries
-				// This prevents infinite retry loops for non-existent windows
+				// Mark as notified even on failure to rate-limit retries
 				opts.StatelessTracker.MarkNotified(mailboxRecipient)
 				opts.log("Marked stateless agent %q in tracker (after failure)", mailboxRecipient)
 				continue

@@ -115,7 +115,7 @@ func TestCheckAndNotify_NotifiesReadyAgentWithUnreadMessages(t *testing.T) {
 		SkipTmuxCheck: true,
 	}
 
-	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	err := CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotify failed: %v", err)
 	}
@@ -148,7 +148,7 @@ func TestCheckAndNotify_NoNotificationWhenNoUnreadMessages(t *testing.T) {
 		SkipTmuxCheck: true,
 	}
 
-	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	err := CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotify failed: %v", err)
 	}
@@ -183,7 +183,7 @@ func TestCheckAndNotify_SkipsWorkAgent(t *testing.T) {
 		SkipTmuxCheck: true,
 	}
 
-	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	err := CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotify failed: %v", err)
 	}
@@ -214,7 +214,7 @@ func TestCheckAndNotify_SkipsOfflineAgent(t *testing.T) {
 		SkipTmuxCheck: true,
 	}
 
-	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	err := CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotify failed: %v", err)
 	}
@@ -251,7 +251,7 @@ func TestCheckAndNotify_MixedStatuses(t *testing.T) {
 		SkipTmuxCheck: true,
 	}
 
-	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	err := CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotify failed: %v", err)
 	}
@@ -289,7 +289,7 @@ func TestCheckAndNotify_SkipsAlreadyNotified(t *testing.T) {
 		SkipTmuxCheck: true,
 	}
 
-	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	err := CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotify failed: %v", err)
 	}
@@ -318,7 +318,7 @@ func TestCheckAndNotify_UpdatesNotifiedFlagAfterNotification(t *testing.T) {
 		SkipTmuxCheck: true,
 	}
 
-	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	err := CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotify failed: %v", err)
 	}
@@ -527,7 +527,7 @@ func TestIntegration_FullNotificationCycle(t *testing.T) {
 	}
 
 	// Run CheckAndNotify
-	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	err := CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotify failed: %v", err)
 	}
@@ -927,7 +927,7 @@ func TestStatelessNotification_AgentWithMailboxNoState(t *testing.T) {
 		StatelessTracker: tracker,
 	}
 
-	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	err := CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
 	}
@@ -965,7 +965,7 @@ func TestStatelessNotification_RespectInterval(t *testing.T) {
 	}
 
 	// First call: should notify (first time)
-	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	err := CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
 	}
@@ -974,7 +974,7 @@ func TestStatelessNotification_RespectInterval(t *testing.T) {
 	}
 
 	// Second call immediately: should NOT notify (interval not elapsed)
-	err = CheckAndNotifyWithNotifier(opts, mockNotify)
+	err = CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
 	}
@@ -986,7 +986,7 @@ func TestStatelessNotification_RespectInterval(t *testing.T) {
 	time.Sleep(60 * time.Millisecond)
 
 	// Third call: should notify again (interval elapsed)
-	err = CheckAndNotifyWithNotifier(opts, mockNotify)
+	err = CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
 	}
@@ -1021,7 +1021,7 @@ func TestStatelessNotification_NoUnreadMessages(t *testing.T) {
 		StatelessTracker: tracker,
 	}
 
-	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	err := CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
 	}
@@ -1056,7 +1056,7 @@ func TestStatelessNotification_MultipleAgents(t *testing.T) {
 		StatelessTracker: tracker,
 	}
 
-	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	err := CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
 	}
@@ -1111,7 +1111,7 @@ func TestStatelessNotification_StatedAgentTakesPrecedence(t *testing.T) {
 		StatelessTracker: tracker,
 	}
 
-	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	err := CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
 	}
@@ -1179,7 +1179,7 @@ func TestStatelessNotification_TransitionToStated(t *testing.T) {
 	}
 
 	// First call: notified as stateless
-	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	err := CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
 	}
@@ -1195,7 +1195,7 @@ func TestStatelessNotification_TransitionToStated(t *testing.T) {
 	createRecipientState(t, repoRoot, "transitioning-agent", mail.StatusReady, false, now)
 
 	// Second call: agent is now stated, should be notified via stated logic
-	err = CheckAndNotifyWithNotifier(opts, mockNotify)
+	err = CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
 	}
@@ -1213,7 +1213,7 @@ func TestStatelessNotification_TransitionToStated(t *testing.T) {
 	}
 
 	// Third call: already notified as stated, should NOT get notified again
-	err = CheckAndNotifyWithNotifier(opts, mockNotify)
+	err = CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
 	}
@@ -1251,7 +1251,7 @@ func TestStatelessNotification_DaemonRestart_ImmediateEligibility(t *testing.T) 
 	}
 
 	// First daemon: both agents notified
-	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	err := CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
 	}
@@ -1265,7 +1265,7 @@ func TestStatelessNotification_DaemonRestart_ImmediateEligibility(t *testing.T) 
 	opts.StatelessTracker = tracker2
 
 	// Second daemon: agents should be immediately eligible again (fresh tracker)
-	err = CheckAndNotifyWithNotifier(opts, mockNotify)
+	err = CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
 	}
@@ -1299,7 +1299,7 @@ func TestStatelessNotification_MailboxDirReadError(t *testing.T) {
 	}
 
 	// Should not return error even if mailbox dir doesn't exist
-	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	err := CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	// ReadAllRecipients will fail first, so this is expected to return error
 	// But the system should handle it gracefully
 	if err == nil {
@@ -1339,7 +1339,7 @@ func TestStatelessNotification_NotifyFailure(t *testing.T) {
 	}
 
 	// First call: notification fails
-	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	err := CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
 	}
@@ -1354,7 +1354,7 @@ func TestStatelessNotification_NotifyFailure(t *testing.T) {
 	}
 
 	// Second call immediately: should NOT retry (rate-limited)
-	err = CheckAndNotifyWithNotifier(opts, mockNotify)
+	err = CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
 	}
@@ -1366,12 +1366,56 @@ func TestStatelessNotification_NotifyFailure(t *testing.T) {
 	time.Sleep(60 * time.Millisecond)
 
 	// Third call: should retry after interval elapsed
-	err = CheckAndNotifyWithNotifier(opts, mockNotify)
+	err = CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
 	}
 	if notifyAttempts != 2 {
 		t.Errorf("Expected 2 notify attempts after interval, got %d", notifyAttempts)
+	}
+}
+
+// TestStatelessNotification_WindowNotExists
+// Tests that non-existent windows are skipped without notification attempt
+func TestStatelessNotification_WindowNotExists(t *testing.T) {
+	repoRoot := createTestMailDir(t)
+
+	// Create a stateless agent with unread messages
+	createUnreadMessage(t, repoRoot, "missing-window", "sender", "Hello!")
+
+	tracker := NewStatelessTracker(50 * time.Millisecond)
+
+	notifyAttempts := 0
+	mockNotify := func(window string) error {
+		notifyAttempts++
+		return nil
+	}
+
+	// Mock window checker that says window doesn't exist
+	mockWindowChecker := func(window string) (bool, error) {
+		return false, nil // Window does not exist
+	}
+
+	opts := LoopOptions{
+		RepoRoot:         repoRoot,
+		SkipTmuxCheck:    true,
+		StatelessTracker: tracker,
+	}
+
+	// Should skip notification because window doesn't exist
+	err := CheckAndNotifyWithNotifier(opts, mockNotify, mockWindowChecker)
+	if err != nil {
+		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
+	}
+
+	// No notification should have been attempted
+	if notifyAttempts != 0 {
+		t.Errorf("Expected 0 notify attempts for non-existent window, got %d", notifyAttempts)
+	}
+
+	// Agent should NOT be marked as notified (so it can retry when window appears)
+	if !tracker.ShouldNotify("missing-window") {
+		t.Error("Agent should still be eligible when window doesn't exist")
 	}
 }
 
@@ -1405,7 +1449,7 @@ func TestStatelessNotification_MailboxFileReadError(t *testing.T) {
 	}
 
 	// Should handle the bad mailbox gracefully and still notify good agent
-	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	err := CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
 	}
@@ -1448,7 +1492,7 @@ func TestStatelessNotification_RecipientsReadError(t *testing.T) {
 	}
 
 	// Should return error because ReadAllRecipients fails
-	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	err := CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err == nil {
 		// If we want to implement FR-017 (fallback to all stateless), we'd need to
 		// change the error handling in Phase 1 to continue to Phase 2
@@ -1522,7 +1566,7 @@ func TestLogging_ForegroundMode(t *testing.T) {
 		Logger:           &logBuf,
 	}
 
-	err := CheckAndNotifyWithNotifier(opts, mockNotify)
+	err := CheckAndNotifyWithNotifier(opts, mockNotify, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
 	}
@@ -1569,7 +1613,7 @@ func TestLogging_NoLoggerNoOutput(t *testing.T) {
 	}
 
 	// This should not panic even with nil logger
-	err := CheckAndNotifyWithNotifier(opts, nil)
+	err := CheckAndNotifyWithNotifier(opts, nil, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
 	}
@@ -1606,7 +1650,7 @@ func TestLogging_SkipMessages(t *testing.T) {
 		Logger:           &logBuf,
 	}
 
-	err := CheckAndNotifyWithNotifier(opts, nil)
+	err := CheckAndNotifyWithNotifier(opts, nil, nil)
 	if err != nil {
 		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
 	}

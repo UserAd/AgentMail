@@ -1,12 +1,32 @@
 # Gocyclo Cyclomatic Complexity Analysis
 
-**Generated:** 2026-01-15
-**Average complexity:** 6.0
+**Generated:** 2026-01-15 (Updated after refactoring)
 **Tool:** gocyclo v0.6.0
 
 ## Summary
 
-The codebase has an average cyclomatic complexity of ~6, which is acceptable. However, several functions exceed recommended thresholds and should be considered for refactoring.
+After refactoring, all critical complexity issues have been resolved. Only CLI setup code (`main.main`) remains above 15, which is acceptable for command-line applications.
+
+### Refactoring Results
+
+| Function | Before | After | Reduction |
+|----------|--------|-------|-----------|
+| `cli.Send` | 30 | 15 | 50% |
+| `cli.Receive` | 25 | 9 | 64% |
+| `daemon.CheckAndNotifyWithNotifier` | 24 | 2 | 92% |
+| `mcp.doSend` | 21 | 13 | 38% |
+| `mcp.doListRecipients` | 13 | 8 | 38% |
+
+### Remaining High Complexity (Production Code)
+
+| Complexity | Function | File | Notes |
+|------------|----------|------|-------|
+| 18 | `main.main` | cmd/agentmail/main.go | Acceptable for CLI setup |
+| 15 | `cli.Send` | internal/cli/send.go | At threshold |
+
+---
+
+## Original Analysis
 
 ### Complexity Thresholds
 - **1-5:** Simple, low risk

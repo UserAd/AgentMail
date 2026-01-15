@@ -54,9 +54,9 @@ Once Go source files are added:
 
 ## Testing in CI Environment
 
-To run tests in a container matching CI (Go 1.25, Linux):
+To run tests in a container matching CI (Go 1.25.5, Linux):
 ```bash
-docker run --rm -v $(pwd):/app -w /app golang:1.25 go test -v -race ./...
+docker run --rm -v $(pwd):/app -w /app golang:1.25.5 go test -v -race ./...
 ```
 
 This helps catch issues that only manifest in the CI environment (e.g., running as root, different Go version).
@@ -79,22 +79,22 @@ Templates are stored in `.specify/templates/` and project constitution in `.spec
 ## Active Technologies
 - Go 1.21+ (per IC-001) + Standard library only (os/exec for tmux, encoding/json for JSONL) (001-agent-mail-structure)
 - JSONL file in `.agentmail/` directory (001-agent-mail-structure)
-- Go 1.21+ (project uses Go 1.25.3) + GitHub Actions (yaml workflows), PaulHatch/semantic-version action for version calculation (002-github-ci-cd)
+- Go 1.21+ (project uses Go 1.25.5) + GitHub Actions (yaml workflows), PaulHatch/semantic-version action for version calculation (002-github-ci-cd)
 - N/A (CI/CD configuration files only) (002-github-ci-cd)
-- Go 1.21+ (per constitution IC-001, project uses Go 1.25.3) + Standard library only (os/exec, encoding/json, bufio, os) (003-recipients-help-stdin)
+- Go 1.21+ (per constitution IC-001, project uses Go 1.25.5) + Standard library only (os/exec, encoding/json, bufio, os) (003-recipients-help-stdin)
 - JSONL files in `.agentmail/` directory (003-recipients-help-stdin)
 - Ruby (Homebrew formula DSL), YAML (GitHub Actions), Go 1.21+ (existing) + Homebrew (user-side), GitHub Actions, gh CLI (for cross-repo updates) (004-homebrew-distribution)
 - N/A (formula hosted in separate GitHub repo) (004-homebrew-distribution)
-- Go 1.21+ (per constitution IC-001, project uses Go 1.25.3) + Standard library only (os, fmt, io - already used) (005-claude-hooks-integration)
+- Go 1.21+ (per constitution IC-001, project uses Go 1.25.5) + Standard library only (os, fmt, io - already used) (005-claude-hooks-integration)
 - JSONL files in `.agentmail/` directory (005-claude-hooks-integration)
-- Go 1.21+ (per constitution IC-001, project uses Go 1.25.3) + Standard library only (os/exec, encoding/json, syscall, time, os/signal) (006-mailman-daemon)
+- Go 1.21+ (per constitution IC-001, project uses Go 1.25.5) + Standard library only (os/exec, encoding/json, syscall, time, os/signal) (006-mailman-daemon)
 - JSONL files - `.agentmail/mailman.pid` (PID), `.agentmail/recipients.jsonl` (state) (006-mailman-daemon)
 - Go 1.21+ (per IC-001) + Standard library only (os, filepath, syscall, encoding/json) (007-storage-restructure)
 - JSONL files in `.agentmail/` directory hierarchy (007-storage-restructure)
 - Go 1.21+ (per IC-001) + Standard library only (time, sync) (008-stale-agent-mailman)
 - JSONL files in `.agentmail/` (existing), in-memory tracker (new) (008-stale-agent-mailman)
 - Go 1.21+ (per constitution IC-001) + Standard library only (os, time, syscall) + fsnotify (external - requires justification) (009-watch-files)
-- Go 1.23 (per go.mod, constitution requires 1.21+) + github.com/modelcontextprotocol/go-sdk (official MCP SDK) (010-mcp-server)
+- Go 1.25.5 (per go.mod, constitution requires 1.21+) + github.com/modelcontextprotocol/go-sdk (official MCP SDK) (010-mcp-server)
 - JSONL files in `.agentmail/` directory (existing infrastructure), MCP server via STDIO transport (010-mcp-server)
 
 ## Recent Changes

@@ -1,22 +1,9 @@
 <!--
-Sync Impact Report
-==================
-Version change: 1.0.0 → 1.1.0 (MINOR - scope expansion beyond MVP)
+Sync Impact Report: 1.1.0 → 1.2.0 (MINOR)
 
-Modified principles:
-- I. CLI-First Design: Removed "No daemon processes in MVP scope" restriction
-- II. Simplicity (YAGNI): Updated to reflect post-MVP stage, removed "MVP scope: send and receive commands only"
-
-Added sections: None
-
-Removed sections: None
-
-Templates requiring updates:
-- .specify/templates/plan-template.md: ✅ No changes needed (generic constitution check)
-- .specify/templates/spec-template.md: ✅ No changes needed (compatible)
-- .specify/templates/tasks-template.md: ✅ No changes needed (compatible)
-
-Follow-up TODOs: None
+Modified: IV. Standard Library Preference - added approved external dependencies
+Updated: Technology Constraints (Go 1.25.5), Quality Gates (govulncheck, gosec)
+Templates: All compatible, no changes needed
 -->
 
 # AgentMail Constitution
@@ -68,6 +55,14 @@ External dependencies MUST be justified. Prefer Go standard library:
 - `os/signal` for daemon signal handling
 - `time` for scheduling and timeouts
 
+**Approved External Dependencies** (with documented rationale):
+
+| Dependency | Version | Rationale |
+|------------|---------|-----------|
+| `github.com/fsnotify/fsnotify` | v1.9.0 | File watching for instant daemon notifications; stdlib lacks cross-platform fsnotify equivalent |
+| `github.com/modelcontextprotocol/go-sdk` | v1.2.0 | Official MCP SDK for AI agent integration; implementing MCP protocol from scratch is impractical |
+| `github.com/peterbourgon/ff/v3` | v3.4.0 | Lightweight CLI flag parsing with subcommand support; reduces boilerplate vs stdlib flag package |
+
 New dependencies require documented rationale in research.md with:
 - Why standard library is insufficient
 - Security/maintenance implications
@@ -77,7 +72,7 @@ New dependencies require documented rationale in research.md with:
 
 ## Technology Constraints
 
-- **Language**: Go 1.21+ (per IC-001)
+- **Language**: Go 1.25.5 (minimum 1.21+ per IC-001)
 - **Storage**: JSONL files in `.agentmail/` directory (per-recipient files, state files)
 - **Platform**: macOS and Linux with tmux installed
 - **Build**: Standard `go build`, no CGO dependencies
@@ -87,9 +82,12 @@ New dependencies require documented rationale in research.md with:
 Before any feature is considered complete:
 
 1. **Coverage**: `go test -cover ./...` reports >= 80%
-2. **Static Analysis**: `go vet ./...` passes with no errors
-3. **Formatting**: `go fmt ./...` produces no changes
-4. **Spec Compliance**: All acceptance scenarios from spec.md pass
+2. **Race Detection**: `go test -race ./...` passes with no data races
+3. **Static Analysis**: `go vet ./...` passes with no errors
+4. **Formatting**: `go fmt ./...` produces no changes
+5. **Vulnerability Scan**: `govulncheck ./...` reports no known vulnerabilities
+6. **Security Scan**: `gosec ./...` passes with no high/critical findings
+7. **Spec Compliance**: All acceptance scenarios from spec.md pass
 
 ## Governance
 
@@ -106,4 +104,4 @@ This constitution supersedes all other development practices for AgentMail.
 - Violations require explicit justification or constitution amendment
 - `/speckit.analyze` checks constitution alignment automatically
 
-**Version**: 1.1.0 | **Ratified**: 2026-01-11 | **Last Amended**: 2026-01-12
+**Version**: 1.2.0 | **Ratified**: 2026-01-11 | **Last Amended**: 2026-01-15

@@ -46,22 +46,22 @@ func TestReadAllRecipients_ParsesJSONL(t *testing.T) {
 	// Create test data with multiple recipient states
 	now := time.Now().Truncate(time.Second)
 	state1 := RecipientState{
-		Recipient: "agent-1",
-		Status:    StatusReady,
-		UpdatedAt: now,
-		Notified:  false,
+		Recipient:  "agent-1",
+		Status:     StatusReady,
+		UpdatedAt:  now,
+		NotifiedAt: time.Time{},
 	}
 	state2 := RecipientState{
-		Recipient: "agent-2",
-		Status:    StatusWork,
-		UpdatedAt: now.Add(-time.Hour),
-		Notified:  true,
+		Recipient:  "agent-2",
+		Status:     StatusWork,
+		UpdatedAt:  now.Add(-time.Hour),
+		NotifiedAt: time.Now(),
 	}
 	state3 := RecipientState{
-		Recipient: "agent-3",
-		Status:    StatusOffline,
-		UpdatedAt: now.Add(-2 * time.Hour),
-		Notified:  false,
+		Recipient:  "agent-3",
+		Status:     StatusOffline,
+		UpdatedAt:  now.Add(-2 * time.Hour),
+		NotifiedAt: time.Time{},
 	}
 
 	// Write JSONL content
@@ -93,8 +93,8 @@ func TestReadAllRecipients_ParsesJSONL(t *testing.T) {
 	if recipients[0].Status != StatusReady {
 		t.Errorf("First recipient status should be ready, got %s", recipients[0].Status)
 	}
-	if recipients[0].Notified != false {
-		t.Error("First recipient should not be notified")
+	if !recipients[0].NotifiedAt.IsZero() {
+		t.Error("First recipient should not be notified (NotifiedAt should be zero)")
 	}
 
 	// Verify second recipient
@@ -104,8 +104,8 @@ func TestReadAllRecipients_ParsesJSONL(t *testing.T) {
 	if recipients[1].Status != StatusWork {
 		t.Errorf("Second recipient status should be work, got %s", recipients[1].Status)
 	}
-	if recipients[1].Notified != true {
-		t.Error("Second recipient should be notified")
+	if recipients[1].NotifiedAt.IsZero() {
+		t.Error("Second recipient should be notified (NotifiedAt should be set)")
 	}
 
 	// Verify third recipient
@@ -160,16 +160,16 @@ func TestWriteAllRecipients(t *testing.T) {
 	now := time.Now().Truncate(time.Second)
 	recipients := []RecipientState{
 		{
-			Recipient: "agent-1",
-			Status:    StatusReady,
-			UpdatedAt: now,
-			Notified:  false,
+			Recipient:  "agent-1",
+			Status:     StatusReady,
+			UpdatedAt:  now,
+			NotifiedAt: time.Time{},
 		},
 		{
-			Recipient: "agent-2",
-			Status:    StatusWork,
-			UpdatedAt: now,
-			Notified:  true,
+			Recipient:  "agent-2",
+			Status:     StatusWork,
+			UpdatedAt:  now,
+			NotifiedAt: time.Now(),
 		},
 	}
 
@@ -217,10 +217,10 @@ func TestWriteAllRecipients_CreatesParentDir(t *testing.T) {
 
 	recipients := []RecipientState{
 		{
-			Recipient: "agent-1",
-			Status:    StatusReady,
-			UpdatedAt: time.Now(),
-			Notified:  false,
+			Recipient:  "agent-1",
+			Status:     StatusReady,
+			UpdatedAt:  time.Now(),
+			NotifiedAt: time.Time{},
 		},
 	}
 
@@ -249,7 +249,7 @@ func TestWriteAllRecipients_OverwritesExisting(t *testing.T) {
 
 	// Write initial content
 	initial := []RecipientState{
-		{Recipient: "old-agent", Status: StatusOffline, UpdatedAt: time.Now(), Notified: true},
+		{Recipient: "old-agent", Status: StatusOffline, UpdatedAt: time.Now(), NotifiedAt: time.Now()},
 	}
 	if err := WriteAllRecipients(tmpDir, initial); err != nil {
 		t.Fatalf("Initial WriteAllRecipients failed: %v", err)
@@ -257,7 +257,7 @@ func TestWriteAllRecipients_OverwritesExisting(t *testing.T) {
 
 	// Write new content
 	updated := []RecipientState{
-		{Recipient: "new-agent", Status: StatusReady, UpdatedAt: time.Now(), Notified: false},
+		{Recipient: "new-agent", Status: StatusReady, UpdatedAt: time.Now(), NotifiedAt: time.Time{}},
 	}
 	if err := WriteAllRecipients(tmpDir, updated); err != nil {
 		t.Fatalf("Updated WriteAllRecipients failed: %v", err)
@@ -310,8 +310,8 @@ func TestUpdateRecipientState_NewRecipient(t *testing.T) {
 	if recipients[0].Status != StatusReady {
 		t.Errorf("Expected status ready, got %s", recipients[0].Status)
 	}
-	if recipients[0].Notified != false {
-		t.Error("New recipient should have Notified=false")
+	if !recipients[0].NotifiedAt.IsZero() {
+		t.Error("New recipient should have NotifiedAt=zero")
 	}
 	if recipients[0].UpdatedAt.IsZero() {
 		t.Error("UpdatedAt should not be zero")
@@ -331,16 +331,16 @@ func TestUpdateRecipientState_UpdateExisting(t *testing.T) {
 	// Create initial recipient
 	initial := []RecipientState{
 		{
-			Recipient: "agent-1",
-			Status:    StatusReady,
-			UpdatedAt: time.Now().Add(-time.Hour),
-			Notified:  true,
+			Recipient:  "agent-1",
+			Status:     StatusReady,
+			UpdatedAt:  time.Now().Add(-time.Hour),
+			NotifiedAt: time.Now(),
 		},
 		{
-			Recipient: "agent-2",
-			Status:    StatusOffline,
-			UpdatedAt: time.Now().Add(-time.Hour),
-			Notified:  false,
+			Recipient:  "agent-2",
+			Status:     StatusOffline,
+			UpdatedAt:  time.Now().Add(-time.Hour),
+			NotifiedAt: time.Time{},
 		},
 	}
 	if err := WriteAllRecipients(tmpDir, initial); err != nil {
@@ -381,8 +381,8 @@ func TestUpdateRecipientState_UpdateExisting(t *testing.T) {
 	if agent1.Status != StatusWork {
 		t.Errorf("Expected status work, got %s", agent1.Status)
 	}
-	if agent1.Notified != true {
-		t.Error("Notified should remain true when resetNotified is false")
+	if agent1.NotifiedAt.IsZero() {
+		t.Error("NotifiedAt should remain set when resetNotified is false")
 	}
 	if agent1.UpdatedAt.Before(beforeUpdate) {
 		t.Error("UpdatedAt should be updated to current time")
@@ -418,10 +418,10 @@ func TestUpdateRecipientState_ResetNotified(t *testing.T) {
 	// Create initial recipient with Notified=true
 	initial := []RecipientState{
 		{
-			Recipient: "agent-1",
-			Status:    StatusWork,
-			UpdatedAt: time.Now().Add(-time.Hour),
-			Notified:  true,
+			Recipient:  "agent-1",
+			Status:     StatusWork,
+			UpdatedAt:  time.Now().Add(-time.Hour),
+			NotifiedAt: time.Now(),
 		},
 	}
 	if err := WriteAllRecipients(tmpDir, initial); err != nil {
@@ -444,8 +444,8 @@ func TestUpdateRecipientState_ResetNotified(t *testing.T) {
 		t.Fatalf("Expected 1 recipient, got %d", len(recipients))
 	}
 
-	if recipients[0].Notified != false {
-		t.Error("Notified should be reset to false when resetNotified is true")
+	if !recipients[0].NotifiedAt.IsZero() {
+		t.Error("NotifiedAt should be reset to zero when resetNotified is true")
 	}
 	if recipients[0].Status != StatusReady {
 		t.Errorf("Status should be updated to ready, got %s", recipients[0].Status)
@@ -465,10 +465,10 @@ func TestUpdateRecipientState_AddToExisting(t *testing.T) {
 	// Create initial recipient
 	initial := []RecipientState{
 		{
-			Recipient: "existing-agent",
-			Status:    StatusReady,
-			UpdatedAt: time.Now(),
-			Notified:  false,
+			Recipient:  "existing-agent",
+			Status:     StatusReady,
+			UpdatedAt:  time.Now(),
+			NotifiedAt: time.Time{},
 		},
 	}
 	if err := WriteAllRecipients(tmpDir, initial); err != nil {
@@ -672,8 +672,8 @@ func TestCleanStaleStates_RemovesOldStates(t *testing.T) {
 
 	// Create states with different ages
 	recipients := []RecipientState{
-		{Recipient: "fresh-agent", Status: StatusReady, UpdatedAt: now, Notified: false},
-		{Recipient: "old-agent", Status: StatusReady, UpdatedAt: now.Add(-2 * time.Hour), Notified: false},
+		{Recipient: "fresh-agent", Status: StatusReady, UpdatedAt: now, NotifiedAt: time.Time{}},
+		{Recipient: "old-agent", Status: StatusReady, UpdatedAt: now.Add(-2 * time.Hour), NotifiedAt: time.Time{}},
 	}
 	if err := WriteAllRecipients(tmpDir, recipients); err != nil {
 		t.Fatalf("WriteAllRecipients failed: %v", err)
@@ -714,9 +714,9 @@ func TestCleanStaleStates_KeepsRecentStates(t *testing.T) {
 
 	// Create states that are less than 1 hour old
 	recipients := []RecipientState{
-		{Recipient: "agent-1", Status: StatusReady, UpdatedAt: now, Notified: false},
-		{Recipient: "agent-2", Status: StatusWork, UpdatedAt: now.Add(-30 * time.Minute), Notified: false},
-		{Recipient: "agent-3", Status: StatusOffline, UpdatedAt: now.Add(-59 * time.Minute), Notified: false},
+		{Recipient: "agent-1", Status: StatusReady, UpdatedAt: now, NotifiedAt: time.Time{}},
+		{Recipient: "agent-2", Status: StatusWork, UpdatedAt: now.Add(-30 * time.Minute), NotifiedAt: time.Time{}},
+		{Recipient: "agent-3", Status: StatusOffline, UpdatedAt: now.Add(-59 * time.Minute), NotifiedAt: time.Time{}},
 	}
 	if err := WriteAllRecipients(tmpDir, recipients); err != nil {
 		t.Fatalf("WriteAllRecipients failed: %v", err)
@@ -774,7 +774,7 @@ func TestSetNotifiedFlag_UpdatesExistingRecipient(t *testing.T) {
 
 	// Create a recipient with Notified=false
 	recipients := []RecipientState{
-		{Recipient: "agent-1", Status: StatusReady, UpdatedAt: now, Notified: false},
+		{Recipient: "agent-1", Status: StatusReady, UpdatedAt: now, NotifiedAt: time.Time{}},
 	}
 	if err := WriteAllRecipients(tmpDir, recipients); err != nil {
 		t.Fatalf("WriteAllRecipients failed: %v", err)
@@ -796,8 +796,8 @@ func TestSetNotifiedFlag_UpdatesExistingRecipient(t *testing.T) {
 		t.Fatalf("Expected 1 recipient, got %d", len(readBack))
 	}
 
-	if !readBack[0].Notified {
-		t.Error("Expected Notified to be true")
+	if readBack[0].NotifiedAt.IsZero() {
+		t.Error("Expected NotifiedAt to be set")
 	}
 }
 
@@ -815,7 +815,7 @@ func TestSetNotifiedFlag_NoOpForNonExistent(t *testing.T) {
 
 	// Create a recipient
 	recipients := []RecipientState{
-		{Recipient: "agent-1", Status: StatusReady, UpdatedAt: now, Notified: false},
+		{Recipient: "agent-1", Status: StatusReady, UpdatedAt: now, NotifiedAt: time.Time{}},
 	}
 	if err := WriteAllRecipients(tmpDir, recipients); err != nil {
 		t.Fatalf("WriteAllRecipients failed: %v", err)
@@ -873,7 +873,7 @@ func TestSetNotifiedFlag_SetToFalse(t *testing.T) {
 
 	// Create a recipient with Notified=true
 	recipients := []RecipientState{
-		{Recipient: "agent-1", Status: StatusReady, UpdatedAt: now, Notified: true},
+		{Recipient: "agent-1", Status: StatusReady, UpdatedAt: now, NotifiedAt: time.Now()},
 	}
 	if err := WriteAllRecipients(tmpDir, recipients); err != nil {
 		t.Fatalf("WriteAllRecipients failed: %v", err)
@@ -891,8 +891,8 @@ func TestSetNotifiedFlag_SetToFalse(t *testing.T) {
 		t.Fatalf("ReadAllRecipients failed: %v", err)
 	}
 
-	if readBack[0].Notified {
-		t.Error("Expected Notified to be false")
+	if !readBack[0].NotifiedAt.IsZero() {
+		t.Error("Expected NotifiedAt to be zero")
 	}
 }
 
@@ -955,7 +955,7 @@ func TestUpdateLastReadAt_UpdatesExistingRecipient(t *testing.T) {
 		Recipient:  "existing-agent",
 		Status:     StatusWork,
 		UpdatedAt:  now,
-		Notified:   true,
+		NotifiedAt: time.Now(),
 		LastReadAt: 1000000000000, // Old timestamp
 	}
 	filePath := filepath.Join(agentmailDir, "recipients.jsonl")
@@ -992,8 +992,8 @@ func TestUpdateLastReadAt_UpdatesExistingRecipient(t *testing.T) {
 	if recipients[0].Status != StatusWork {
 		t.Errorf("Status should be preserved as 'work', got %s", recipients[0].Status)
 	}
-	if !recipients[0].Notified {
-		t.Error("Notified flag should be preserved as true")
+	if recipients[0].NotifiedAt.IsZero() {
+		t.Error("NotifiedAt should be preserved as set")
 	}
 }
 
@@ -1009,10 +1009,10 @@ func TestUpdateLastReadAt_CreatesNewEntryWhenRecipientNotFound(t *testing.T) {
 	// Create existing recipient
 	now := time.Now().Truncate(time.Second)
 	existing := RecipientState{
-		Recipient: "existing-agent",
-		Status:    StatusReady,
-		UpdatedAt: now,
-		Notified:  false,
+		Recipient:  "existing-agent",
+		Status:     StatusReady,
+		UpdatedAt:  now,
+		NotifiedAt: time.Time{},
 	}
 	filePath := filepath.Join(agentmailDir, "recipients.jsonl")
 	file, err := os.Create(filePath)
@@ -1076,9 +1076,9 @@ func TestUpdateLastReadAt_PreservesOtherRecipients(t *testing.T) {
 	}
 
 	recipients := []RecipientState{
-		{Recipient: "agent-1", Status: StatusReady, UpdatedAt: now, Notified: false},
-		{Recipient: "agent-2", Status: StatusWork, UpdatedAt: now, Notified: true},
-		{Recipient: "agent-3", Status: StatusOffline, UpdatedAt: now, Notified: false},
+		{Recipient: "agent-1", Status: StatusReady, UpdatedAt: now, NotifiedAt: time.Time{}},
+		{Recipient: "agent-2", Status: StatusWork, UpdatedAt: now, NotifiedAt: time.Now()},
+		{Recipient: "agent-3", Status: StatusOffline, UpdatedAt: now, NotifiedAt: time.Time{}},
 	}
 
 	for _, r := range recipients {

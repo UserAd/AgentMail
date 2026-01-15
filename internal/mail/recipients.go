@@ -19,13 +19,35 @@ const (
 	StatusOffline = "offline"
 )
 
+// NotifyDebounceInterval is the duration after which a notification can be sent again.
+const NotifyDebounceInterval = 60 * time.Second
+
+// WorkProtectionInterval is the duration to skip notifications after status change to work/offline.
+// This protects agents who are actively working from being disturbed.
+const WorkProtectionInterval = time.Hour
+
 // RecipientState represents the availability state of a recipient agent
 type RecipientState struct {
 	Recipient  string    `json:"recipient"`
 	Status     string    `json:"status"`
 	UpdatedAt  time.Time `json:"updated_at"`
-	Notified   bool      `json:"notified"`
+	NotifiedAt time.Time `json:"notified_at,omitempty"`  // Timestamp of last notification (zero means never notified)
 	LastReadAt int64     `json:"last_read_at,omitempty"` // Unix timestamp in milliseconds when agent last called receive
+}
+
+// ShouldNotify returns true if notification is allowed (debounce elapsed or never notified).
+// For work/offline agents, applies WorkProtectionInterval (1 hour) instead of NotifyDebounceInterval.
+func (r *RecipientState) ShouldNotify() bool {
+	// Work/offline agents have a longer protection interval (1 hour since status change)
+	if r.Status == StatusWork || r.Status == StatusOffline {
+		return time.Since(r.UpdatedAt) >= WorkProtectionInterval
+	}
+
+	// Ready agents use the standard 60s debounce based on last notification
+	if r.NotifiedAt.IsZero() {
+		return true
+	}
+	return time.Since(r.NotifiedAt) >= NotifyDebounceInterval
 }
 
 // ReadAllRecipients reads and parses all recipient states from the recipients file.
@@ -170,7 +192,7 @@ func UpdateRecipientState(repoRoot string, recipient string, status string, rese
 			recipients[i].Status = status
 			recipients[i].UpdatedAt = now
 			if resetNotified {
-				recipients[i].Notified = false
+				recipients[i].NotifiedAt = time.Time{} // Reset to zero value
 			}
 			found = true
 			break
@@ -179,10 +201,10 @@ func UpdateRecipientState(repoRoot string, recipient string, status string, rese
 
 	if !found {
 		newState := RecipientState{
-			Recipient: recipient,
-			Status:    status,
-			UpdatedAt: now,
-			Notified:  false,
+			Recipient:  recipient,
+			Status:     status,
+			UpdatedAt:  now,
+			NotifiedAt: time.Time{}, // Zero value means never notified
 		}
 		recipients = append(recipients, newState)
 	}
@@ -293,9 +315,10 @@ func CleanStaleStates(repoRoot string, threshold time.Duration) error {
 	return writeErr
 }
 
-// SetNotifiedFlag sets the Notified flag for a specific recipient.
+// SetNotifiedAt sets the NotifiedAt timestamp for a specific recipient.
 // If the recipient doesn't exist, this is a no-op (doesn't create new state).
-func SetNotifiedFlag(repoRoot string, recipient string, notified bool) error {
+// Pass a zero time.Time to reset the notification timestamp.
+func SetNotifiedAt(repoRoot string, recipient string, notifiedAt time.Time) error {
 	filePath := filepath.Join(repoRoot, RecipientsFile) // #nosec G304 - RecipientsFile is a constant
 
 	// Open file for read/write
@@ -342,7 +365,7 @@ func SetNotifiedFlag(repoRoot string, recipient string, notified bool) error {
 	found := false
 	for i := range recipients {
 		if recipients[i].Recipient == recipient {
-			recipients[i].Notified = notified
+			recipients[i].NotifiedAt = notifiedAt
 			found = true
 			break
 		}
@@ -362,6 +385,16 @@ func SetNotifiedFlag(repoRoot string, recipient string, notified bool) error {
 	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
 	_ = file.Close()                                   // G104: close errors don't affect the write result
 	return writeErr
+}
+
+// SetNotifiedFlag is a convenience function that sets NotifiedAt to now or zero.
+// Deprecated: Use SetNotifiedAt directly for more control.
+func SetNotifiedFlag(repoRoot string, recipient string, notified bool) error {
+	var notifiedAt time.Time
+	if notified {
+		notifiedAt = time.Now()
+	}
+	return SetNotifiedAt(repoRoot, recipient, notifiedAt)
 }
 
 // UpdateLastReadAt sets the last_read_at timestamp for a recipient.
@@ -429,7 +462,7 @@ func UpdateLastReadAt(repoRoot string, recipient string, timestamp int64) error 
 			Recipient:  recipient,
 			Status:     StatusReady, // Default to ready for new entries
 			UpdatedAt:  time.Now(),
-			Notified:   false,
+			NotifiedAt: time.Time{}, // Zero value means never notified
 			LastReadAt: timestamp,
 		}
 		recipients = append(recipients, newState)

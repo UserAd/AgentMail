@@ -161,13 +161,18 @@ func CheckAndNotifyWithNotifier(opts LoopOptions, notify NotifyFunc, windowCheck
 
 	// Check each recipient
 	for _, recipient := range recipients {
-		// Only process ready agents that haven't been notified
+		// Skip non-ready agents (work/offline have 1 hour protection)
 		if recipient.Status != mail.StatusReady {
-			opts.log("Skipping stated agent %q: status=%s (not ready)", recipient.Recipient, recipient.Status)
+			if !recipient.ShouldNotify() {
+				opts.log("Skipping stated agent %q: status=%s, protected for 1h", recipient.Recipient, recipient.Status)
+			} else {
+				opts.log("Skipping stated agent %q: status=%s (not ready)", recipient.Recipient, recipient.Status)
+			}
 			continue
 		}
-		if recipient.Notified {
-			opts.log("Skipping stated agent %q: already notified", recipient.Recipient)
+		// Ready agents: check 60s debounce
+		if !recipient.ShouldNotify() {
+			opts.log("Skipping stated agent %q: notified within last 60s", recipient.Recipient)
 			continue
 		}
 

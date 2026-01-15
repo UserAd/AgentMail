@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"agentmail/internal/mail"
 )
@@ -273,9 +274,9 @@ func TestStatusCommand_NotifiedResetOnWorkOffline(t *testing.T) {
 	// We'll manually create the initial state
 	initialState := []mail.RecipientState{
 		{
-			Recipient: "agent-1",
-			Status:    mail.StatusReady,
-			Notified:  true,
+			Recipient:  "agent-1",
+			Status:     mail.StatusReady,
+			NotifiedAt: time.Now(),
 		},
 	}
 	if err := mail.WriteAllRecipients(tmpDir, initialState); err != nil {
@@ -305,8 +306,8 @@ func TestStatusCommand_NotifiedResetOnWorkOffline(t *testing.T) {
 		t.Fatalf("Expected 1 recipient, got %d", len(recipients))
 	}
 
-	if recipients[0].Notified != false {
-		t.Errorf("Expected notified=false after work transition, got %v", recipients[0].Notified)
+	if !recipients[0].NotifiedAt.IsZero() {
+		t.Errorf("Expected NotifiedAt to be zero after work transition, got %v", recipients[0].NotifiedAt)
 	}
 	if recipients[0].Status != mail.StatusWork {
 		t.Errorf("Expected status 'work', got %s", recipients[0].Status)
@@ -330,9 +331,9 @@ func TestStatusCommand_NotifiedResetOnOffline(t *testing.T) {
 	// First, set status with notified=true
 	initialState := []mail.RecipientState{
 		{
-			Recipient: "agent-1",
-			Status:    mail.StatusReady,
-			Notified:  true,
+			Recipient:  "agent-1",
+			Status:     mail.StatusReady,
+			NotifiedAt: time.Now(),
 		},
 	}
 	if err := mail.WriteAllRecipients(tmpDir, initialState); err != nil {
@@ -362,8 +363,8 @@ func TestStatusCommand_NotifiedResetOnOffline(t *testing.T) {
 		t.Fatalf("Expected 1 recipient, got %d", len(recipients))
 	}
 
-	if recipients[0].Notified != false {
-		t.Errorf("Expected notified=false after offline transition, got %v", recipients[0].Notified)
+	if !recipients[0].NotifiedAt.IsZero() {
+		t.Errorf("Expected NotifiedAt to be zero after offline transition, got %v", recipients[0].NotifiedAt)
 	}
 }
 
@@ -384,9 +385,9 @@ func TestStatusCommand_NotifiedPreservedOnReady(t *testing.T) {
 	// First, set status with notified=true
 	initialState := []mail.RecipientState{
 		{
-			Recipient: "agent-1",
-			Status:    mail.StatusWork,
-			Notified:  true,
+			Recipient:  "agent-1",
+			Status:     mail.StatusWork,
+			NotifiedAt: time.Now(),
 		},
 	}
 	if err := mail.WriteAllRecipients(tmpDir, initialState); err != nil {
@@ -416,9 +417,9 @@ func TestStatusCommand_NotifiedPreservedOnReady(t *testing.T) {
 		t.Fatalf("Expected 1 recipient, got %d", len(recipients))
 	}
 
-	// Notified should be preserved when transitioning to ready
-	if recipients[0].Notified != true {
-		t.Errorf("Expected notified=true preserved after ready transition, got %v", recipients[0].Notified)
+	// NotifiedAt should be preserved when transitioning to ready
+	if recipients[0].NotifiedAt.IsZero() {
+		t.Errorf("Expected NotifiedAt to be preserved after ready transition, got zero")
 	}
 	if recipients[0].Status != mail.StatusReady {
 		t.Errorf("Expected status 'ready', got %s", recipients[0].Status)
@@ -546,9 +547,9 @@ func TestStatusCommand_MultipleAgents(t *testing.T) {
 	// Pre-populate with another agent
 	initialState := []mail.RecipientState{
 		{
-			Recipient: "agent-2",
-			Status:    mail.StatusReady,
-			Notified:  false,
+			Recipient:  "agent-2",
+			Status:     mail.StatusReady,
+			NotifiedAt: time.Time{},
 		},
 	}
 	if err := mail.WriteAllRecipients(tmpDir, initialState); err != nil {

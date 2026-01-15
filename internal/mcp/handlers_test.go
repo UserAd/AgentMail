@@ -1195,7 +1195,7 @@ func TestStatusHandler_InvalidValueReturnsError(t *testing.T) {
 	}
 }
 
-// T037: Test notified flag reset when status set to work/offline
+// T037: Test NotifiedAt reset when status set to work/offline
 func TestStatusHandler_ResetsNotifiedFlagOnWorkOrOffline(t *testing.T) {
 	tmpDir := setupTestMailbox(t)
 	defer os.RemoveAll(tmpDir)
@@ -1206,8 +1206,8 @@ func TestStatusHandler_ResetsNotifiedFlagOnWorkOrOffline(t *testing.T) {
 		t.Fatalf("Failed to create recipients dir: %v", err)
 	}
 
-	// Write initial state with notified = true
-	initialContent := `{"recipient":"test-agent","status":"ready","updated_at":"2024-01-01T00:00:00Z","notified":true}
+	// Write initial state with notified_at set (non-zero timestamp)
+	initialContent := `{"recipient":"test-agent","status":"ready","updated_at":"2024-01-01T00:00:00Z","notified_at":"2024-01-01T12:00:00Z"}
 `
 	recipientsPath := filepath.Join(recipientsDir, "recipients.jsonl")
 	if err := os.WriteFile(recipientsPath, []byte(initialContent), 0644); err != nil {
@@ -1227,12 +1227,12 @@ func TestStatusHandler_ResetsNotifiedFlagOnWorkOrOffline(t *testing.T) {
 		shouldReset bool
 		description string
 	}{
-		{"work", true, "work should reset notified flag"},
-		{"offline", true, "offline should reset notified flag"},
+		{"work", true, "work should reset notified_at"},
+		{"offline", true, "offline should reset notified_at"},
 	}
 
 	for _, tc := range testCases {
-		// Reset the file with notified = true before each test
+		// Reset the file with notified_at set before each test
 		if err := os.WriteFile(recipientsPath, []byte(initialContent), 0644); err != nil {
 			t.Fatalf("Failed to reset recipients file for %s: %v", tc.status, err)
 		}
@@ -1253,19 +1253,19 @@ func TestStatusHandler_ResetsNotifiedFlagOnWorkOrOffline(t *testing.T) {
 			t.Fatalf("Failed to read recipients file for %s: %v", tc.status, err)
 		}
 
-		// Verify notified flag was reset to false
+		// Verify notified_at was reset to zero time (or omitted)
 		if tc.shouldReset {
-			if strings.Contains(string(data), `"notified":true`) {
+			// After reset, notified_at should be zero (0001-01-01...) or omitted
+			dataStr := string(data)
+			hasNonZeroNotifiedAt := strings.Contains(dataStr, `"notified_at":"2024`)
+			if hasNonZeroNotifiedAt {
 				t.Errorf("%s: %s. File content: %s", tc.status, tc.description, data)
-			}
-			if !strings.Contains(string(data), `"notified":false`) {
-				t.Errorf("%s: Expected notified:false in file. Content: %s", tc.status, data)
 			}
 		}
 	}
 }
 
-// Test status handler with "ready" does not reset notified flag
+// Test status handler with "ready" does not reset NotifiedAt
 func TestStatusHandler_ReadyDoesNotResetNotifiedFlag(t *testing.T) {
 	tmpDir := setupTestMailbox(t)
 	defer os.RemoveAll(tmpDir)
@@ -1276,8 +1276,8 @@ func TestStatusHandler_ReadyDoesNotResetNotifiedFlag(t *testing.T) {
 		t.Fatalf("Failed to create recipients dir: %v", err)
 	}
 
-	// Write initial state with notified = true
-	initialContent := `{"recipient":"test-agent","status":"work","updated_at":"2024-01-01T00:00:00Z","notified":true}
+	// Write initial state with notified_at set (non-zero timestamp)
+	initialContent := `{"recipient":"test-agent","status":"work","updated_at":"2024-01-01T00:00:00Z","notified_at":"2024-01-01T12:00:00Z"}
 `
 	recipientsPath := filepath.Join(recipientsDir, "recipients.jsonl")
 	if err := os.WriteFile(recipientsPath, []byte(initialContent), 0644); err != nil {
@@ -1314,9 +1314,9 @@ func TestStatusHandler_ReadyDoesNotResetNotifiedFlag(t *testing.T) {
 		t.Errorf("Status should be 'ready'. Content: %s", data)
 	}
 
-	// Verify notified flag was NOT reset (should remain true)
-	if !strings.Contains(string(data), `"notified":true`) {
-		t.Errorf("ready should NOT reset notified flag. Content: %s", data)
+	// Verify notified_at was NOT reset (should remain with 2024 timestamp)
+	if !strings.Contains(string(data), `"notified_at":"2024`) {
+		t.Errorf("ready should NOT reset notified_at. Content: %s", data)
 	}
 }
 

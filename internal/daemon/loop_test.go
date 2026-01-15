@@ -1413,9 +1413,15 @@ func TestStatelessNotification_WindowNotExists(t *testing.T) {
 		t.Errorf("Expected 0 notify attempts for non-existent window, got %d", notifyAttempts)
 	}
 
-	// Agent should NOT be marked as notified (so it can retry when window appears)
+	// Agent should be marked as notified (rate-limited) to prevent endless cycle
+	if tracker.ShouldNotify("missing-window") {
+		t.Error("Agent should be rate-limited when window doesn't exist")
+	}
+
+	// After interval, should check again (window might have been created)
+	time.Sleep(60 * time.Millisecond)
 	if !tracker.ShouldNotify("missing-window") {
-		t.Error("Agent should still be eligible when window doesn't exist")
+		t.Error("Agent should be eligible after interval elapses")
 	}
 }
 

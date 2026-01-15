@@ -259,6 +259,8 @@ func CheckAndNotifyWithNotifier(opts LoopOptions, notify NotifyFunc, windowCheck
 			}
 			if !exists {
 				opts.log("Skipping stateless agent %q: window does not exist", mailboxRecipient)
+				// Mark as notified to rate-limit window existence checks
+				opts.StatelessTracker.MarkNotified(mailboxRecipient)
 				continue
 			}
 		}

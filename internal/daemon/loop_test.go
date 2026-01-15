@@ -1313,7 +1313,8 @@ func TestStatelessNotification_MailboxDirReadError(t *testing.T) {
 }
 
 // T033: TestStatelessNotification_NotifyFailure (FR-015)
-// Tests that notification failure doesn't mark agent as notified
+// Tests that notification failure marks agent as notified to rate-limit retries
+// This prevents infinite retry loops for non-existent windows
 func TestStatelessNotification_NotifyFailure(t *testing.T) {
 	repoRoot := createTestMailDir(t)
 
@@ -1346,19 +1347,31 @@ func TestStatelessNotification_NotifyFailure(t *testing.T) {
 		t.Errorf("Expected 1 notify attempt, got %d", notifyAttempts)
 	}
 
-	// Verify agent is NOT marked as notified in tracker (should retry on next call)
-	// Since notification failed, ShouldNotify should still return true
-	if !tracker.ShouldNotify("failing-agent") {
-		t.Error("Agent should still be eligible after notification failure")
+	// Verify agent IS marked as notified in tracker (rate-limited)
+	// This prevents infinite retry loops for non-existent windows
+	if tracker.ShouldNotify("failing-agent") {
+		t.Error("Agent should be rate-limited after notification failure")
 	}
 
-	// Second call: should retry since first failed
+	// Second call immediately: should NOT retry (rate-limited)
+	err = CheckAndNotifyWithNotifier(opts, mockNotify)
+	if err != nil {
+		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
+	}
+	if notifyAttempts != 1 {
+		t.Errorf("Expected still 1 notify attempt (rate-limited), got %d", notifyAttempts)
+	}
+
+	// Wait for interval to elapse
+	time.Sleep(60 * time.Millisecond)
+
+	// Third call: should retry after interval elapsed
 	err = CheckAndNotifyWithNotifier(opts, mockNotify)
 	if err != nil {
 		t.Fatalf("CheckAndNotifyWithNotifier failed: %v", err)
 	}
 	if notifyAttempts != 2 {
-		t.Errorf("Expected 2 notify attempts, got %d", notifyAttempts)
+		t.Errorf("Expected 2 notify attempts after interval, got %d", notifyAttempts)
 	}
 }
 

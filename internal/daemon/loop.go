@@ -251,6 +251,10 @@ func CheckAndNotifyWithNotifier(opts LoopOptions, notify NotifyFunc) error {
 			opts.log("Notifying stateless agent %q", mailboxRecipient)
 			if err := notify(mailboxRecipient); err != nil {
 				opts.log("Notification failed for stateless agent %q: %v", mailboxRecipient, err)
+				// T023: Mark as notified even on failure to rate-limit retries
+				// This prevents infinite retry loops for non-existent windows
+				opts.StatelessTracker.MarkNotified(mailboxRecipient)
+				opts.log("Marked stateless agent %q in tracker (after failure)", mailboxRecipient)
 				continue
 			}
 			opts.log("Notification sent to stateless agent %q", mailboxRecipient)

@@ -145,8 +145,14 @@ func Send(args []string, stdin io.Reader, stdout, stderr io.Writer, opts SendOpt
 		fmt.Fprintf(stderr, "error: failed to check recipient: %v\n", err)
 		return 1
 	}
-	if !recipientExists || recipient == sender {
+	if !recipientExists {
 		fmt.Fprintln(stderr, "error: recipient not found")
+		return 1
+	}
+
+	// Check self-send
+	if recipient == sender {
+		fmt.Fprintln(stderr, "error: cannot send message to self")
 		return 1
 	}
 

@@ -35,12 +35,18 @@ func createRecipientState(t *testing.T, repoRoot, recipient, status string, noti
 		t.Fatalf("Failed to read recipients: %v", err)
 	}
 
+	// Convert notified bool to NotifiedAt time
+	var notifiedAt time.Time
+	if notified {
+		notifiedAt = time.Now()
+	}
+
 	// Check if recipient exists, update if so
 	found := false
 	for i := range recipients {
 		if recipients[i].Recipient == recipient {
 			recipients[i].Status = status
-			recipients[i].Notified = notified
+			recipients[i].NotifiedAt = notifiedAt
 			recipients[i].UpdatedAt = updatedAt
 			found = true
 			break
@@ -49,10 +55,10 @@ func createRecipientState(t *testing.T, repoRoot, recipient, status string, noti
 
 	if !found {
 		recipients = append(recipients, mail.RecipientState{
-			Recipient: recipient,
-			Status:    status,
-			Notified:  notified,
-			UpdatedAt: updatedAt,
+			Recipient:  recipient,
+			Status:     status,
+			NotifiedAt: notifiedAt,
+			UpdatedAt:  updatedAt,
 		})
 	}
 
@@ -328,8 +334,8 @@ func TestCheckAndNotify_UpdatesNotifiedFlagAfterNotification(t *testing.T) {
 	if state == nil {
 		t.Fatal("agent-1 state not found")
 	}
-	if !state.Notified {
-		t.Error("Expected Notified to be true after notification")
+	if state.NotifiedAt.IsZero() {
+		t.Error("Expected NotifiedAt to be set after notification")
 	}
 }
 
@@ -542,8 +548,8 @@ func TestIntegration_FullNotificationCycle(t *testing.T) {
 
 	// Verify notified flag was updated
 	state := readRecipientState(t, repoRoot, "ready-agent")
-	if state == nil || !state.Notified {
-		t.Error("ready-agent should have Notified=true")
+	if state == nil || state.NotifiedAt.IsZero() {
+		t.Error("ready-agent should have NotifiedAt set")
 	}
 
 	// Now clean stale states
@@ -591,11 +597,11 @@ func TestSetNotifiedFlag_UpdatesState(t *testing.T) {
 	if state == nil {
 		t.Fatal("agent-1 not found")
 	}
-	if !state.Notified {
-		t.Error("Expected Notified to be true")
+	if state.NotifiedAt.IsZero() {
+		t.Error("Expected NotifiedAt to be set")
 	}
 
-	// Set it back to false
+	// Set it back to zero (false equivalent)
 	err = mail.SetNotifiedFlag(repoRoot, "agent-1", false)
 	if err != nil {
 		t.Fatalf("SetNotifiedFlag failed: %v", err)
@@ -605,8 +611,8 @@ func TestSetNotifiedFlag_UpdatesState(t *testing.T) {
 	if state == nil {
 		t.Fatal("agent-1 not found")
 	}
-	if state.Notified {
-		t.Error("Expected Notified to be false")
+	if !state.NotifiedAt.IsZero() {
+		t.Error("Expected NotifiedAt to be zero")
 	}
 }
 
@@ -728,8 +734,8 @@ func TestRecipientStateJSONFormat(t *testing.T) {
 	if state.Status != mail.StatusReady {
 		t.Errorf("Expected status ready, got %s", state.Status)
 	}
-	if state.Notified != false {
-		t.Error("Expected Notified=false")
+	if !state.NotifiedAt.IsZero() {
+		t.Error("Expected NotifiedAt to be zero")
 	}
 }
 
@@ -1151,8 +1157,8 @@ func TestStatelessNotification_StatedAgentTakesPrecedence(t *testing.T) {
 	if state == nil {
 		t.Fatal("stated-agent should have state")
 	}
-	if !state.Notified {
-		t.Error("stated-agent should have Notified=true after notification")
+	if state.NotifiedAt.IsZero() {
+		t.Error("stated-agent should have NotifiedAt set after notification")
 	}
 }
 
@@ -1208,8 +1214,8 @@ func TestStatelessNotification_TransitionToStated(t *testing.T) {
 	if state == nil {
 		t.Fatal("transitioning-agent should have state")
 	}
-	if !state.Notified {
-		t.Error("transitioning-agent should have Notified=true")
+	if state.NotifiedAt.IsZero() {
+		t.Error("transitioning-agent should have NotifiedAt set")
 	}
 
 	// Third call: already notified as stated, should NOT get notified again
@@ -1535,8 +1541,8 @@ func TestCheckAndNotify_WithNotifier(t *testing.T) {
 	if state == nil {
 		t.Fatal("agent-1 not found")
 	}
-	if !state.Notified {
-		t.Error("Expected Notified=true even with nil notifier")
+	if state.NotifiedAt.IsZero() {
+		t.Error("Expected NotifiedAt to be set even with nil notifier")
 	}
 }
 
@@ -1665,8 +1671,8 @@ func TestLogging_SkipMessages(t *testing.T) {
 
 	// Verify skip messages
 	expectedSkips := []string{
-		"Skipping stated agent \"work-agent\": status=work (not ready)",
-		"Skipping stated agent \"notified-agent\": already notified",
+		"Skipping stated agent \"work-agent\": status=work, protected for 1h",
+		"Skipping stated agent \"notified-agent\": notified within last 60s",
 		"Skipping stateless agent \"empty-agent\": no unread messages",
 	}
 

@@ -1,25 +1,9 @@
 <!--
-Sync Impact Report
-==================
-Version change: 1.1.0 → 1.2.0 (MINOR - technology constraints expanded, quality gates enhanced)
+Sync Impact Report: 1.1.0 → 1.2.0 (MINOR)
 
-Modified principles:
-- IV. Standard Library Preference: Added approved external dependencies with rationale
-
-Added sections: None
-
-Removed sections: None
-
-Updated sections:
-- Technology Constraints: Go version updated from 1.21+ to 1.25.5, added approved external dependencies
-- Quality Gates: Added govulncheck and gosec security scanning requirements
-
-Templates requiring updates:
-- .specify/templates/plan-template.md: ✅ No changes needed (generic constitution check)
-- .specify/templates/spec-template.md: ✅ No changes needed (compatible)
-- .specify/templates/tasks-template.md: ✅ No changes needed (compatible)
-
-Follow-up TODOs: None
+Modified: IV. Standard Library Preference - added approved external dependencies
+Updated: Technology Constraints (Go 1.25.5), Quality Gates (govulncheck, gosec)
+Templates: All compatible, no changes needed
 -->
 
 # AgentMail Constitution

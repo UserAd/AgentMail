@@ -35,15 +35,18 @@ type RecipientState struct {
 	LastReadAt int64     `json:"last_read_at,omitempty"` // Unix timestamp in milliseconds when agent last called receive
 }
 
-// ShouldNotify returns true if notification is allowed (debounce elapsed or never notified).
-// For work/offline agents, applies WorkProtectionInterval (1 hour) instead of NotifyDebounceInterval.
-func (r *RecipientState) ShouldNotify() bool {
-	// Work/offline agents have a longer protection interval (1 hour since status change)
-	if r.Status == StatusWork || r.Status == StatusOffline {
-		return time.Since(r.UpdatedAt) >= WorkProtectionInterval
+// IsProtected returns true if the agent is in a protected state (work/offline within 1h).
+// Protected agents should not receive notifications regardless of debounce status.
+func (r *RecipientState) IsProtected() bool {
+	if r.Status != StatusWork && r.Status != StatusOffline {
+		return false
 	}
+	return time.Since(r.UpdatedAt) < WorkProtectionInterval
+}
 
-	// Ready agents use the standard 60s debounce based on last notification
+// ShouldNotify returns true if the 60s debounce has elapsed since last notification.
+// This only applies to ready agents; for work/offline agents, use IsProtected() first.
+func (r *RecipientState) ShouldNotify() bool {
 	if r.NotifiedAt.IsZero() {
 		return true
 	}

@@ -251,22 +251,23 @@ func ListMailboxRecipients(repoRoot string) ([]string, error) {
 
 // CleanStaleStates removes recipient states that haven't been updated within the threshold.
 // This is used to clean up states for agents that are no longer active.
-func CleanStaleStates(repoRoot string, threshold time.Duration) error {
+// Returns the number of recipients removed and any error encountered.
+func CleanStaleStates(repoRoot string, threshold time.Duration) (int, error) {
 	filePath := filepath.Join(repoRoot, RecipientsFile) // #nosec G304 - RecipientsFile is a constant
 
 	// Open file for read/write (create if not exists)
 	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_RDWR, 0600) // #nosec G304 - path is constructed from constant
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil
+			return 0, nil
 		}
-		return err
+		return 0, err
 	}
 
 	// Acquire exclusive lock for atomic read-modify-write
 	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
 		_ = file.Close() // G104: error intentionally ignored in cleanup path
-		return err
+		return 0, err
 	}
 
 	// Read all recipient states while holding lock
@@ -274,7 +275,7 @@ func CleanStaleStates(repoRoot string, threshold time.Duration) error {
 	if err != nil && !os.IsNotExist(err) {
 		_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
 		_ = file.Close()
-		return err
+		return 0, err
 	}
 
 	var recipients []RecipientState
@@ -288,7 +289,7 @@ func CleanStaleStates(repoRoot string, threshold time.Duration) error {
 			if err := json.Unmarshal([]byte(line), &state); err != nil {
 				_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
 				_ = file.Close()
-				return err
+				return 0, err
 			}
 			recipients = append(recipients, state)
 		}
@@ -303,16 +304,19 @@ func CleanStaleStates(repoRoot string, threshold time.Duration) error {
 		}
 	}
 
+	// Calculate removed count
+	removedCount := len(recipients) - len(fresh)
+
 	// Only write if states were actually removed
 	var writeErr error
-	if len(fresh) != len(recipients) {
+	if removedCount > 0 {
 		writeErr = writeAllRecipientsLocked(file, fresh)
 	}
 
 	// Unlock before close (correct order)
 	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
 	_ = file.Close()                                   // G104: close errors don't affect the write result
-	return writeErr
+	return removedCount, writeErr
 }
 
 // SetNotifiedAt sets the NotifiedAt timestamp for a specific recipient.

@@ -680,7 +680,7 @@ func TestCleanStaleStates_RemovesOldStates(t *testing.T) {
 	}
 
 	// Clean stale states (older than 1 hour)
-	err := CleanStaleStates(tmpDir, time.Hour)
+	_, err := CleanStaleStates(tmpDir, time.Hour)
 	if err != nil {
 		t.Fatalf("CleanStaleStates failed: %v", err)
 	}
@@ -723,7 +723,7 @@ func TestCleanStaleStates_KeepsRecentStates(t *testing.T) {
 	}
 
 	// Clean stale states
-	err := CleanStaleStates(tmpDir, time.Hour)
+	_, err := CleanStaleStates(tmpDir, time.Hour)
 	if err != nil {
 		t.Fatalf("CleanStaleStates failed: %v", err)
 	}
@@ -750,7 +750,7 @@ func TestCleanStaleStates_EmptyFile(t *testing.T) {
 	}
 
 	// Clean stale states on empty/non-existent file
-	err := CleanStaleStates(tmpDir, time.Hour)
+	_, err := CleanStaleStates(tmpDir, time.Hour)
 	if err != nil {
 		t.Fatalf("CleanStaleStates should not error on empty file: %v", err)
 	}

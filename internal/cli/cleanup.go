@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"agentmail/internal/mail"
 	"agentmail/internal/tmux"
@@ -93,10 +94,22 @@ func Cleanup(stdout, stderr io.Writer, opts CleanupOptions) int {
 		fmt.Fprintln(stderr, "Warning: not running in tmux session, skipping offline recipient check")
 	}
 
+	// Phase 2: Clean stale recipients (US2)
+	// Remove recipients whose updated_at is older than StaleHours threshold
+	if !opts.DryRun {
+		staleThreshold := time.Duration(opts.StaleHours) * time.Hour
+		staleRemoved, err := mail.CleanStaleStates(repoRoot, staleThreshold)
+		if err != nil {
+			fmt.Fprintf(stderr, "Error cleaning stale recipients: %v\n", err)
+			return 1
+		}
+		result.StaleRemoved = staleRemoved
+		result.RecipientsRemoved += staleRemoved
+	}
+
 	// Suppress unused variable warning - result will be used for summary output
 	_ = result
 
-	// TODO: Phase 2 - Clean stale recipients (US2)
 	// TODO: Phase 3 - Clean old delivered messages (US3)
 	// TODO: Phase 4 - Remove empty mailboxes (US4)
 	// TODO: Phase 5 - Output summary (FR-014)

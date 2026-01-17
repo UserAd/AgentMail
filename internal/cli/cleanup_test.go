@@ -481,3 +481,231 @@ func TestCleanOfflineRecipients_NoneExist(t *testing.T) {
 		t.Errorf("Expected 0 recipients after cleanup, got %d", len(readBack))
 	}
 }
+
+// =============================================================================
+// User Story 2 Tests: Stale Recipient Removal
+// =============================================================================
+
+// T018: Test stale recipient removal with default 48-hour threshold
+func TestCleanup_StaleRecipientRemoval(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
+	}
+
+	now := time.Now()
+	staleTime := now.Add(-72 * time.Hour) // 72 hours ago - beyond 48h default threshold
+
+	// Create recipients - agent-1 is recent, agent-2 and agent-3 are stale
+	recipients := []mail.RecipientState{
+		{Recipient: "agent-1", Status: mail.StatusReady, UpdatedAt: now, NotifiedAt: time.Time{}},
+		{Recipient: "agent-2", Status: mail.StatusReady, UpdatedAt: staleTime, NotifiedAt: time.Time{}},
+		{Recipient: "agent-3", Status: mail.StatusWork, UpdatedAt: staleTime, NotifiedAt: time.Time{}},
+	}
+	if err := mail.WriteAllRecipients(tmpDir, recipients); err != nil {
+		t.Fatalf("WriteAllRecipients failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+
+	// Run cleanup with default 48h threshold
+	// Not in tmux to skip offline check and isolate stale testing
+	exitCode := Cleanup(&stdout, &stderr, CleanupOptions{
+		StaleHours:     48, // Default
+		DeliveredHours: 2,
+		DryRun:         false,
+		RepoRoot:       tmpDir,
+		SkipTmuxCheck:  true,
+		MockInTmux:     false, // Skip offline check to isolate stale test
+		MockWindows:    nil,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	// Verify stale recipients were removed
+	readBack, err := mail.ReadAllRecipients(tmpDir)
+	if err != nil {
+		t.Fatalf("ReadAllRecipients failed: %v", err)
+	}
+
+	if len(readBack) != 1 {
+		t.Fatalf("Expected 1 recipient after cleanup (stale removed), got %d", len(readBack))
+	}
+
+	if readBack[0].Recipient != "agent-1" {
+		t.Errorf("Expected agent-1 to remain, got %s", readBack[0].Recipient)
+	}
+}
+
+// T019: Test retention of recently updated recipients
+func TestCleanup_RetainsRecentRecipients(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
+	}
+
+	now := time.Now()
+	recentTime := now.Add(-24 * time.Hour) // 24 hours ago - within 48h threshold
+
+	// Create recipients - all are within the 48h threshold
+	recipients := []mail.RecipientState{
+		{Recipient: "agent-1", Status: mail.StatusReady, UpdatedAt: now, NotifiedAt: time.Time{}},
+		{Recipient: "agent-2", Status: mail.StatusReady, UpdatedAt: recentTime, NotifiedAt: time.Time{}},
+		{Recipient: "agent-3", Status: mail.StatusWork, UpdatedAt: recentTime, NotifiedAt: time.Time{}},
+	}
+	if err := mail.WriteAllRecipients(tmpDir, recipients); err != nil {
+		t.Fatalf("WriteAllRecipients failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+
+	// Run cleanup with default 48h threshold
+	exitCode := Cleanup(&stdout, &stderr, CleanupOptions{
+		StaleHours:     48,
+		DeliveredHours: 2,
+		DryRun:         false,
+		RepoRoot:       tmpDir,
+		SkipTmuxCheck:  true,
+		MockInTmux:     false, // Skip offline check to isolate stale test
+		MockWindows:    nil,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	// Verify all recipients were retained (none are stale)
+	readBack, err := mail.ReadAllRecipients(tmpDir)
+	if err != nil {
+		t.Fatalf("ReadAllRecipients failed: %v", err)
+	}
+
+	if len(readBack) != 3 {
+		t.Errorf("Expected all 3 recipients to remain (none stale), got %d", len(readBack))
+	}
+}
+
+// T020: Test custom --stale-hours flag (e.g., 24h threshold)
+func TestCleanup_CustomStaleHours(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
+	}
+
+	now := time.Now()
+	thirtyHoursAgo := now.Add(-30 * time.Hour) // 30 hours ago - within 48h but beyond 24h
+
+	// Create recipients - agent-1 is recent, agent-2 is 30h old
+	recipients := []mail.RecipientState{
+		{Recipient: "agent-1", Status: mail.StatusReady, UpdatedAt: now, NotifiedAt: time.Time{}},
+		{Recipient: "agent-2", Status: mail.StatusReady, UpdatedAt: thirtyHoursAgo, NotifiedAt: time.Time{}},
+	}
+	if err := mail.WriteAllRecipients(tmpDir, recipients); err != nil {
+		t.Fatalf("WriteAllRecipients failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+
+	// Run cleanup with custom 24h threshold (more aggressive)
+	exitCode := Cleanup(&stdout, &stderr, CleanupOptions{
+		StaleHours:     24, // Custom: 24h instead of default 48h
+		DeliveredHours: 2,
+		DryRun:         false,
+		RepoRoot:       tmpDir,
+		SkipTmuxCheck:  true,
+		MockInTmux:     false, // Skip offline check to isolate stale test
+		MockWindows:    nil,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	// Verify agent-2 was removed (30h > 24h threshold)
+	readBack, err := mail.ReadAllRecipients(tmpDir)
+	if err != nil {
+		t.Fatalf("ReadAllRecipients failed: %v", err)
+	}
+
+	if len(readBack) != 1 {
+		t.Fatalf("Expected 1 recipient after cleanup (30h old removed with 24h threshold), got %d", len(readBack))
+	}
+
+	if readBack[0].Recipient != "agent-1" {
+		t.Errorf("Expected agent-1 to remain, got %s", readBack[0].Recipient)
+	}
+}
+
+// Additional test: Verify both offline and stale removals work together
+func TestCleanup_OfflineAndStaleRemoval(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
+	}
+
+	now := time.Now()
+	staleTime := now.Add(-72 * time.Hour) // 72 hours ago - beyond 48h threshold
+
+	// Create recipients:
+	// - agent-1: recent, has window (keep)
+	// - agent-2: recent, no window (remove - offline)
+	// - agent-3: stale, has window (remove - stale)
+	// - agent-4: stale, no window (remove - offline takes precedence)
+	recipients := []mail.RecipientState{
+		{Recipient: "agent-1", Status: mail.StatusReady, UpdatedAt: now, NotifiedAt: time.Time{}},
+		{Recipient: "agent-2", Status: mail.StatusReady, UpdatedAt: now, NotifiedAt: time.Time{}},
+		{Recipient: "agent-3", Status: mail.StatusReady, UpdatedAt: staleTime, NotifiedAt: time.Time{}},
+		{Recipient: "agent-4", Status: mail.StatusReady, UpdatedAt: staleTime, NotifiedAt: time.Time{}},
+	}
+	if err := mail.WriteAllRecipients(tmpDir, recipients); err != nil {
+		t.Fatalf("WriteAllRecipients failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+
+	// Run cleanup in tmux mode with window list
+	exitCode := Cleanup(&stdout, &stderr, CleanupOptions{
+		StaleHours:     48,
+		DeliveredHours: 2,
+		DryRun:         false,
+		RepoRoot:       tmpDir,
+		SkipTmuxCheck:  true,
+		MockInTmux:     true,
+		MockWindows:    []string{"agent-1", "agent-3"}, // Only agent-1 and agent-3 have windows
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	// Verify only agent-1 remains:
+	// - agent-2: removed (no window)
+	// - agent-3: removed (stale, even though has window)
+	// - agent-4: removed (no window)
+	readBack, err := mail.ReadAllRecipients(tmpDir)
+	if err != nil {
+		t.Fatalf("ReadAllRecipients failed: %v", err)
+	}
+
+	if len(readBack) != 1 {
+		t.Fatalf("Expected 1 recipient after cleanup, got %d", len(readBack))
+	}
+
+	if readBack[0].Recipient != "agent-1" {
+		t.Errorf("Expected agent-1 to remain, got %s", readBack[0].Recipient)
+	}
+}

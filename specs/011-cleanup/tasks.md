@@ -81,15 +81,15 @@
 
 ### Tests for User Story 2
 
-- [ ] T018 [P] [US2] Test stale recipient removal with default 48-hour threshold in internal/cli/cleanup_test.go
-- [ ] T019 [P] [US2] Test retention of recently updated recipients in internal/cli/cleanup_test.go
-- [ ] T020 [P] [US2] Test custom --stale-hours flag (e.g., 24h) in internal/cli/cleanup_test.go
+- [X] T018 [P] [US2] Test stale recipient removal with default 48-hour threshold in internal/cli/cleanup_test.go
+- [X] T019 [P] [US2] Test retention of recently updated recipients in internal/cli/cleanup_test.go
+- [X] T020 [P] [US2] Test custom --stale-hours flag (e.g., 24h) in internal/cli/cleanup_test.go
 
 ### Implementation for User Story 2
 
-- [ ] T021 [US2] Extend existing CleanStaleStates function in internal/mail/recipients.go to accept configurable threshold
-- [ ] T022 [US2] Add stale recipient cleanup logic to Cleanup function using StaleHours option in internal/cli/cleanup.go
-- [ ] T023 [US2] Track and return StaleRemoved count in CleanupResult (distinct from OfflineRemoved)
+- [X] T021 [US2] Extend existing CleanStaleStates function in internal/mail/recipients.go to accept configurable threshold
+- [X] T022 [US2] Add stale recipient cleanup logic to Cleanup function using StaleHours option in internal/cli/cleanup.go
+- [X] T023 [US2] Track and return StaleRemoved count in CleanupResult (distinct from OfflineRemoved)
 
 **Checkpoint**: User Stories 1 AND 2 complete - both recipient cleanup types work
 

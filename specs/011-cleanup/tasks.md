@@ -103,18 +103,18 @@
 
 ### Tests for User Story 3
 
-- [ ] T024 [P] [US3] Test removal of old read messages (read_flag: true, created_at > 2h ago) in internal/cli/cleanup_test.go
-- [ ] T025 [P] [US3] Test retention of unread messages regardless of age in internal/cli/cleanup_test.go
-- [ ] T026 [P] [US3] Test retention of recent read messages (created_at within threshold) in internal/cli/cleanup_test.go
-- [ ] T027 [P] [US3] Test custom --delivered-hours flag in internal/cli/cleanup_test.go
-- [ ] T028 [P] [US3] Test messages without created_at field are skipped (not deleted) in internal/cli/cleanup_test.go
+- [X] T024 [P] [US3] Test removal of old read messages (read_flag: true, created_at > 2h ago) in internal/cli/cleanup_test.go
+- [X] T025 [P] [US3] Test retention of unread messages regardless of age in internal/cli/cleanup_test.go
+- [X] T026 [P] [US3] Test retention of recent read messages (created_at within threshold) in internal/cli/cleanup_test.go
+- [X] T027 [P] [US3] Test custom --delivered-hours flag in internal/cli/cleanup_test.go
+- [X] T028 [P] [US3] Test messages without created_at field are skipped (not deleted) in internal/cli/cleanup_test.go
 
 ### Implementation for User Story 3
 
-- [ ] T029 [US3] Implement CleanOldMessages function in internal/mail/mailbox.go that filters messages by read_flag and created_at
-- [ ] T030 [US3] Iterate all mailbox files in .agentmail/mailboxes/ and apply message cleanup in internal/cli/cleanup.go
-- [ ] T031 [US3] Track and return MessagesRemoved count in CleanupResult
-- [ ] T032 [US3] Handle locked mailbox files (skip with warning, increment FilesSkipped) in internal/cli/cleanup.go
+- [X] T029 [US3] Implement CleanOldMessages function in internal/mail/mailbox.go that filters messages by read_flag and created_at
+- [X] T030 [US3] Iterate all mailbox files in .agentmail/mailboxes/ and apply message cleanup in internal/cli/cleanup.go
+- [X] T031 [US3] Track and return MessagesRemoved count in CleanupResult
+- [X] T032 [US3] Handle locked mailbox files (skip with warning, increment FilesSkipped) in internal/cli/cleanup.go
 
 **Checkpoint**: User Story 3 complete - message cleanup works independently
 

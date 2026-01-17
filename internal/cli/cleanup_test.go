@@ -709,3 +709,308 @@ func TestCleanup_OfflineAndStaleRemoval(t *testing.T) {
 		t.Errorf("Expected agent-1 to remain, got %s", readBack[0].Recipient)
 	}
 }
+
+// =============================================================================
+// User Story 3 Tests: Remove Old Delivered Messages
+// =============================================================================
+
+// T024: Test old read messages are removed
+func TestCleanup_OldReadMessagesRemoved(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .agentmail/mailboxes directory
+	mailboxDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
+	if err := os.MkdirAll(mailboxDir, 0755); err != nil {
+		t.Fatalf("Failed to create mailboxes dir: %v", err)
+	}
+
+	now := time.Now()
+	oldTime := now.Add(-3 * time.Hour) // 3 hours ago - beyond 2h default threshold
+
+	// Create messages for agent-1:
+	// - msg1: read, old (should be removed)
+	// - msg2: unread, old (should be kept - unread are NEVER removed)
+	// - msg3: read, recent (should be kept)
+	messages := []mail.Message{
+		{ID: "msg001", From: "sender", To: "agent-1", Message: "old read", ReadFlag: true, CreatedAt: oldTime},
+		{ID: "msg002", From: "sender", To: "agent-1", Message: "old unread", ReadFlag: false, CreatedAt: oldTime},
+		{ID: "msg003", From: "sender", To: "agent-1", Message: "recent read", ReadFlag: true, CreatedAt: now},
+	}
+	if err := mail.WriteAll(tmpDir, "agent-1", messages); err != nil {
+		t.Fatalf("WriteAll failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+
+	// Run cleanup with default 2h threshold
+	exitCode := Cleanup(&stdout, &stderr, CleanupOptions{
+		StaleHours:     48,
+		DeliveredHours: 2, // Default: 2 hours
+		DryRun:         false,
+		RepoRoot:       tmpDir,
+		SkipTmuxCheck:  true,
+		MockInTmux:     false, // Skip offline check to isolate message test
+		MockWindows:    nil,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	// Verify old read message was removed, others remain
+	readBack, err := mail.ReadAll(tmpDir, "agent-1")
+	if err != nil {
+		t.Fatalf("ReadAll failed: %v", err)
+	}
+
+	if len(readBack) != 2 {
+		t.Fatalf("Expected 2 messages after cleanup (old read removed), got %d", len(readBack))
+	}
+
+	// Check remaining messages
+	foundUnread := false
+	foundRecentRead := false
+	for _, msg := range readBack {
+		if msg.ID == "msg002" {
+			foundUnread = true
+		}
+		if msg.ID == "msg003" {
+			foundRecentRead = true
+		}
+		if msg.ID == "msg001" {
+			t.Error("msg001 (old read) should have been removed")
+		}
+	}
+
+	if !foundUnread {
+		t.Error("msg002 (old unread) should have remained")
+	}
+	if !foundRecentRead {
+		t.Error("msg003 (recent read) should have remained")
+	}
+}
+
+// T025: Test unread messages are NEVER removed regardless of age
+func TestCleanup_UnreadMessagesNeverRemoved(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .agentmail/mailboxes directory
+	mailboxDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
+	if err := os.MkdirAll(mailboxDir, 0755); err != nil {
+		t.Fatalf("Failed to create mailboxes dir: %v", err)
+	}
+
+	veryOldTime := time.Now().Add(-100 * time.Hour) // 100 hours ago - way beyond any threshold
+
+	// Create only very old unread messages
+	messages := []mail.Message{
+		{ID: "msg001", From: "sender", To: "agent-1", Message: "very old unread 1", ReadFlag: false, CreatedAt: veryOldTime},
+		{ID: "msg002", From: "sender", To: "agent-1", Message: "very old unread 2", ReadFlag: false, CreatedAt: veryOldTime},
+	}
+	if err := mail.WriteAll(tmpDir, "agent-1", messages); err != nil {
+		t.Fatalf("WriteAll failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+
+	// Run cleanup with aggressive threshold
+	exitCode := Cleanup(&stdout, &stderr, CleanupOptions{
+		StaleHours:     1, // Very aggressive
+		DeliveredHours: 1, // Very aggressive
+		DryRun:         false,
+		RepoRoot:       tmpDir,
+		SkipTmuxCheck:  true,
+		MockInTmux:     false,
+		MockWindows:    nil,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	// Verify ALL unread messages remain (unread are NEVER deleted)
+	readBack, err := mail.ReadAll(tmpDir, "agent-1")
+	if err != nil {
+		t.Fatalf("ReadAll failed: %v", err)
+	}
+
+	if len(readBack) != 2 {
+		t.Errorf("Expected all 2 unread messages to remain, got %d", len(readBack))
+	}
+}
+
+// T026: Test recent read messages are retained
+func TestCleanup_RecentReadMessagesRetained(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .agentmail/mailboxes directory
+	mailboxDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
+	if err := os.MkdirAll(mailboxDir, 0755); err != nil {
+		t.Fatalf("Failed to create mailboxes dir: %v", err)
+	}
+
+	now := time.Now()
+	recentTime := now.Add(-1 * time.Hour) // 1 hour ago - within 2h default threshold
+
+	// Create recent read messages
+	messages := []mail.Message{
+		{ID: "msg001", From: "sender", To: "agent-1", Message: "recent read 1", ReadFlag: true, CreatedAt: now},
+		{ID: "msg002", From: "sender", To: "agent-1", Message: "recent read 2", ReadFlag: true, CreatedAt: recentTime},
+	}
+	if err := mail.WriteAll(tmpDir, "agent-1", messages); err != nil {
+		t.Fatalf("WriteAll failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+
+	// Run cleanup with default 2h threshold
+	exitCode := Cleanup(&stdout, &stderr, CleanupOptions{
+		StaleHours:     48,
+		DeliveredHours: 2, // Default
+		DryRun:         false,
+		RepoRoot:       tmpDir,
+		SkipTmuxCheck:  true,
+		MockInTmux:     false,
+		MockWindows:    nil,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	// Verify all recent read messages remain
+	readBack, err := mail.ReadAll(tmpDir, "agent-1")
+	if err != nil {
+		t.Fatalf("ReadAll failed: %v", err)
+	}
+
+	if len(readBack) != 2 {
+		t.Errorf("Expected all 2 recent read messages to remain, got %d", len(readBack))
+	}
+}
+
+// T027: Test custom --delivered-hours flag works
+func TestCleanup_CustomDeliveredHours(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .agentmail/mailboxes directory
+	mailboxDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
+	if err := os.MkdirAll(mailboxDir, 0755); err != nil {
+		t.Fatalf("Failed to create mailboxes dir: %v", err)
+	}
+
+	now := time.Now()
+	ninetyMinutesAgo := now.Add(-90 * time.Minute) // 1.5 hours ago
+
+	// Create messages:
+	// - msg1: read, 1.5 hours old (within 2h, beyond 1h)
+	messages := []mail.Message{
+		{ID: "msg001", From: "sender", To: "agent-1", Message: "msg 1.5h old", ReadFlag: true, CreatedAt: ninetyMinutesAgo},
+	}
+	if err := mail.WriteAll(tmpDir, "agent-1", messages); err != nil {
+		t.Fatalf("WriteAll failed: %v", err)
+	}
+
+	// First test: with default 2h threshold, message should remain
+	var stdout1, stderr1 bytes.Buffer
+	exitCode := Cleanup(&stdout1, &stderr1, CleanupOptions{
+		StaleHours:     48,
+		DeliveredHours: 2, // Default: 2 hours (1.5h < 2h, keep)
+		DryRun:         false,
+		RepoRoot:       tmpDir,
+		SkipTmuxCheck:  true,
+		MockInTmux:     false,
+		MockWindows:    nil,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d", exitCode)
+	}
+
+	readBack, err := mail.ReadAll(tmpDir, "agent-1")
+	if err != nil {
+		t.Fatalf("ReadAll failed: %v", err)
+	}
+	if len(readBack) != 1 {
+		t.Fatalf("Expected 1 message with 2h threshold, got %d", len(readBack))
+	}
+
+	// Second test: with custom 1h threshold, message should be removed
+	var stdout2, stderr2 bytes.Buffer
+	exitCode = Cleanup(&stdout2, &stderr2, CleanupOptions{
+		StaleHours:     48,
+		DeliveredHours: 1, // Custom: 1 hour (1.5h > 1h, remove)
+		DryRun:         false,
+		RepoRoot:       tmpDir,
+		SkipTmuxCheck:  true,
+		MockInTmux:     false,
+		MockWindows:    nil,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d", exitCode)
+	}
+
+	readBack, err = mail.ReadAll(tmpDir, "agent-1")
+	if err != nil {
+		t.Fatalf("ReadAll failed: %v", err)
+	}
+	if len(readBack) != 0 {
+		t.Errorf("Expected 0 messages with 1h threshold (1.5h old removed), got %d", len(readBack))
+	}
+}
+
+// T028: Test messages without created_at field are NOT deleted
+func TestCleanup_MessagesWithoutCreatedAtSkipped(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .agentmail/mailboxes directory
+	mailboxDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
+	if err := os.MkdirAll(mailboxDir, 0755); err != nil {
+		t.Fatalf("Failed to create mailboxes dir: %v", err)
+	}
+
+	oldTime := time.Now().Add(-100 * time.Hour) // Very old
+
+	// Create messages:
+	// - msg1: read, no created_at (zero value) - should be KEPT (not deleted)
+	// - msg2: read, very old - should be removed
+	messages := []mail.Message{
+		{ID: "msg001", From: "sender", To: "agent-1", Message: "no timestamp", ReadFlag: true, CreatedAt: time.Time{}}, // Zero value
+		{ID: "msg002", From: "sender", To: "agent-1", Message: "very old read", ReadFlag: true, CreatedAt: oldTime},
+	}
+	if err := mail.WriteAll(tmpDir, "agent-1", messages); err != nil {
+		t.Fatalf("WriteAll failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+
+	// Run cleanup
+	exitCode := Cleanup(&stdout, &stderr, CleanupOptions{
+		StaleHours:     48,
+		DeliveredHours: 2,
+		DryRun:         false,
+		RepoRoot:       tmpDir,
+		SkipTmuxCheck:  true,
+		MockInTmux:     false,
+		MockWindows:    nil,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	// Verify message without created_at remains
+	readBack, err := mail.ReadAll(tmpDir, "agent-1")
+	if err != nil {
+		t.Fatalf("ReadAll failed: %v", err)
+	}
+
+	if len(readBack) != 1 {
+		t.Fatalf("Expected 1 message (no timestamp kept, old removed), got %d", len(readBack))
+	}
+
+	if readBack[0].ID != "msg001" {
+		t.Errorf("Expected msg001 (no timestamp) to remain, got %s", readBack[0].ID)
+	}
+}

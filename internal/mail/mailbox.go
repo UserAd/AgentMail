@@ -252,6 +252,97 @@ func WriteAll(repoRoot string, recipient string, messages []Message) error {
 	return writeErr
 }
 
+// CleanOldMessages removes read messages older than the threshold from a mailbox file.
+// Messages without CreatedAt (zero value) are skipped (not deleted).
+// Unread messages are NEVER deleted regardless of age.
+// Returns the number of messages removed.
+func CleanOldMessages(repoRoot string, recipient string, threshold time.Duration) (int, error) {
+	// Build file path with path traversal protection (G304)
+	mailDir := filepath.Join(repoRoot, MailDir)
+	filePath, err := safePath(mailDir, recipient+".jsonl")
+	if err != nil {
+		return 0, err
+	}
+
+	// Open file for read/write
+	file, err := os.OpenFile(filePath, os.O_RDWR, 0600) // #nosec G304 - path validated by safePath; G302 - restricted file permissions
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil // No mailbox file, nothing to clean
+		}
+		return 0, err
+	}
+
+	// Acquire exclusive lock for atomic read-modify-write
+	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
+		_ = file.Close() // G104: error intentionally ignored in cleanup path
+		return 0, err
+	}
+
+	// Read all messages while holding lock
+	data, err := os.ReadFile(filePath) // #nosec G304 - path validated by safePath
+	if err != nil {
+		_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+		_ = file.Close()
+		return 0, err
+	}
+
+	var messages []Message
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		var msg Message
+		if err := json.Unmarshal([]byte(line), &msg); err != nil {
+			_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+			_ = file.Close()
+			return 0, err
+		}
+		messages = append(messages, msg)
+	}
+
+	// Filter messages - keep if:
+	// 1. Unread (never delete unread messages)
+	// 2. CreatedAt is zero (no timestamp - skip, don't delete)
+	// 3. Read AND age <= threshold (recent read messages)
+	cutoff := time.Now().Add(-threshold)
+	var remaining []Message
+	for _, msg := range messages {
+		// Keep unread messages (NEVER delete unread)
+		if !msg.ReadFlag {
+			remaining = append(remaining, msg)
+			continue
+		}
+
+		// Keep messages without CreatedAt (zero value - skip, don't delete)
+		if msg.CreatedAt.IsZero() {
+			remaining = append(remaining, msg)
+			continue
+		}
+
+		// Keep recent read messages (age <= threshold)
+		if msg.CreatedAt.After(cutoff) {
+			remaining = append(remaining, msg)
+		}
+		// Old read messages with timestamp are implicitly removed
+	}
+
+	// Calculate removed count
+	removedCount := len(messages) - len(remaining)
+
+	// Only write if messages were actually removed
+	var writeErr error
+	if removedCount > 0 {
+		writeErr = writeAllLocked(file, remaining)
+	}
+
+	// Unlock before close (correct order)
+	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
+	_ = file.Close()                                   // G104: close errors don't affect the write result
+	return removedCount, writeErr
+}
+
 // MarkAsRead marks a specific message as read in the recipient's mailbox.
 // This function is atomic - it holds a lock during the entire read-modify-write cycle.
 func MarkAsRead(repoRoot string, recipient string, messageID string) error {

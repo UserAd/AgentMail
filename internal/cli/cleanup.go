@@ -107,10 +107,37 @@ func Cleanup(stdout, stderr io.Writer, opts CleanupOptions) int {
 		result.RecipientsRemoved += staleRemoved
 	}
 
+	// Phase 3: Clean old delivered messages (US3)
+	// Remove read messages older than DeliveredHours threshold
+	if !opts.DryRun {
+		deliveredThreshold := time.Duration(opts.DeliveredHours) * time.Hour
+
+		// List all mailbox files
+		recipients, err := mail.ListMailboxRecipients(repoRoot)
+		if err != nil {
+			fmt.Fprintf(stderr, "Error listing mailboxes: %v\n", err)
+			return 1
+		}
+
+		// Clean each mailbox
+		for _, recipient := range recipients {
+			removed, err := mail.CleanOldMessages(repoRoot, recipient, deliveredThreshold)
+			if err != nil {
+				// Check if it's a lock failure - skip file and continue
+				if err == mail.ErrFileLocked {
+					result.FilesSkipped++
+					continue
+				}
+				fmt.Fprintf(stderr, "Error cleaning mailbox %s: %v\n", recipient, err)
+				return 1
+			}
+			result.MessagesRemoved += removed
+		}
+	}
+
 	// Suppress unused variable warning - result will be used for summary output
 	_ = result
 
-	// TODO: Phase 3 - Clean old delivered messages (US3)
 	// TODO: Phase 4 - Remove empty mailboxes (US4)
 	// TODO: Phase 5 - Output summary (FR-014)
 

@@ -48,8 +48,15 @@ func safePath(baseDir, filename string) (string, error) {
 	return fullPath, nil
 }
 
+// isLockContention returns true if the error indicates transient lock contention
+// (EAGAIN or EWOULDBLOCK), which means we should retry.
+func isLockContention(err error) bool {
+	return err == syscall.EAGAIN || err == syscall.EWOULDBLOCK
+}
+
 // TryLockWithTimeout attempts to acquire an exclusive lock on a file with a timeout.
-// Returns ErrFileLocked if the lock cannot be acquired within the timeout.
+// Returns ErrFileLocked if the lock cannot be acquired within the timeout due to contention.
+// Returns the underlying error immediately for non-transient errors (e.g., EBADF, ENOLCK).
 func TryLockWithTimeout(file *os.File, timeout time.Duration) error {
 	// Try non-blocking lock first
 	err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
@@ -57,7 +64,12 @@ func TryLockWithTimeout(file *os.File, timeout time.Duration) error {
 		return nil
 	}
 
-	// Retry with timeout
+	// If not lock contention, return the real error immediately
+	if !isLockContention(err) {
+		return err
+	}
+
+	// Retry with timeout (only for lock contention errors)
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		time.Sleep(10 * time.Millisecond)
@@ -65,7 +77,13 @@ func TryLockWithTimeout(file *os.File, timeout time.Duration) error {
 		if err == nil {
 			return nil
 		}
+		// If not lock contention, return the real error immediately
+		if !isLockContention(err) {
+			return err
+		}
 	}
+
+	// Timeout expired with persistent lock contention
 	return ErrFileLocked
 }
 

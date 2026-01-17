@@ -397,6 +397,52 @@ func SetNotifiedFlag(repoRoot string, recipient string, notified bool) error {
 	return SetNotifiedAt(repoRoot, recipient, notifiedAt)
 }
 
+// CleanOfflineRecipients removes recipients whose windows are no longer present.
+// Returns the number of recipients removed.
+// This function compares recipient names against the provided list of valid windows
+// and removes any recipients that don't have a corresponding window.
+func CleanOfflineRecipients(repoRoot string, validWindows []string) (int, error) {
+	// Read all current recipients
+	recipients, err := ReadAllRecipients(repoRoot)
+	if err != nil {
+		return 0, err
+	}
+
+	// If no recipients, nothing to clean
+	if len(recipients) == 0 {
+		return 0, nil
+	}
+
+	// Build a set of valid windows for O(1) lookup
+	windowSet := make(map[string]bool)
+	for _, w := range validWindows {
+		windowSet[w] = true
+	}
+
+	// Filter recipients - keep only those with valid windows
+	var remaining []RecipientState
+	removedCount := 0
+	for _, r := range recipients {
+		if windowSet[r.Recipient] {
+			remaining = append(remaining, r)
+		} else {
+			removedCount++
+		}
+	}
+
+	// If nothing was removed, don't write back
+	if removedCount == 0 {
+		return 0, nil
+	}
+
+	// Write back the filtered recipients
+	if err := WriteAllRecipients(repoRoot, remaining); err != nil {
+		return 0, err
+	}
+
+	return removedCount, nil
+}
+
 // UpdateLastReadAt sets the last_read_at timestamp for a recipient.
 // If the recipient doesn't exist, it creates a new entry with the timestamp (FR-019).
 // Uses file locking to prevent race conditions (FR-020).

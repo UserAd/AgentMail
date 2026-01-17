@@ -57,17 +57,17 @@
 
 ### Tests for User Story 1
 
-- [ ] T010 [P] [US1] Test offline recipient removal when window doesn't exist in internal/cli/cleanup_test.go
-- [ ] T011 [P] [US1] Test retention of recipients whose windows still exist in internal/cli/cleanup_test.go
-- [ ] T012 [P] [US1] Test cleanup completes successfully when recipients.jsonl is empty or missing in internal/cli/cleanup_test.go
-- [ ] T013 [P] [US1] Test non-tmux environment skips offline check with warning in internal/cli/cleanup_test.go
+- [X] T010 [P] [US1] Test offline recipient removal when window doesn't exist in internal/cli/cleanup_test.go
+- [X] T011 [P] [US1] Test retention of recipients whose windows still exist in internal/cli/cleanup_test.go
+- [X] T012 [P] [US1] Test cleanup completes successfully when recipients.jsonl is empty or missing in internal/cli/cleanup_test.go
+- [X] T013 [P] [US1] Test non-tmux environment skips offline check with warning in internal/cli/cleanup_test.go
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] Implement CleanOfflineRecipients function in internal/mail/recipients.go that compares recipients against tmux.ListWindows()
-- [ ] T015 [US1] Add offline recipient cleanup logic to Cleanup function in internal/cli/cleanup.go
-- [ ] T016 [US1] Handle non-tmux environment gracefully (skip offline check, warn, continue) in internal/cli/cleanup.go
-- [ ] T017 [US1] Track and return OfflineRemoved count in CleanupResult
+- [X] T014 [US1] Implement CleanOfflineRecipients function in internal/mail/recipients.go that compares recipients against tmux.ListWindows()
+- [X] T015 [US1] Add offline recipient cleanup logic to Cleanup function in internal/cli/cleanup.go
+- [X] T016 [US1] Handle non-tmux environment gracefully (skip offline check, warn, continue) in internal/cli/cleanup.go
+- [X] T017 [US1] Track and return OfflineRemoved count in CleanupResult
 
 **Checkpoint**: User Story 1 complete - offline recipient cleanup works independently
 

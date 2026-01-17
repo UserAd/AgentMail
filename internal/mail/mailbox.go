@@ -467,3 +467,71 @@ func RemoveEmptyMailboxes(repoRoot string) (int, error) {
 
 	return removedCount, nil
 }
+
+// CountOldMessages counts read messages older than the threshold without removing them.
+// This is used for dry-run mode. Messages without CreatedAt (zero value) are not counted.
+// Unread messages are never counted for removal.
+// Returns the count of messages that would be removed.
+func CountOldMessages(repoRoot string, recipient string, threshold time.Duration) (int, error) {
+	messages, err := ReadAll(repoRoot, recipient)
+	if err != nil {
+		return 0, err
+	}
+
+	cutoff := time.Now().Add(-threshold)
+	count := 0
+	for _, msg := range messages {
+		// Only count read messages with timestamps older than cutoff
+		if msg.ReadFlag && !msg.CreatedAt.IsZero() && msg.CreatedAt.Before(cutoff) {
+			count++
+		}
+	}
+
+	return count, nil
+}
+
+// CountEmptyMailboxes counts mailbox files that contain zero messages without removing them.
+// This is used for dry-run mode.
+// Returns the count of mailbox files that would be removed.
+func CountEmptyMailboxes(repoRoot string) (int, error) {
+	recipients, err := ListMailboxRecipients(repoRoot)
+	if err != nil {
+		return 0, err
+	}
+
+	mailDir := filepath.Join(repoRoot, MailDir)
+	count := 0
+
+	for _, recipient := range recipients {
+		filePath, err := safePath(mailDir, recipient+".jsonl")
+		if err != nil {
+			continue
+		}
+
+		info, err := os.Stat(filePath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return count, err
+		}
+
+		// If file size is 0, it's definitely empty
+		if info.Size() == 0 {
+			count++
+			continue
+		}
+
+		// If file has content, check if it has any messages
+		messages, err := ReadAll(repoRoot, recipient)
+		if err != nil {
+			continue
+		}
+
+		if len(messages) == 0 {
+			count++
+		}
+	}
+
+	return count, nil
+}

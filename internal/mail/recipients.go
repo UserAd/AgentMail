@@ -447,6 +447,54 @@ func CleanOfflineRecipients(repoRoot string, validWindows []string) (int, error)
 	return removedCount, nil
 }
 
+// CountOfflineRecipients counts recipients whose windows are no longer present without removing them.
+// This is used for dry-run mode.
+// Returns the count of recipients that would be removed.
+func CountOfflineRecipients(repoRoot string, validWindows []string) (int, error) {
+	recipients, err := ReadAllRecipients(repoRoot)
+	if err != nil {
+		return 0, err
+	}
+
+	if len(recipients) == 0 {
+		return 0, nil
+	}
+
+	windowSet := make(map[string]bool)
+	for _, w := range validWindows {
+		windowSet[w] = true
+	}
+
+	count := 0
+	for _, r := range recipients {
+		if !windowSet[r.Recipient] {
+			count++
+		}
+	}
+
+	return count, nil
+}
+
+// CountStaleStates counts recipient states that haven't been updated within the threshold without removing them.
+// This is used for dry-run mode.
+// Returns the count of recipients that would be removed.
+func CountStaleStates(repoRoot string, threshold time.Duration) (int, error) {
+	recipients, err := ReadAllRecipients(repoRoot)
+	if err != nil {
+		return 0, err
+	}
+
+	cutoff := time.Now().Add(-threshold)
+	count := 0
+	for _, r := range recipients {
+		if !r.UpdatedAt.After(cutoff) {
+			count++
+		}
+	}
+
+	return count, nil
+}
+
 // UpdateLastReadAt sets the last_read_at timestamp for a recipient.
 // If the recipient doesn't exist, it creates a new entry with the timestamp (FR-019).
 // Uses file locking to prevent race conditions (FR-020).

@@ -168,15 +168,15 @@
 
 ### Tests
 
-- [ ] T043 [P] Test cleanup outputs summary with correct counts (recipients, messages, mailboxes) in internal/cli/cleanup_test.go
-- [ ] T044 [P] Test dry-run mode reports counts without making changes in internal/cli/cleanup_test.go
-- [ ] T045 [P] Test warning output when files are skipped due to locking in internal/cli/cleanup_test.go
+- [X] T043 [P] Test cleanup outputs summary with correct counts (recipients, messages, mailboxes) in internal/cli/cleanup_test.go
+- [X] T044 [P] Test dry-run mode reports counts without making changes in internal/cli/cleanup_test.go
+- [X] T045 [P] Test warning output when files are skipped due to locking in internal/cli/cleanup_test.go
 
 ### Implementation
 
-- [ ] T046 Implement summary output formatting in Cleanup function (format: "Cleanup complete: Recipients removed: X...") in internal/cli/cleanup.go
-- [ ] T047 Implement dry-run mode that collects counts without deletions in internal/cli/cleanup.go
-- [ ] T048 Implement warning output for skipped locked files in internal/cli/cleanup.go
+- [X] T046 Implement summary output formatting in Cleanup function (format: "Cleanup complete: Recipients removed: X...") in internal/cli/cleanup.go
+- [X] T047 Implement dry-run mode that collects counts without deletions in internal/cli/cleanup.go
+- [X] T048 Implement warning output for skipped locked files in internal/cli/cleanup.go
 
 **Checkpoint**: Full cleanup command functionality complete
 

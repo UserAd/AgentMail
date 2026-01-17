@@ -304,8 +304,8 @@ func CleanOldMessages(repoRoot string, recipient string, threshold time.Duration
 
 	// Filter messages - keep if:
 	// 1. Unread (never delete unread messages)
-	// 2. CreatedAt is zero (no timestamp - skip, don't delete)
-	// 3. Read AND age <= threshold (recent read messages)
+	// 2. Read AND has timestamp AND age <= threshold (recent read messages)
+	// Note: Read messages without timestamp are eligible for deletion
 	cutoff := time.Now().Add(-threshold)
 	var remaining []Message
 	for _, msg := range messages {
@@ -315,17 +315,11 @@ func CleanOldMessages(repoRoot string, recipient string, threshold time.Duration
 			continue
 		}
 
-		// Keep messages without CreatedAt (zero value - skip, don't delete)
-		if msg.CreatedAt.IsZero() {
-			remaining = append(remaining, msg)
-			continue
-		}
-
-		// Keep recent read messages (age <= threshold)
-		if msg.CreatedAt.After(cutoff) {
+		// Keep recent read messages (has timestamp and age <= threshold)
+		if !msg.CreatedAt.IsZero() && msg.CreatedAt.After(cutoff) {
 			remaining = append(remaining, msg)
 		}
-		// Old read messages with timestamp are implicitly removed
+		// Read messages without timestamp OR old read messages are removed
 	}
 
 	// Calculate removed count
@@ -469,7 +463,7 @@ func RemoveEmptyMailboxes(repoRoot string) (int, error) {
 }
 
 // CountOldMessages counts read messages older than the threshold without removing them.
-// This is used for dry-run mode. Messages without CreatedAt (zero value) are not counted.
+// This is used for dry-run mode. Read messages without CreatedAt are counted for removal.
 // Unread messages are never counted for removal.
 // Returns the count of messages that would be removed.
 func CountOldMessages(repoRoot string, recipient string, threshold time.Duration) (int, error) {
@@ -481,8 +475,12 @@ func CountOldMessages(repoRoot string, recipient string, threshold time.Duration
 	cutoff := time.Now().Add(-threshold)
 	count := 0
 	for _, msg := range messages {
-		// Only count read messages with timestamps older than cutoff
-		if msg.ReadFlag && !msg.CreatedAt.IsZero() && msg.CreatedAt.Before(cutoff) {
+		// Skip unread messages (never removed)
+		if !msg.ReadFlag {
+			continue
+		}
+		// Count read messages without timestamp OR with old timestamp
+		if msg.CreatedAt.IsZero() || msg.CreatedAt.Before(cutoff) {
 			count++
 		}
 	}

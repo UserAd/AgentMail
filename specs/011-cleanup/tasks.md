@@ -107,7 +107,7 @@
 - [X] T025 [P] [US3] Test retention of unread messages regardless of age in internal/cli/cleanup_test.go
 - [X] T026 [P] [US3] Test retention of recent read messages (created_at within threshold) in internal/cli/cleanup_test.go
 - [X] T027 [P] [US3] Test custom --delivered-hours flag in internal/cli/cleanup_test.go
-- [X] T028 [P] [US3] Test messages without created_at field are skipped (not deleted) in internal/cli/cleanup_test.go
+- [X] T028 [P] [US3] Test messages without created_at field are deleted (if read) in internal/cli/cleanup_test.go
 
 ### Implementation for User Story 3
 

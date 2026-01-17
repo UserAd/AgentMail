@@ -961,8 +961,8 @@ func TestCleanup_CustomDeliveredHours(t *testing.T) {
 	}
 }
 
-// T028: Test messages without created_at field are NOT deleted
-func TestCleanup_MessagesWithoutCreatedAtSkipped(t *testing.T) {
+// T028: Test messages without created_at field ARE deleted (if read)
+func TestCleanup_MessagesWithoutCreatedAtDeleted(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create .agentmail/mailboxes directory
@@ -971,14 +971,16 @@ func TestCleanup_MessagesWithoutCreatedAtSkipped(t *testing.T) {
 		t.Fatalf("Failed to create mailboxes dir: %v", err)
 	}
 
-	oldTime := time.Now().Add(-100 * time.Hour) // Very old
+	recentTime := time.Now().Add(-30 * time.Minute) // Recent (within 2h threshold)
 
 	// Create messages:
-	// - msg1: read, no created_at (zero value) - should be KEPT (not deleted)
-	// - msg2: read, very old - should be removed
+	// - msg1: read, no created_at (zero value) - should be REMOVED (legacy read message)
+	// - msg2: read, recent - should be KEPT
+	// - msg3: unread, no created_at - should be KEPT (unread never deleted)
 	messages := []mail.Message{
-		{ID: "msg001", From: "sender", To: "agent-1", Message: "no timestamp", ReadFlag: true, CreatedAt: time.Time{}}, // Zero value
-		{ID: "msg002", From: "sender", To: "agent-1", Message: "very old read", ReadFlag: true, CreatedAt: oldTime},
+		{ID: "msg001", From: "sender", To: "agent-1", Message: "no timestamp read", ReadFlag: true, CreatedAt: time.Time{}}, // Zero value, read
+		{ID: "msg002", From: "sender", To: "agent-1", Message: "recent read", ReadFlag: true, CreatedAt: recentTime},
+		{ID: "msg003", From: "sender", To: "agent-1", Message: "no timestamp unread", ReadFlag: false, CreatedAt: time.Time{}}, // Zero value, unread
 	}
 	if err := mail.WriteAll(tmpDir, "agent-1", messages); err != nil {
 		t.Fatalf("WriteAll failed: %v", err)
@@ -1001,18 +1003,30 @@ func TestCleanup_MessagesWithoutCreatedAtSkipped(t *testing.T) {
 		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
 	}
 
-	// Verify message without created_at remains
+	// Verify: msg001 removed (read without timestamp), msg002 and msg003 remain
 	readBack, err := mail.ReadAll(tmpDir, "agent-1")
 	if err != nil {
 		t.Fatalf("ReadAll failed: %v", err)
 	}
 
-	if len(readBack) != 1 {
-		t.Fatalf("Expected 1 message (no timestamp kept, old removed), got %d", len(readBack))
+	if len(readBack) != 2 {
+		t.Fatalf("Expected 2 messages (recent read + unread kept), got %d", len(readBack))
 	}
 
-	if readBack[0].ID != "msg001" {
-		t.Errorf("Expected msg001 (no timestamp) to remain, got %s", readBack[0].ID)
+	// Check the remaining messages
+	ids := make(map[string]bool)
+	for _, msg := range readBack {
+		ids[msg.ID] = true
+	}
+
+	if ids["msg001"] {
+		t.Errorf("msg001 (read without timestamp) should have been removed")
+	}
+	if !ids["msg002"] {
+		t.Errorf("msg002 (recent read) should remain")
+	}
+	if !ids["msg003"] {
+		t.Errorf("msg003 (unread without timestamp) should remain")
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 // T014: Tests for mailbox Append to recipient file
@@ -81,21 +82,49 @@ func TestAppend_CreatesFileAndWritesMessage(t *testing.T) {
 		ReadFlag: false,
 	}
 
+	beforeAppend := time.Now()
 	err = Append(tmpDir, msg)
 	if err != nil {
 		t.Fatalf("Append failed: %v", err)
 	}
+	afterAppend := time.Now()
 
-	// Verify file exists with correct content
+	// Verify file exists
 	filePath := filepath.Join(mailDir, "agent-2.jsonl")
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		t.Fatalf("Failed to read file: %v", err)
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		t.Fatalf("File should exist after Append")
 	}
 
-	expected := `{"id":"testID01","from":"agent-1","to":"agent-2","message":"Hello","read_flag":false}` + "\n"
-	if string(content) != expected {
-		t.Errorf("File content mismatch.\nExpected: %s\nGot: %s", expected, string(content))
+	// Verify message can be read back with correct fields
+	messages, err := ReadAll(tmpDir, "agent-2")
+	if err != nil {
+		t.Fatalf("ReadAll failed: %v", err)
+	}
+
+	if len(messages) != 1 {
+		t.Fatalf("Expected 1 message, got %d", len(messages))
+	}
+
+	restored := messages[0]
+	if restored.ID != "testID01" {
+		t.Errorf("Expected ID 'testID01', got '%s'", restored.ID)
+	}
+	if restored.From != "agent-1" {
+		t.Errorf("Expected From 'agent-1', got '%s'", restored.From)
+	}
+	if restored.To != "agent-2" {
+		t.Errorf("Expected To 'agent-2', got '%s'", restored.To)
+	}
+	if restored.Message != "Hello" {
+		t.Errorf("Expected Message 'Hello', got '%s'", restored.Message)
+	}
+	if restored.ReadFlag != false {
+		t.Errorf("Expected ReadFlag false, got %v", restored.ReadFlag)
+	}
+
+	// Verify CreatedAt was set to a reasonable time
+	if restored.CreatedAt.Before(beforeAppend) || restored.CreatedAt.After(afterAppend) {
+		t.Errorf("CreatedAt should be between %v and %v, got %v", beforeAppend, afterAppend, restored.CreatedAt)
 	}
 }
 
@@ -120,9 +149,11 @@ func TestAppend_AppendsToExistingFile(t *testing.T) {
 		Message:  "First message",
 		ReadFlag: false,
 	}
+	beforeFirst := time.Now()
 	if err := Append(tmpDir, msg1); err != nil {
 		t.Fatalf("First Append failed: %v", err)
 	}
+	afterFirst := time.Now()
 
 	// Append second message
 	msg2 := Message{
@@ -132,23 +163,48 @@ func TestAppend_AppendsToExistingFile(t *testing.T) {
 		Message:  "Second message",
 		ReadFlag: false,
 	}
+	beforeSecond := time.Now()
 	if err := Append(tmpDir, msg2); err != nil {
 		t.Fatalf("Second Append failed: %v", err)
 	}
+	afterSecond := time.Now()
 
-	// Verify both messages in file
-	filePath := filepath.Join(mailDir, "agent-2.jsonl")
-	content, err := os.ReadFile(filePath)
+	// Verify both messages can be read back
+	messages, err := ReadAll(tmpDir, "agent-2")
 	if err != nil {
-		t.Fatalf("Failed to read file: %v", err)
+		t.Fatalf("ReadAll failed: %v", err)
 	}
 
-	lines := string(content)
-	expectedLine1 := `{"id":"firstID1","from":"agent-1","to":"agent-2","message":"First message","read_flag":false}`
-	expectedLine2 := `{"id":"secndID2","from":"agent-3","to":"agent-2","message":"Second message","read_flag":false}`
+	if len(messages) != 2 {
+		t.Fatalf("Expected 2 messages, got %d", len(messages))
+	}
 
-	if lines != expectedLine1+"\n"+expectedLine2+"\n" {
-		t.Errorf("File content mismatch.\nExpected:\n%s\n%s\nGot:\n%s", expectedLine1, expectedLine2, lines)
+	// Verify first message
+	if messages[0].ID != "firstID1" {
+		t.Errorf("First message ID mismatch: expected 'firstID1', got '%s'", messages[0].ID)
+	}
+	if messages[0].From != "agent-1" {
+		t.Errorf("First message From mismatch: expected 'agent-1', got '%s'", messages[0].From)
+	}
+	if messages[0].Message != "First message" {
+		t.Errorf("First message Message mismatch: expected 'First message', got '%s'", messages[0].Message)
+	}
+	if messages[0].CreatedAt.Before(beforeFirst) || messages[0].CreatedAt.After(afterFirst) {
+		t.Errorf("First message CreatedAt should be between %v and %v, got %v", beforeFirst, afterFirst, messages[0].CreatedAt)
+	}
+
+	// Verify second message
+	if messages[1].ID != "secndID2" {
+		t.Errorf("Second message ID mismatch: expected 'secndID2', got '%s'", messages[1].ID)
+	}
+	if messages[1].From != "agent-3" {
+		t.Errorf("Second message From mismatch: expected 'agent-3', got '%s'", messages[1].From)
+	}
+	if messages[1].Message != "Second message" {
+		t.Errorf("Second message Message mismatch: expected 'Second message', got '%s'", messages[1].Message)
+	}
+	if messages[1].CreatedAt.Before(beforeSecond) || messages[1].CreatedAt.After(afterSecond) {
+		t.Errorf("Second message CreatedAt should be between %v and %v, got %v", beforeSecond, afterSecond, messages[1].CreatedAt)
 	}
 }
 

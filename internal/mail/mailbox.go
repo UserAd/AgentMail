@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 )
 
 // RootDir is the root directory for AgentMail storage
@@ -82,6 +83,9 @@ func Append(repoRoot string, msg Message) error {
 		_ = file.Close() // G104: error intentionally ignored in cleanup path
 		return err
 	}
+
+	// Set creation timestamp
+	msg.CreatedAt = time.Now()
 
 	// Marshal message to JSON
 	data, err := json.Marshal(msg)

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 )
 
 // T006: Tests for Message struct JSON marshaling
@@ -169,5 +170,154 @@ func TestGenerateID_Uniqueness(t *testing.T) {
 			t.Errorf("Duplicate ID generated: %s", id)
 		}
 		ids[id] = true
+	}
+}
+
+// Tests for CreatedAt timestamp serialization
+
+func TestMessage_JSONMarshal_WithCreatedAt(t *testing.T) {
+	timestamp := time.Date(2024, 6, 15, 10, 30, 0, 0, time.UTC)
+	msg := Message{
+		ID:        "xK7mN2pQ",
+		From:      "agent-1",
+		To:        "agent-2",
+		Message:   "Hello from agent-1",
+		ReadFlag:  false,
+		CreatedAt: timestamp,
+	}
+
+	data, err := json.Marshal(msg)
+	if err != nil {
+		t.Fatalf("Failed to marshal Message with CreatedAt: %v", err)
+	}
+
+	jsonStr := string(data)
+
+	// Verify created_at field is present
+	if !strings.Contains(jsonStr, `"created_at":"2024-06-15T10:30:00Z"`) {
+		t.Errorf("JSON should contain created_at field with correct timestamp, got: %s", jsonStr)
+	}
+}
+
+func TestMessage_JSONUnmarshal_WithCreatedAt(t *testing.T) {
+	jsonStr := `{"id":"xK7mN2pQ","from":"agent-1","to":"agent-2","message":"Hello from agent-1","read_flag":false,"created_at":"2024-06-15T10:30:00Z"}`
+
+	var msg Message
+	err := json.Unmarshal([]byte(jsonStr), &msg)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal Message with CreatedAt: %v", err)
+	}
+
+	expectedTime := time.Date(2024, 6, 15, 10, 30, 0, 0, time.UTC)
+	if !msg.CreatedAt.Equal(expectedTime) {
+		t.Errorf("Expected CreatedAt '%v', got '%v'", expectedTime, msg.CreatedAt)
+	}
+}
+
+func TestMessage_JSONMarshal_WithoutCreatedAt(t *testing.T) {
+	msg := Message{
+		ID:       "xK7mN2pQ",
+		From:     "agent-1",
+		To:       "agent-2",
+		Message:  "Hello from agent-1",
+		ReadFlag: false,
+		// CreatedAt is zero value (not set)
+	}
+
+	data, err := json.Marshal(msg)
+	if err != nil {
+		t.Fatalf("Failed to marshal Message without CreatedAt: %v", err)
+	}
+
+	// Note: In Go, time.Time zero value is NOT omitted by omitempty because
+	// time.Time is a struct, not a pointer. The omitempty tag only works for
+	// truly "empty" values (nil pointers, empty strings, etc.).
+	// This is acceptable because:
+	// 1. New messages will always have CreatedAt set via Append()
+	// 2. Legacy messages without created_at can still be unmarshaled correctly
+	// 3. The zero time (0001-01-01T00:00:00Z) is distinguishable from real timestamps
+
+	// Verify the JSON can be unmarshaled successfully (core requirement)
+	var restored Message
+	err = json.Unmarshal(data, &restored)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal Message with zero CreatedAt: %v", err)
+	}
+
+	// Verify CreatedAt is zero in the restored message
+	if !restored.CreatedAt.IsZero() {
+		t.Errorf("Expected CreatedAt to be zero, got '%v'", restored.CreatedAt)
+	}
+}
+
+func TestMessage_JSONRoundTrip_WithCreatedAt(t *testing.T) {
+	timestamp := time.Date(2024, 6, 15, 14, 45, 30, 0, time.UTC)
+	original := Message{
+		ID:        "zM9oP4rS",
+		From:      "agent-3",
+		To:        "agent-1",
+		Message:   "Meeting at 3pm?",
+		ReadFlag:  true,
+		CreatedAt: timestamp,
+	}
+
+	// Marshal
+	data, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("Failed to marshal: %v", err)
+	}
+
+	// Unmarshal
+	var restored Message
+	err = json.Unmarshal(data, &restored)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal: %v", err)
+	}
+
+	// Compare all fields including CreatedAt
+	if original.ID != restored.ID {
+		t.Errorf("ID mismatch: original %s != restored %s", original.ID, restored.ID)
+	}
+	if original.From != restored.From {
+		t.Errorf("From mismatch: original %s != restored %s", original.From, restored.From)
+	}
+	if original.To != restored.To {
+		t.Errorf("To mismatch: original %s != restored %s", original.To, restored.To)
+	}
+	if original.Message != restored.Message {
+		t.Errorf("Message mismatch: original %s != restored %s", original.Message, restored.Message)
+	}
+	if original.ReadFlag != restored.ReadFlag {
+		t.Errorf("ReadFlag mismatch: original %v != restored %v", original.ReadFlag, restored.ReadFlag)
+	}
+	if !original.CreatedAt.Equal(restored.CreatedAt) {
+		t.Errorf("CreatedAt mismatch: original %v != restored %v", original.CreatedAt, restored.CreatedAt)
+	}
+}
+
+func TestMessage_JSONUnmarshal_BackwardCompatibility(t *testing.T) {
+	// Test that messages without created_at field (legacy format) can still be parsed
+	jsonStr := `{"id":"xK7mN2pQ","from":"agent-1","to":"agent-2","message":"Legacy message","read_flag":false}`
+
+	var msg Message
+	err := json.Unmarshal([]byte(jsonStr), &msg)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal legacy Message without CreatedAt: %v", err)
+	}
+
+	// CreatedAt should be zero value for legacy messages
+	if !msg.CreatedAt.IsZero() {
+		t.Errorf("Expected CreatedAt to be zero for legacy message, got '%v'", msg.CreatedAt)
+	}
+
+	// Other fields should still be correct
+	if msg.ID != "xK7mN2pQ" {
+		t.Errorf("Expected ID 'xK7mN2pQ', got '%s'", msg.ID)
+	}
+	if msg.From != "agent-1" {
+		t.Errorf("Expected From 'agent-1', got '%s'", msg.From)
+	}
+	if msg.Message != "Legacy message" {
+		t.Errorf("Expected Message 'Legacy message', got '%s'", msg.Message)
 	}
 }

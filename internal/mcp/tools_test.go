@@ -464,3 +464,38 @@ func TestSendToolSchema_MaxLength(t *testing.T) {
 		t.Errorf("send tool message maxLength mismatch: got %d, want %d", int(maxLength), MaxMessageSize)
 	}
 }
+
+// TestMCPTools_NoCleanupTool verifies that the MCP tools list does not include
+// a cleanup tool. Cleanup is an administrative CLI command that should not be
+// exposed as an MCP tool for AI integrations.
+func TestMCPTools_NoCleanupTool(t *testing.T) {
+	_, clientSession, cleanup := setupTestServer(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	result, err := clientSession.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatalf("ListTools failed: %v", err)
+	}
+
+	// Verify no cleanup tool is registered
+	for _, tool := range result.Tools {
+		if tool.Name == "cleanup" {
+			t.Errorf("MCP tools should not include 'cleanup' tool, but it was found")
+		}
+	}
+
+	// Also verify the tool constants don't include cleanup
+	allowedTools := map[string]bool{
+		ToolSend:           true,
+		ToolReceive:        true,
+		ToolStatus:         true,
+		ToolListRecipients: true,
+	}
+
+	for _, tool := range result.Tools {
+		if !allowedTools[tool.Name] {
+			t.Errorf("Unexpected tool registered: %s", tool.Name)
+		}
+	}
+}

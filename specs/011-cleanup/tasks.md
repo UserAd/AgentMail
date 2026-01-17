@@ -150,13 +150,13 @@
 
 ### Tests for User Stories 5 & 6
 
-- [ ] T039 [P] [US5] Test that `agentmail onboard` output does not contain "cleanup" in internal/cli/onboard_test.go
-- [ ] T040 [P] [US6] Test that MCP tools list does not include cleanup in internal/mcp/tools_test.go
+- [X] T039 [P] [US5] Test that `agentmail onboard` output does not contain "cleanup" in internal/cli/onboard_test.go
+- [X] T040 [P] [US6] Test that MCP tools list does not include cleanup in internal/mcp/tools_test.go
 
 ### Implementation for User Stories 5 & 6
 
-- [ ] T041 [US5] Verify onboard.go does not reference cleanup command (no implementation change expected)
-- [ ] T042 [US6] Verify tools.go does not register a cleanup tool (no implementation change expected)
+- [X] T041 [US5] Verify onboard.go does not reference cleanup command (no implementation change expected)
+- [X] T042 [US6] Verify tools.go does not register a cleanup tool (no implementation change expected)
 
 **Checkpoint**: Exclusion requirements verified
 

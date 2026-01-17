@@ -128,15 +128,15 @@
 
 ### Tests for User Story 4
 
-- [ ] T033 [P] [US4] Test removal of empty mailbox files in internal/cli/cleanup_test.go
-- [ ] T034 [P] [US4] Test retention of non-empty mailbox files in internal/cli/cleanup_test.go
-- [ ] T035 [P] [US4] Test cleanup succeeds when mailboxes directory doesn't exist in internal/cli/cleanup_test.go
+- [X] T033 [P] [US4] Test removal of empty mailbox files in internal/cli/cleanup_test.go
+- [X] T034 [P] [US4] Test retention of non-empty mailbox files in internal/cli/cleanup_test.go
+- [X] T035 [P] [US4] Test cleanup succeeds when mailboxes directory doesn't exist in internal/cli/cleanup_test.go
 
 ### Implementation for User Story 4
 
-- [ ] T036 [US4] Implement RemoveEmptyMailboxes function in internal/mail/mailbox.go
-- [ ] T037 [US4] Add empty mailbox removal to Cleanup function (after message cleanup) in internal/cli/cleanup.go
-- [ ] T038 [US4] Track and return MailboxesRemoved count in CleanupResult
+- [X] T036 [US4] Implement RemoveEmptyMailboxes function in internal/mail/mailbox.go
+- [X] T037 [US4] Add empty mailbox removal to Cleanup function (after message cleanup) in internal/cli/cleanup.go
+- [X] T038 [US4] Track and return MailboxesRemoved count in CleanupResult
 
 **Checkpoint**: User Story 4 complete - empty mailbox cleanup works
 

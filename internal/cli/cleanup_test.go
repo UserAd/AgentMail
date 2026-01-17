@@ -1014,3 +1014,251 @@ func TestCleanup_MessagesWithoutCreatedAtSkipped(t *testing.T) {
 		t.Errorf("Expected msg001 (no timestamp) to remain, got %s", readBack[0].ID)
 	}
 }
+
+// =============================================================================
+// User Story 4 Tests: Remove Empty Mailboxes
+// =============================================================================
+
+// T033: Test empty mailbox files are deleted
+func TestCleanup_EmptyMailboxRemoved(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .agentmail/mailboxes directory
+	mailboxDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
+	if err := os.MkdirAll(mailboxDir, 0755); err != nil {
+		t.Fatalf("Failed to create mailboxes dir: %v", err)
+	}
+
+	// Create an empty mailbox file (0 bytes)
+	emptyMailboxPath := filepath.Join(mailboxDir, "empty-agent.jsonl")
+	if err := os.WriteFile(emptyMailboxPath, []byte{}, 0644); err != nil {
+		t.Fatalf("Failed to create empty mailbox: %v", err)
+	}
+
+	// Create a mailbox with messages (non-empty)
+	messages := []mail.Message{
+		{ID: "msg001", From: "sender", To: "non-empty-agent", Message: "hello", ReadFlag: false, CreatedAt: time.Now()},
+	}
+	if err := mail.WriteAll(tmpDir, "non-empty-agent", messages); err != nil {
+		t.Fatalf("WriteAll failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+
+	// Run cleanup
+	exitCode := Cleanup(&stdout, &stderr, CleanupOptions{
+		StaleHours:     48,
+		DeliveredHours: 2,
+		DryRun:         false,
+		RepoRoot:       tmpDir,
+		SkipTmuxCheck:  true,
+		MockInTmux:     false,
+		MockWindows:    nil,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	// Verify empty mailbox was deleted
+	if _, err := os.Stat(emptyMailboxPath); !os.IsNotExist(err) {
+		t.Errorf("Expected empty mailbox file to be deleted, but it still exists")
+	}
+
+	// Verify non-empty mailbox still exists
+	nonEmptyMailboxPath := filepath.Join(mailboxDir, "non-empty-agent.jsonl")
+	if _, err := os.Stat(nonEmptyMailboxPath); os.IsNotExist(err) {
+		t.Errorf("Expected non-empty mailbox file to remain, but it was deleted")
+	}
+}
+
+// T034: Test mailboxes with messages are retained
+func TestCleanup_NonEmptyMailboxRetained(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .agentmail/mailboxes directory
+	mailboxDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
+	if err := os.MkdirAll(mailboxDir, 0755); err != nil {
+		t.Fatalf("Failed to create mailboxes dir: %v", err)
+	}
+
+	// Create multiple mailboxes with messages
+	for _, recipient := range []string{"agent-1", "agent-2", "agent-3"} {
+		messages := []mail.Message{
+			{ID: "msg001", From: "sender", To: recipient, Message: "hello", ReadFlag: false, CreatedAt: time.Now()},
+		}
+		if err := mail.WriteAll(tmpDir, recipient, messages); err != nil {
+			t.Fatalf("WriteAll failed for %s: %v", recipient, err)
+		}
+	}
+
+	var stdout, stderr bytes.Buffer
+
+	// Run cleanup
+	exitCode := Cleanup(&stdout, &stderr, CleanupOptions{
+		StaleHours:     48,
+		DeliveredHours: 2,
+		DryRun:         false,
+		RepoRoot:       tmpDir,
+		SkipTmuxCheck:  true,
+		MockInTmux:     false,
+		MockWindows:    nil,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	// Verify all mailboxes still exist
+	for _, recipient := range []string{"agent-1", "agent-2", "agent-3"} {
+		mailboxPath := filepath.Join(mailboxDir, recipient+".jsonl")
+		if _, err := os.Stat(mailboxPath); os.IsNotExist(err) {
+			t.Errorf("Expected mailbox for %s to remain, but it was deleted", recipient)
+		}
+	}
+}
+
+// T035: Test cleanup succeeds when mailboxes directory doesn't exist
+func TestCleanup_NoMailboxesDirectory(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create only .agentmail directory (no mailboxes subdirectory)
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+
+	// Run cleanup - should succeed even without mailboxes directory
+	exitCode := Cleanup(&stdout, &stderr, CleanupOptions{
+		StaleHours:     48,
+		DeliveredHours: 2,
+		DryRun:         false,
+		RepoRoot:       tmpDir,
+		SkipTmuxCheck:  true,
+		MockInTmux:     false,
+		MockWindows:    nil,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+}
+
+// Additional test: Verify mailbox emptied by message cleanup is also removed
+func TestCleanup_MailboxEmptiedByMessageCleanupIsRemoved(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .agentmail/mailboxes directory
+	mailboxDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
+	if err := os.MkdirAll(mailboxDir, 0755); err != nil {
+		t.Fatalf("Failed to create mailboxes dir: %v", err)
+	}
+
+	oldTime := time.Now().Add(-100 * time.Hour) // Very old
+
+	// Create mailbox with only old read messages (will be cleaned by Phase 3)
+	messages := []mail.Message{
+		{ID: "msg001", From: "sender", To: "agent-1", Message: "old read", ReadFlag: true, CreatedAt: oldTime},
+		{ID: "msg002", From: "sender", To: "agent-1", Message: "old read 2", ReadFlag: true, CreatedAt: oldTime},
+	}
+	if err := mail.WriteAll(tmpDir, "agent-1", messages); err != nil {
+		t.Fatalf("WriteAll failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+
+	// Run cleanup
+	exitCode := Cleanup(&stdout, &stderr, CleanupOptions{
+		StaleHours:     48,
+		DeliveredHours: 2,
+		DryRun:         false,
+		RepoRoot:       tmpDir,
+		SkipTmuxCheck:  true,
+		MockInTmux:     false,
+		MockWindows:    nil,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	// Verify mailbox was removed (message cleanup emptied it, then empty mailbox cleanup removed it)
+	mailboxPath := filepath.Join(mailboxDir, "agent-1.jsonl")
+	if _, err := os.Stat(mailboxPath); !os.IsNotExist(err) {
+		t.Errorf("Expected mailbox to be deleted after message cleanup emptied it, but it still exists")
+	}
+}
+
+// Test: RemoveEmptyMailboxes function directly
+func TestRemoveEmptyMailboxes(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .agentmail/mailboxes directory
+	mailboxDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
+	if err := os.MkdirAll(mailboxDir, 0755); err != nil {
+		t.Fatalf("Failed to create mailboxes dir: %v", err)
+	}
+
+	// Create empty mailbox files (0 bytes)
+	for _, name := range []string{"empty1.jsonl", "empty2.jsonl"} {
+		path := filepath.Join(mailboxDir, name)
+		if err := os.WriteFile(path, []byte{}, 0644); err != nil {
+			t.Fatalf("Failed to create empty mailbox %s: %v", name, err)
+		}
+	}
+
+	// Create a non-empty mailbox
+	messages := []mail.Message{
+		{ID: "msg001", From: "sender", To: "non-empty", Message: "hello", ReadFlag: false, CreatedAt: time.Now()},
+	}
+	if err := mail.WriteAll(tmpDir, "non-empty", messages); err != nil {
+		t.Fatalf("WriteAll failed: %v", err)
+	}
+
+	// Call RemoveEmptyMailboxes
+	removed, err := mail.RemoveEmptyMailboxes(tmpDir)
+	if err != nil {
+		t.Fatalf("RemoveEmptyMailboxes failed: %v", err)
+	}
+
+	// Should have removed 2 empty mailboxes
+	if removed != 2 {
+		t.Errorf("Expected 2 removed, got %d", removed)
+	}
+
+	// Verify empty mailboxes were deleted
+	for _, name := range []string{"empty1.jsonl", "empty2.jsonl"} {
+		path := filepath.Join(mailboxDir, name)
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Errorf("Expected %s to be deleted, but it still exists", name)
+		}
+	}
+
+	// Verify non-empty mailbox still exists
+	nonEmptyPath := filepath.Join(mailboxDir, "non-empty.jsonl")
+	if _, err := os.Stat(nonEmptyPath); os.IsNotExist(err) {
+		t.Errorf("Expected non-empty mailbox to remain, but it was deleted")
+	}
+}
+
+func TestRemoveEmptyMailboxes_NoMailboxesDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create only .agentmail directory (no mailboxes subdirectory)
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
+	}
+
+	// Call RemoveEmptyMailboxes - should succeed with 0 removed
+	removed, err := mail.RemoveEmptyMailboxes(tmpDir)
+	if err != nil {
+		t.Fatalf("RemoveEmptyMailboxes should not error on missing mailboxes dir: %v", err)
+	}
+
+	if removed != 0 {
+		t.Errorf("Expected 0 removed for missing mailboxes dir, got %d", removed)
+	}
+}

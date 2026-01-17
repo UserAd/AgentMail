@@ -135,10 +135,20 @@ func Cleanup(stdout, stderr io.Writer, opts CleanupOptions) int {
 		}
 	}
 
+	// Phase 4: Remove empty mailboxes (US4)
+	// This runs AFTER message cleanup so that mailboxes emptied by Phase 3 are also removed
+	if !opts.DryRun {
+		mailboxesRemoved, err := mail.RemoveEmptyMailboxes(repoRoot)
+		if err != nil {
+			fmt.Fprintf(stderr, "Error removing empty mailboxes: %v\n", err)
+			return 1
+		}
+		result.MailboxesRemoved = mailboxesRemoved
+	}
+
 	// Suppress unused variable warning - result will be used for summary output
 	_ = result
 
-	// TODO: Phase 4 - Remove empty mailboxes (US4)
 	// TODO: Phase 5 - Output summary (FR-014)
 
 	return 0

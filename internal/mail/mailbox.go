@@ -412,3 +412,58 @@ func MarkAsRead(repoRoot string, recipient string, messageID string) error {
 	_ = file.Close()                                   // G104: close errors don't affect the write result
 	return writeErr
 }
+
+// RemoveEmptyMailboxes removes mailbox files that contain zero messages.
+// Returns the number of mailbox files removed.
+func RemoveEmptyMailboxes(repoRoot string) (int, error) {
+	// List all mailbox recipients
+	recipients, err := ListMailboxRecipients(repoRoot)
+	if err != nil {
+		return 0, err
+	}
+
+	mailDir := filepath.Join(repoRoot, MailDir)
+	removedCount := 0
+
+	for _, recipient := range recipients {
+		// Build file path with path traversal protection (G304)
+		filePath, err := safePath(mailDir, recipient+".jsonl")
+		if err != nil {
+			continue // Skip invalid paths
+		}
+
+		// Check if the file is empty (0 bytes or 0 messages)
+		info, err := os.Stat(filePath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue // Already gone
+			}
+			return removedCount, err
+		}
+
+		// If file size is 0, it's definitely empty
+		if info.Size() == 0 {
+			if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+				return removedCount, err
+			}
+			removedCount++
+			continue
+		}
+
+		// If file has content, check if it has any messages
+		// (could be empty after message cleanup left just whitespace/empty lines)
+		messages, err := ReadAll(repoRoot, recipient)
+		if err != nil {
+			continue // Skip files we can't read
+		}
+
+		if len(messages) == 0 {
+			if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+				return removedCount, err
+			}
+			removedCount++
+		}
+	}
+
+	return removedCount, nil
+}

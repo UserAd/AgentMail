@@ -1,11 +1,16 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.0.0 → 1.1.0 (MINOR - scope expansion beyond MVP)
+Version change: 1.1.0 → 1.2.0 (MINOR - quality gates expanded to match CI)
 
 Modified principles:
-- I. CLI-First Design: Removed "No daemon processes in MVP scope" restriction
-- II. Simplicity (YAGNI): Updated to reflect post-MVP stage, removed "MVP scope: send and receive commands only"
+- Technology Constraints: Added "CI uses Go 1.25.5" for clarity
+- Quality Gates: Expanded from 4 to 7 items to match CI pipeline exactly:
+  - Changed from `go test -cover` to `go test -v -race -coverprofile=coverage.out`
+  - Changed from `go fmt` to `gofmt -l` (CI uses gofmt directly)
+  - Added `go mod verify` for dependency verification
+  - Added `govulncheck` for vulnerability scanning
+  - Added `gosec` for security scanning
 
 Added sections: None
 
@@ -77,19 +82,22 @@ New dependencies require documented rationale in research.md with:
 
 ## Technology Constraints
 
-- **Language**: Go 1.21+ (per IC-001)
+- **Language**: Go 1.21+ (per IC-001), CI uses Go 1.25.5
 - **Storage**: JSONL files in `.agentmail/` directory (per-recipient files, state files)
 - **Platform**: macOS and Linux with tmux installed
 - **Build**: Standard `go build`, no CGO dependencies
 
 ## Quality Gates
 
-Before any feature is considered complete:
+Before any feature is considered complete (must match CI pipeline):
 
-1. **Coverage**: `go test -cover ./...` reports >= 80%
-2. **Static Analysis**: `go vet ./...` passes with no errors
-3. **Formatting**: `go fmt ./...` produces no changes
-4. **Spec Compliance**: All acceptance scenarios from spec.md pass
+1. **Formatting**: `gofmt -l .` produces no output (no unformatted files)
+2. **Dependencies**: `go mod verify` passes with no errors
+3. **Static Analysis**: `go vet ./...` passes with no errors
+4. **Tests**: `go test -v -race -coverprofile=coverage.out ./...` passes with >= 80% coverage
+5. **Vulnerabilities**: `govulncheck ./...` reports no vulnerabilities
+6. **Security**: `gosec ./...` reports no issues
+7. **Spec Compliance**: All acceptance scenarios from spec.md pass
 
 ## Governance
 
@@ -106,4 +114,4 @@ This constitution supersedes all other development practices for AgentMail.
 - Violations require explicit justification or constitution amendment
 - `/speckit.analyze` checks constitution alignment automatically
 
-**Version**: 1.1.0 | **Ratified**: 2026-01-11 | **Last Amended**: 2026-01-12
+**Version**: 1.2.0 | **Ratified**: 2026-01-11 | **Last Amended**: 2026-01-17

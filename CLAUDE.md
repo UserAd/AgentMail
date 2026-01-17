@@ -43,20 +43,22 @@ Once Go source files are added:
 - `go vet ./...` - Run static analysis
 - `go fmt ./...` - Format code
 
-## Quality gates
+## Quality Gates (CI Pipeline)
 
-- The build system shall produce agentmail binary
-- The build system shall pass `go test -v -race ./...` without errors
-- The build system shall pass `go vet ./...` without errors
-- The build system shall pass `go fmt ./...` without errors
-- The build system shall pass `govulncheck ./...` without errors
-- The build system shall pass `gosec ./...` without errors
+The following checks run in CI and must pass before merge:
+
+1. **Formatting**: `gofmt -l .` - must produce no output
+2. **Dependencies**: `go mod verify` - must pass
+3. **Static Analysis**: `go vet ./...` - must pass
+4. **Tests**: `go test -v -race -coverprofile=coverage.out ./...` - must pass with >= 80% coverage
+5. **Vulnerabilities**: `govulncheck ./...` - must report no vulnerabilities
+6. **Security**: `gosec ./...` - must report no issues
 
 ## Testing in CI Environment
 
-To run tests in a container matching CI (Go 1.25, Linux):
+To run tests in a container matching CI (Go 1.25.5, Linux):
 ```bash
-docker run --rm -v $(pwd):/app -w /app golang:1.25 go test -v -race ./...
+docker run --rm -v $(pwd):/app -w /app golang:1.25.5 go test -v -race ./...
 ```
 
 This helps catch issues that only manifest in the CI environment (e.g., running as root, different Go version).
@@ -96,6 +98,8 @@ Templates are stored in `.specify/templates/` and project constitution in `.spec
 - Go 1.21+ (per constitution IC-001) + Standard library only (os, time, syscall) + fsnotify (external - requires justification) (009-watch-files)
 - Go 1.23 (per go.mod, constitution requires 1.21+) + github.com/modelcontextprotocol/go-sdk (official MCP SDK) (010-mcp-server)
 - JSONL files in `.agentmail/` directory (existing infrastructure), MCP server via STDIO transport (010-mcp-server)
+- Go 1.21+ (per constitution IC-001, project uses Go 1.25.3) + Standard library only (os/exec, encoding/json, syscall, time, os) (011-cleanup)
+- JSONL files in `.agentmail/` directory (recipients.jsonl, mailboxes/*.jsonl) (011-cleanup)
 
 ## Recent Changes
 - 001-agent-mail-structure: Added Go 1.21+ (per IC-001) + Standard library only (os/exec for tmux, encoding/json for JSONL)

@@ -502,3 +502,58 @@ func TestSafePath_DotInFilename(t *testing.T) {
 		t.Errorf("Expected %q, got %q", expected, result)
 	}
 }
+
+// T007: Tests for TryLockWithTimeout non-blocking file lock
+
+func TestTryLockWithTimeout_Success(t *testing.T) {
+	// Create a temp file for testing
+	tmpFile, err := os.CreateTemp("", "agentmail-lock-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
+
+	// Lock on an unlocked file should succeed immediately
+	err = TryLockWithTimeout(tmpFile, 100*time.Millisecond)
+	if err != nil {
+		t.Errorf("TryLockWithTimeout should succeed on unlocked file: %v", err)
+	}
+}
+
+func TestTryLockWithTimeout_Timeout(t *testing.T) {
+	// Create a temp file for testing
+	tmpFile, err := os.CreateTemp("", "agentmail-lock-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
+
+	// First, acquire an exclusive lock on the file (simulating another process holding it)
+	// We need to open the file again to simulate another process
+	tmpFile2, err := os.Open(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("Failed to open temp file for second lock: %v", err)
+	}
+	defer tmpFile2.Close()
+
+	// Acquire lock using the first file handle
+	if err := TryLockWithTimeout(tmpFile, 100*time.Millisecond); err != nil {
+		t.Fatalf("Failed to acquire initial lock: %v", err)
+	}
+
+	// Try to lock with the second file handle - should timeout
+	start := time.Now()
+	err = TryLockWithTimeout(tmpFile2, 100*time.Millisecond)
+	elapsed := time.Since(start)
+
+	if err != ErrFileLocked {
+		t.Errorf("TryLockWithTimeout should return ErrFileLocked on already-locked file, got: %v", err)
+	}
+
+	// Verify timeout was respected (should be at least 100ms, give some margin for scheduling)
+	if elapsed < 90*time.Millisecond {
+		t.Errorf("TryLockWithTimeout should wait for timeout, elapsed: %v", elapsed)
+	}
+}

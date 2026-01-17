@@ -287,6 +287,52 @@ Examples:
 		},
 	}
 
+	// Cleanup command flags
+	cleanupFlagSet := flag.NewFlagSet("agentmail cleanup", flag.ContinueOnError)
+	var (
+		staleHours     int
+		deliveredHours int
+		dryRun         bool
+	)
+	cleanupFlagSet.IntVar(&staleHours, "stale-hours", 48, "hours threshold for stale recipients")
+	cleanupFlagSet.IntVar(&deliveredHours, "delivered-hours", 2, "hours threshold for delivered messages")
+	cleanupFlagSet.BoolVar(&dryRun, "dry-run", false, "report what would be cleaned without deleting")
+
+	cleanupCmd := &ffcli.Command{
+		Name:       "cleanup",
+		ShortUsage: "agentmail cleanup [flags]",
+		ShortHelp:  "Remove stale data from AgentMail",
+		LongHelp: `Remove stale data from the AgentMail system.
+
+This command cleans up:
+- Offline recipients (windows that no longer exist)
+- Stale recipients (not updated within threshold)
+- Old delivered messages (read messages older than threshold)
+- Empty mailbox files
+
+Flags:
+  --stale-hours      Hours threshold for stale recipients (default: 48)
+  --delivered-hours  Hours threshold for delivered messages (default: 2)
+  --dry-run          Report what would be cleaned without deleting
+
+Examples:
+  agentmail cleanup
+  agentmail cleanup --dry-run
+  agentmail cleanup --stale-hours 24 --delivered-hours 1`,
+		FlagSet: cleanupFlagSet,
+		Exec: func(ctx context.Context, args []string) error {
+			exitCode := cli.Cleanup(os.Stdout, os.Stderr, cli.CleanupOptions{
+				StaleHours:     staleHours,
+				DeliveredHours: deliveredHours,
+				DryRun:         dryRun,
+			})
+			if exitCode != 0 {
+				os.Exit(exitCode)
+			}
+			return nil
+		},
+	}
+
 	// Root command help text
 	rootHelp := `agentmail - Inter-agent communication for tmux sessions
 
@@ -301,6 +347,7 @@ Commands:
   mailman     Start the mailman daemon
   onboard     Output agent onboarding context
   mcp         Start MCP server (STDIO transport)
+  cleanup     Remove stale data from AgentMail
 
 Use "agentmail <command> --help" for more information about a command.`
 
@@ -310,7 +357,7 @@ Use "agentmail <command> --help" for more information about a command.`
 		ShortHelp:   "Inter-agent communication for tmux sessions",
 		LongHelp:    rootHelp,
 		FlagSet:     rootFlagSet,
-		Subcommands: []*ffcli.Command{sendCmd, receiveCmd, recipientsCmd, statusCmd, mailmanCmd, onboardCmd, mcpCmd},
+		Subcommands: []*ffcli.Command{sendCmd, receiveCmd, recipientsCmd, statusCmd, mailmanCmd, onboardCmd, mcpCmd, cleanupCmd},
 		Exec: func(ctx context.Context, args []string) error {
 			// No subcommand provided, show help
 			fmt.Fprintln(os.Stderr, rootHelp)

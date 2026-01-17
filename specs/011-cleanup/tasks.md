@@ -38,12 +38,12 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Define CleanupOptions struct (StaleHours, DeliveredHours, DryRun) in internal/cli/cleanup.go
-- [ ] T005 Define CleanupResult struct (RecipientsRemoved, OfflineRemoved, StaleRemoved, MessagesRemoved, MailboxesRemoved, FilesSkipped) in internal/cli/cleanup.go
-- [ ] T006 Implement non-blocking file lock helper with 1-second timeout in internal/mail/mailbox.go
-- [ ] T007 [P] Add tests for non-blocking lock timeout behavior in internal/mail/mailbox_test.go
-- [ ] T008 Create Cleanup function signature and stub in internal/cli/cleanup.go
-- [ ] T009 Register cleanup subcommand with flags (--stale-hours, --delivered-hours, --dry-run) in cmd/agentmail/main.go
+- [X] T004 Define CleanupOptions struct (StaleHours, DeliveredHours, DryRun) in internal/cli/cleanup.go
+- [X] T005 Define CleanupResult struct (RecipientsRemoved, OfflineRemoved, StaleRemoved, MessagesRemoved, MailboxesRemoved, FilesSkipped) in internal/cli/cleanup.go
+- [X] T006 Implement non-blocking file lock helper with 1-second timeout in internal/mail/mailbox.go
+- [X] T007 [P] Add tests for non-blocking lock timeout behavior in internal/mail/mailbox_test.go
+- [X] T008 Create Cleanup function signature and stub in internal/cli/cleanup.go
+- [X] T009 Register cleanup subcommand with flags (--stale-hours, --delivered-hours, --dry-run) in cmd/agentmail/main.go
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 

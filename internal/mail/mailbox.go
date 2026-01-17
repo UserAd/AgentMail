@@ -20,6 +20,9 @@ const MailDir = ".agentmail/mailboxes"
 // ErrInvalidPath is returned when a path traversal attack is detected.
 var ErrInvalidPath = errors.New("invalid path: directory traversal detected")
 
+// ErrFileLocked is returned when a file cannot be locked within the timeout
+var ErrFileLocked = errors.New("file is locked by another process")
+
 // safePath constructs a safe file path and validates it stays within the base directory.
 // This prevents path traversal attacks (G304) by ensuring the cleaned path
 // is still under the expected base directory.
@@ -43,6 +46,27 @@ func safePath(baseDir, filename string) (string, error) {
 	}
 
 	return fullPath, nil
+}
+
+// TryLockWithTimeout attempts to acquire an exclusive lock on a file with a timeout.
+// Returns ErrFileLocked if the lock cannot be acquired within the timeout.
+func TryLockWithTimeout(file *os.File, timeout time.Duration) error {
+	// Try non-blocking lock first
+	err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+	if err == nil {
+		return nil
+	}
+
+	// Retry with timeout
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+		err = syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+		if err == nil {
+			return nil
+		}
+	}
+	return ErrFileLocked
 }
 
 // EnsureMailDir creates the .agentmail/ and .agentmail/mailboxes/ directories if they don't exist.

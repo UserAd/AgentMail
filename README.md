@@ -2,6 +2,7 @@
 
 [![Test](https://github.com/UserAd/AgentMail/actions/workflows/test.yml/badge.svg)](https://github.com/UserAd/AgentMail/actions/workflows/test.yml)
 [![Release](https://github.com/UserAd/AgentMail/actions/workflows/release.yml/badge.svg)](https://github.com/UserAd/AgentMail/actions/workflows/release.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/UserAd/AgentMail)](https://goreportcard.com/report/github.com/UserAd/AgentMail)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A Go CLI tool for inter-agent communication within tmux sessions. Agents running in different tmux windows can send and receive messages through a simple file-based mail system.
@@ -22,7 +23,7 @@ A Go CLI tool for inter-agent communication within tmux sessions. Agents running
 
 ## Requirements
 
-- Go 1.25 or later
+- Go 1.25.5 or later
 - tmux (must be running inside a tmux session)
 - Linux or macOS
 
@@ -617,20 +618,50 @@ go test -v -race -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out
 ```
 
-### Lint
+### Lint & Security
 
 ```bash
+# Format code
 go fmt ./...
+
+# Static analysis
 go vet ./...
+
+# Vulnerability scanning
+go install golang.org/x/vuln/cmd/govulncheck@latest
+govulncheck ./...
+
+# Security scanning
+go install github.com/securego/gosec/v2/cmd/gosec@latest
+gosec ./...
 ```
 
 ### Testing in CI Environment
 
-To match the CI environment (Go 1.25, Linux):
+To match the CI environment (Go 1.25.5, Linux):
 
 ```bash
-docker run --rm -v $(pwd):/app -w /app golang:1.25 go test -v -race ./...
+docker run --rm -v $(pwd):/app -w /app golang:1.25.5 go test -v -race ./...
 ```
+
+### CI/CD Pipeline
+
+The project uses GitHub Actions for continuous integration and delivery:
+
+**Test Workflow** (on push to main and PRs):
+- Code formatting verification (`gofmt`)
+- Dependency verification (`go mod verify`)
+- Static analysis (`go vet`)
+- Tests with race detection (`go test -race`)
+- Coverage report generation
+- Security scanning (`govulncheck`, `gosec`)
+
+**Release Workflow** (on push to main):
+- Pre-release test validation
+- Semantic version calculation from commit messages
+- Cross-platform builds (Linux/macOS, amd64/arm64)
+- GitHub Release creation with auto-generated notes
+- Homebrew formula automatic update
 
 ## Project Structure
 

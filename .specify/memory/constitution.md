@@ -1,27 +1,9 @@
 <!--
-Sync Impact Report
-==================
-Version change: 1.1.0 → 1.2.0 (MINOR - quality gates expanded to match CI)
+Sync Impact Report: 1.1.0 → 1.2.0 (MINOR)
 
-Modified principles:
-- Technology Constraints: Added "CI uses Go 1.25.5" for clarity
-- Quality Gates: Expanded from 4 to 7 items to match CI pipeline exactly:
-  - Changed from `go test -cover` to `go test -v -race -coverprofile=coverage.out`
-  - Changed from `go fmt` to `gofmt -l` (CI uses gofmt directly)
-  - Added `go mod verify` for dependency verification
-  - Added `govulncheck` for vulnerability scanning
-  - Added `gosec` for security scanning
-
-Added sections: None
-
-Removed sections: None
-
-Templates requiring updates:
-- .specify/templates/plan-template.md: ✅ No changes needed (generic constitution check)
-- .specify/templates/spec-template.md: ✅ No changes needed (compatible)
-- .specify/templates/tasks-template.md: ✅ No changes needed (compatible)
-
-Follow-up TODOs: None
+Modified: IV. Standard Library Preference - added approved external dependencies
+Updated: Technology Constraints (Go 1.25.5), Quality Gates (govulncheck, gosec)
+Templates: All compatible, no changes needed
 -->
 
 # AgentMail Constitution
@@ -73,6 +55,14 @@ External dependencies MUST be justified. Prefer Go standard library:
 - `os/signal` for daemon signal handling
 - `time` for scheduling and timeouts
 
+**Approved External Dependencies** (with documented rationale):
+
+| Dependency | Version | Rationale |
+|------------|---------|-----------|
+| `github.com/fsnotify/fsnotify` | v1.9.0 | File watching for instant daemon notifications; stdlib lacks cross-platform fsnotify equivalent |
+| `github.com/modelcontextprotocol/go-sdk` | v1.2.0 | Official MCP SDK for AI agent integration; implementing MCP protocol from scratch is impractical |
+| `github.com/peterbourgon/ff/v3` | v3.4.0 | Lightweight CLI flag parsing with subcommand support; reduces boilerplate vs stdlib flag package |
+
 New dependencies require documented rationale in research.md with:
 - Why standard library is insufficient
 - Security/maintenance implications
@@ -82,7 +72,7 @@ New dependencies require documented rationale in research.md with:
 
 ## Technology Constraints
 
-- **Language**: Go 1.21+ (per IC-001), CI uses Go 1.25.5
+- **Language**: Go 1.25.5 (minimum 1.21+ per IC-001)
 - **Storage**: JSONL files in `.agentmail/` directory (per-recipient files, state files)
 - **Platform**: macOS and Linux with tmux installed
 - **Build**: Standard `go build`, no CGO dependencies

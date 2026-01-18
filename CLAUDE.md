@@ -78,6 +78,8 @@ This project uses speckit for feature specification and planning. Available comm
 
 Templates are stored in `.specify/templates/` and project constitution in `.specify/memory/constitution.md`.
 
+**Important:** After implementing a spec, always update `README.md` to reflect the new functionality.
+
 ## Active Technologies
 - Go 1.21+ (per IC-001) + Standard library only (os/exec for tmux, encoding/json for JSONL) (001-agent-mail-structure)
 - JSONL file in `.agentmail/` directory (001-agent-mail-structure)

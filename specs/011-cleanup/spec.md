@@ -2,7 +2,7 @@
 
 **Feature Branch**: `011-cleanup`
 **Created**: 2026-01-15
-**Status**: Draft
+**Status**: Implemented
 **Input**: User description: "I want to have ability to cleanup old recipients/messages/mailboxes."
 
 ## Clarifications

@@ -20,6 +20,7 @@ A Go CLI tool for inter-agent communication within tmux sessions. Agents running
 - **Agent status tracking** - Agents can set status (ready/work/offline) for smart notifications
 - **MCP server** - Model Context Protocol server for Claude Code, Codex CLI, and Gemini CLI
 - **Claude Code integration** - Plugin and hooks for AI agent orchestration
+- **Cleanup utility** - Remove stale recipients, old messages, and empty mailboxes
 
 ## Requirements
 
@@ -256,6 +257,51 @@ This command outputs a quick reference for AI agents to understand AgentMail's c
 
 **Exit codes:**
 - `0` - Success
+
+### cleanup
+
+Remove stale data from the AgentMail system.
+
+```bash
+agentmail cleanup [flags]
+```
+
+**What gets cleaned:**
+- **Offline recipients** - Entries in recipients.jsonl for tmux windows that no longer exist
+- **Stale recipients** - Recipients not updated within the threshold (default: 48 hours)
+- **Old delivered messages** - Read messages older than the threshold (default: 2 hours)
+- **Empty mailboxes** - Mailbox files with zero messages
+
+**Flags:**
+- `--stale-hours <N>` - Hours threshold for stale recipients (default: 48)
+- `--delivered-hours <N>` - Hours threshold for delivered messages (default: 2)
+- `--dry-run` - Report what would be cleaned without deleting
+
+**Examples:**
+```bash
+# Preview what would be cleaned
+agentmail cleanup --dry-run
+
+# Clean with default thresholds (48h stale, 2h delivered)
+agentmail cleanup
+
+# Clean with custom thresholds
+agentmail cleanup --stale-hours 24 --delivered-hours 1
+```
+
+**Output:**
+```
+Cleanup complete:
+  Recipients removed: 3 (2 offline, 1 stale)
+  Messages removed: 15
+  Mailboxes removed: 2
+```
+
+**Exit codes:**
+- `0` - Success
+- `1` - Error during cleanup
+
+**Note:** This is an administrative command not intended for AI agent use. It is not exposed via MCP tools or onboarding.
 
 ### help
 

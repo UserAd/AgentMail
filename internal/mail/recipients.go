@@ -251,22 +251,23 @@ func ListMailboxRecipients(repoRoot string) ([]string, error) {
 
 // CleanStaleStates removes recipient states that haven't been updated within the threshold.
 // This is used to clean up states for agents that are no longer active.
-func CleanStaleStates(repoRoot string, threshold time.Duration) error {
+// Returns the number of recipients removed and any error encountered.
+func CleanStaleStates(repoRoot string, threshold time.Duration) (int, error) {
 	filePath := filepath.Join(repoRoot, RecipientsFile) // #nosec G304 - RecipientsFile is a constant
 
 	// Open file for read/write (create if not exists)
 	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_RDWR, 0600) // #nosec G304 - path is constructed from constant
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil
+			return 0, nil
 		}
-		return err
+		return 0, err
 	}
 
 	// Acquire exclusive lock for atomic read-modify-write
 	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
 		_ = file.Close() // G104: error intentionally ignored in cleanup path
-		return err
+		return 0, err
 	}
 
 	// Read all recipient states while holding lock
@@ -274,7 +275,7 @@ func CleanStaleStates(repoRoot string, threshold time.Duration) error {
 	if err != nil && !os.IsNotExist(err) {
 		_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
 		_ = file.Close()
-		return err
+		return 0, err
 	}
 
 	var recipients []RecipientState
@@ -288,7 +289,7 @@ func CleanStaleStates(repoRoot string, threshold time.Duration) error {
 			if err := json.Unmarshal([]byte(line), &state); err != nil {
 				_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
 				_ = file.Close()
-				return err
+				return 0, err
 			}
 			recipients = append(recipients, state)
 		}
@@ -303,16 +304,19 @@ func CleanStaleStates(repoRoot string, threshold time.Duration) error {
 		}
 	}
 
+	// Calculate removed count
+	removedCount := len(recipients) - len(fresh)
+
 	// Only write if states were actually removed
 	var writeErr error
-	if len(fresh) != len(recipients) {
+	if removedCount > 0 {
 		writeErr = writeAllRecipientsLocked(file, fresh)
 	}
 
 	// Unlock before close (correct order)
 	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
 	_ = file.Close()                                   // G104: close errors don't affect the write result
-	return writeErr
+	return removedCount, writeErr
 }
 
 // SetNotifiedAt sets the NotifiedAt timestamp for a specific recipient.
@@ -395,6 +399,100 @@ func SetNotifiedFlag(repoRoot string, recipient string, notified bool) error {
 		notifiedAt = time.Now()
 	}
 	return SetNotifiedAt(repoRoot, recipient, notifiedAt)
+}
+
+// CleanOfflineRecipients removes recipients whose windows are no longer present.
+// Returns the number of recipients removed.
+// This function compares recipient names against the provided list of valid windows
+// and removes any recipients that don't have a corresponding window.
+func CleanOfflineRecipients(repoRoot string, validWindows []string) (int, error) {
+	// Read all current recipients
+	recipients, err := ReadAllRecipients(repoRoot)
+	if err != nil {
+		return 0, err
+	}
+
+	// If no recipients, nothing to clean
+	if len(recipients) == 0 {
+		return 0, nil
+	}
+
+	// Build a set of valid windows for O(1) lookup
+	windowSet := make(map[string]bool)
+	for _, w := range validWindows {
+		windowSet[w] = true
+	}
+
+	// Filter recipients - keep only those with valid windows
+	var remaining []RecipientState
+	removedCount := 0
+	for _, r := range recipients {
+		if windowSet[r.Recipient] {
+			remaining = append(remaining, r)
+		} else {
+			removedCount++
+		}
+	}
+
+	// If nothing was removed, don't write back
+	if removedCount == 0 {
+		return 0, nil
+	}
+
+	// Write back the filtered recipients
+	if err := WriteAllRecipients(repoRoot, remaining); err != nil {
+		return 0, err
+	}
+
+	return removedCount, nil
+}
+
+// CountOfflineRecipients counts recipients whose windows are no longer present without removing them.
+// This is used for dry-run mode.
+// Returns the count of recipients that would be removed.
+func CountOfflineRecipients(repoRoot string, validWindows []string) (int, error) {
+	recipients, err := ReadAllRecipients(repoRoot)
+	if err != nil {
+		return 0, err
+	}
+
+	if len(recipients) == 0 {
+		return 0, nil
+	}
+
+	windowSet := make(map[string]bool)
+	for _, w := range validWindows {
+		windowSet[w] = true
+	}
+
+	count := 0
+	for _, r := range recipients {
+		if !windowSet[r.Recipient] {
+			count++
+		}
+	}
+
+	return count, nil
+}
+
+// CountStaleStates counts recipient states that haven't been updated within the threshold without removing them.
+// This is used for dry-run mode.
+// Returns the count of recipients that would be removed.
+func CountStaleStates(repoRoot string, threshold time.Duration) (int, error) {
+	recipients, err := ReadAllRecipients(repoRoot)
+	if err != nil {
+		return 0, err
+	}
+
+	cutoff := time.Now().Add(-threshold)
+	count := 0
+	for _, r := range recipients {
+		if !r.UpdatedAt.After(cutoff) {
+			count++
+		}
+	}
+
+	return count, nil
 }
 
 // UpdateLastReadAt sets the last_read_at timestamp for a recipient.

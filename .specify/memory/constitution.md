@@ -79,14 +79,14 @@ New dependencies require documented rationale in research.md with:
 
 ## Quality Gates
 
-Before any feature is considered complete:
+Before any feature is considered complete (must match CI pipeline):
 
-1. **Coverage**: `go test -cover ./...` reports >= 80%
-2. **Race Detection**: `go test -race ./...` passes with no data races
+1. **Formatting**: `gofmt -l .` produces no output (no unformatted files)
+2. **Dependencies**: `go mod verify` passes with no errors
 3. **Static Analysis**: `go vet ./...` passes with no errors
-4. **Formatting**: `go fmt ./...` produces no changes
-5. **Vulnerability Scan**: `govulncheck ./...` reports no known vulnerabilities
-6. **Security Scan**: `gosec ./...` passes with no high/critical findings
+4. **Tests**: `go test -v -race -coverprofile=coverage.out ./...` passes with >= 80% coverage
+5. **Vulnerabilities**: `govulncheck ./...` reports no vulnerabilities
+6. **Security**: `gosec ./...` reports no issues
 7. **Spec Compliance**: All acceptance scenarios from spec.md pass
 
 ## Governance
@@ -104,4 +104,4 @@ This constitution supersedes all other development practices for AgentMail.
 - Violations require explicit justification or constitution amendment
 - `/speckit.analyze` checks constitution alignment automatically
 
-**Version**: 1.2.0 | **Ratified**: 2026-01-11 | **Last Amended**: 2026-01-15
+**Version**: 1.2.0 | **Ratified**: 2026-01-11 | **Last Amended**: 2026-01-17

@@ -141,3 +141,23 @@ func TestOnboardCommand_RecipientsExample(t *testing.T) {
 		t.Errorf("Expected recipients example, got: %s", output)
 	}
 }
+
+// TestOnboard_NoCleanupReference verifies that the onboard command output does not
+// reference the cleanup command. Cleanup is an administrative command that should
+// not be exposed to agents during onboarding.
+func TestOnboard_NoCleanupReference(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+
+	exitCode := Onboard(&stdout, &stderr, OnboardOptions{})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d", exitCode)
+	}
+
+	output := stdout.String()
+
+	// The cleanup command should not be mentioned in onboarding output
+	if strings.Contains(strings.ToLower(output), "cleanup") {
+		t.Errorf("Onboard output should not reference 'cleanup' command, but found it in: %s", output)
+	}
+}

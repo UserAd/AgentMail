@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 )
 
 // RootDir is the root directory for AgentMail storage
@@ -18,6 +19,9 @@ const MailDir = ".agentmail/mailboxes"
 
 // ErrInvalidPath is returned when a path traversal attack is detected.
 var ErrInvalidPath = errors.New("invalid path: directory traversal detected")
+
+// ErrFileLocked is returned when a file cannot be locked within the timeout
+var ErrFileLocked = errors.New("file is locked by another process")
 
 // safePath constructs a safe file path and validates it stays within the base directory.
 // This prevents path traversal attacks (G304) by ensuring the cleaned path
@@ -42,6 +46,45 @@ func safePath(baseDir, filename string) (string, error) {
 	}
 
 	return fullPath, nil
+}
+
+// isLockContention returns true if the error indicates transient lock contention
+// (EAGAIN or EWOULDBLOCK), which means we should retry.
+func isLockContention(err error) bool {
+	return err == syscall.EAGAIN || err == syscall.EWOULDBLOCK
+}
+
+// TryLockWithTimeout attempts to acquire an exclusive lock on a file with a timeout.
+// Returns ErrFileLocked if the lock cannot be acquired within the timeout due to contention.
+// Returns the underlying error immediately for non-transient errors (e.g., EBADF, ENOLCK).
+func TryLockWithTimeout(file *os.File, timeout time.Duration) error {
+	// Try non-blocking lock first
+	err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+	if err == nil {
+		return nil
+	}
+
+	// If not lock contention, return the real error immediately
+	if !isLockContention(err) {
+		return err
+	}
+
+	// Retry with timeout (only for lock contention errors)
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+		err = syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+		if err == nil {
+			return nil
+		}
+		// If not lock contention, return the real error immediately
+		if !isLockContention(err) {
+			return err
+		}
+	}
+
+	// Timeout expired with persistent lock contention
+	return ErrFileLocked
 }
 
 // EnsureMailDir creates the .agentmail/ and .agentmail/mailboxes/ directories if they don't exist.
@@ -82,6 +125,9 @@ func Append(repoRoot string, msg Message) error {
 		_ = file.Close() // G104: error intentionally ignored in cleanup path
 		return err
 	}
+
+	// Set creation timestamp
+	msg.CreatedAt = time.Now()
 
 	// Marshal message to JSON
 	data, err := json.Marshal(msg)
@@ -224,6 +270,91 @@ func WriteAll(repoRoot string, recipient string, messages []Message) error {
 	return writeErr
 }
 
+// CleanOldMessages removes read messages older than the threshold from a mailbox file.
+// Messages without CreatedAt (zero value) are skipped (not deleted).
+// Unread messages are NEVER deleted regardless of age.
+// Returns the number of messages removed.
+func CleanOldMessages(repoRoot string, recipient string, threshold time.Duration) (int, error) {
+	// Build file path with path traversal protection (G304)
+	mailDir := filepath.Join(repoRoot, MailDir)
+	filePath, err := safePath(mailDir, recipient+".jsonl")
+	if err != nil {
+		return 0, err
+	}
+
+	// Open file for read/write
+	file, err := os.OpenFile(filePath, os.O_RDWR, 0600) // #nosec G304 - path validated by safePath; G302 - restricted file permissions
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil // No mailbox file, nothing to clean
+		}
+		return 0, err
+	}
+
+	// Acquire exclusive lock for atomic read-modify-write
+	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
+		_ = file.Close() // G104: error intentionally ignored in cleanup path
+		return 0, err
+	}
+
+	// Read all messages while holding lock
+	data, err := os.ReadFile(filePath) // #nosec G304 - path validated by safePath
+	if err != nil {
+		_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+		_ = file.Close()
+		return 0, err
+	}
+
+	var messages []Message
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		var msg Message
+		if err := json.Unmarshal([]byte(line), &msg); err != nil {
+			_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+			_ = file.Close()
+			return 0, err
+		}
+		messages = append(messages, msg)
+	}
+
+	// Filter messages - keep if:
+	// 1. Unread (never delete unread messages)
+	// 2. Read AND has timestamp AND age <= threshold (recent read messages)
+	// Note: Read messages without timestamp are eligible for deletion
+	cutoff := time.Now().Add(-threshold)
+	var remaining []Message
+	for _, msg := range messages {
+		// Keep unread messages (NEVER delete unread)
+		if !msg.ReadFlag {
+			remaining = append(remaining, msg)
+			continue
+		}
+
+		// Keep recent read messages (has timestamp and age <= threshold)
+		if !msg.CreatedAt.IsZero() && msg.CreatedAt.After(cutoff) {
+			remaining = append(remaining, msg)
+		}
+		// Read messages without timestamp OR old read messages are removed
+	}
+
+	// Calculate removed count
+	removedCount := len(messages) - len(remaining)
+
+	// Only write if messages were actually removed
+	var writeErr error
+	if removedCount > 0 {
+		writeErr = writeAllLocked(file, remaining)
+	}
+
+	// Unlock before close (correct order)
+	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
+	_ = file.Close()                                   // G104: close errors don't affect the write result
+	return removedCount, writeErr
+}
+
 // MarkAsRead marks a specific message as read in the recipient's mailbox.
 // This function is atomic - it holds a lock during the entire read-modify-write cycle.
 func MarkAsRead(repoRoot string, recipient string, messageID string) error {
@@ -292,4 +423,131 @@ func MarkAsRead(repoRoot string, recipient string, messageID string) error {
 	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
 	_ = file.Close()                                   // G104: close errors don't affect the write result
 	return writeErr
+}
+
+// RemoveEmptyMailboxes removes mailbox files that contain zero messages.
+// Returns the number of mailbox files removed.
+func RemoveEmptyMailboxes(repoRoot string) (int, error) {
+	// List all mailbox recipients
+	recipients, err := ListMailboxRecipients(repoRoot)
+	if err != nil {
+		return 0, err
+	}
+
+	mailDir := filepath.Join(repoRoot, MailDir)
+	removedCount := 0
+
+	for _, recipient := range recipients {
+		// Build file path with path traversal protection (G304)
+		filePath, err := safePath(mailDir, recipient+".jsonl")
+		if err != nil {
+			continue // Skip invalid paths
+		}
+
+		// Check if the file is empty (0 bytes or 0 messages)
+		info, err := os.Stat(filePath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue // Already gone
+			}
+			return removedCount, err
+		}
+
+		// If file size is 0, it's definitely empty
+		if info.Size() == 0 {
+			if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+				return removedCount, err
+			}
+			removedCount++
+			continue
+		}
+
+		// If file has content, check if it has any messages
+		// (could be empty after message cleanup left just whitespace/empty lines)
+		messages, err := ReadAll(repoRoot, recipient)
+		if err != nil {
+			continue // Skip files we can't read
+		}
+
+		if len(messages) == 0 {
+			if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
+				return removedCount, err
+			}
+			removedCount++
+		}
+	}
+
+	return removedCount, nil
+}
+
+// CountOldMessages counts read messages older than the threshold without removing them.
+// This is used for dry-run mode. Read messages without CreatedAt are counted for removal.
+// Unread messages are never counted for removal.
+// Returns the count of messages that would be removed.
+func CountOldMessages(repoRoot string, recipient string, threshold time.Duration) (int, error) {
+	messages, err := ReadAll(repoRoot, recipient)
+	if err != nil {
+		return 0, err
+	}
+
+	cutoff := time.Now().Add(-threshold)
+	count := 0
+	for _, msg := range messages {
+		// Skip unread messages (never removed)
+		if !msg.ReadFlag {
+			continue
+		}
+		// Count read messages without timestamp OR with old timestamp
+		if msg.CreatedAt.IsZero() || msg.CreatedAt.Before(cutoff) {
+			count++
+		}
+	}
+
+	return count, nil
+}
+
+// CountEmptyMailboxes counts mailbox files that contain zero messages without removing them.
+// This is used for dry-run mode.
+// Returns the count of mailbox files that would be removed.
+func CountEmptyMailboxes(repoRoot string) (int, error) {
+	recipients, err := ListMailboxRecipients(repoRoot)
+	if err != nil {
+		return 0, err
+	}
+
+	mailDir := filepath.Join(repoRoot, MailDir)
+	count := 0
+
+	for _, recipient := range recipients {
+		filePath, err := safePath(mailDir, recipient+".jsonl")
+		if err != nil {
+			continue
+		}
+
+		info, err := os.Stat(filePath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return count, err
+		}
+
+		// If file size is 0, it's definitely empty
+		if info.Size() == 0 {
+			count++
+			continue
+		}
+
+		// If file has content, check if it has any messages
+		messages, err := ReadAll(repoRoot, recipient)
+		if err != nil {
+			continue
+		}
+
+		if len(messages) == 0 {
+			count++
+		}
+	}
+
+	return count, nil
 }

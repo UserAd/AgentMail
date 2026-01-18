@@ -3,16 +3,18 @@ package mail
 import (
 	"crypto/rand"
 	"math/big"
+	"time"
 )
 
 // Message represents a communication between agents.
 // T008: Message struct with JSON tags
 type Message struct {
-	ID       string `json:"id"`        // Short unique identifier (8 chars, base62)
-	From     string `json:"from"`      // Sender tmux window name
-	To       string `json:"to"`        // Recipient tmux window name
-	Message  string `json:"message"`   // Body text
-	ReadFlag bool   `json:"read_flag"` // Read status (default: false)
+	ID        string    `json:"id"`                   // Short unique identifier (8 chars, base62)
+	From      string    `json:"from"`                 // Sender tmux window name
+	To        string    `json:"to"`                   // Recipient tmux window name
+	Message   string    `json:"message"`              // Body text
+	ReadFlag  bool      `json:"read_flag"`            // Read status (default: false)
+	CreatedAt time.Time `json:"created_at,omitempty"` // Timestamp for age-based cleanup
 }
 
 // base62 character set for ID generation

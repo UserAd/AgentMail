@@ -303,5 +303,5 @@ func cleanStaleStates(repoRoot string, logger io.Writer) {
 	if logger != nil {
 		fmt.Fprintf(logger, "[mailman] Cleaning stale recipient states (threshold: %v)\n", DefaultStaleThreshold)
 	}
-	_ = mail.CleanStaleStates(repoRoot, DefaultStaleThreshold) // G104: best-effort cleanup, errors don't stop the daemon
+	_, _ = mail.CleanStaleStates(repoRoot, DefaultStaleThreshold) // G104: best-effort cleanup, errors don't stop the daemon
 }

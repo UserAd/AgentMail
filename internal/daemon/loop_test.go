@@ -352,7 +352,7 @@ func TestCleanStaleStates_RemovesOldStates(t *testing.T) {
 	createRecipientState(t, repoRoot, "old-agent", mail.StatusReady, false, now.Add(-2*time.Hour)) // 2 hours old
 
 	// Clean stale states (older than 1 hour)
-	err := mail.CleanStaleStates(repoRoot, time.Hour)
+	_, err := mail.CleanStaleStates(repoRoot, time.Hour)
 	if err != nil {
 		t.Fatalf("CleanStaleStates failed: %v", err)
 	}
@@ -382,7 +382,7 @@ func TestCleanStaleStates_KeepsRecentStates(t *testing.T) {
 	createRecipientState(t, repoRoot, "agent-3", mail.StatusOffline, false, now.Add(-59*time.Minute))
 
 	// Clean stale states
-	err := mail.CleanStaleStates(repoRoot, time.Hour)
+	_, err := mail.CleanStaleStates(repoRoot, time.Hour)
 	if err != nil {
 		t.Fatalf("CleanStaleStates failed: %v", err)
 	}
@@ -402,7 +402,7 @@ func TestCleanStaleStates_EmptyFile(t *testing.T) {
 	repoRoot := createTestMailDir(t)
 
 	// Clean stale states on empty/non-existent file
-	err := mail.CleanStaleStates(repoRoot, time.Hour)
+	_, err := mail.CleanStaleStates(repoRoot, time.Hour)
 	if err != nil {
 		t.Fatalf("CleanStaleStates should not error on empty file: %v", err)
 	}
@@ -553,7 +553,7 @@ func TestIntegration_FullNotificationCycle(t *testing.T) {
 	}
 
 	// Now clean stale states
-	err = mail.CleanStaleStates(repoRoot, time.Hour)
+	_, err = mail.CleanStaleStates(repoRoot, time.Hour)
 	if err != nil {
 		t.Fatalf("CleanStaleStates failed: %v", err)
 	}

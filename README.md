@@ -20,6 +20,7 @@ A Go CLI tool for inter-agent communication within tmux sessions. Agents running
 - **Agent status tracking** - Agents can set status (ready/work/offline) for smart notifications
 - **MCP server** - Model Context Protocol server for Claude Code, Codex CLI, and Gemini CLI
 - **Claude Code integration** - Plugin and hooks for AI agent orchestration
+- **Cleanup utility** - Remove stale recipients, old messages, and empty mailboxes
 
 ## Requirements
 
@@ -51,6 +52,7 @@ brew install agentmail
 Download the latest binary for your platform from the [Releases](https://github.com/UserAd/AgentMail/releases) page.
 
 Available platforms:
+
 - Linux (amd64, arm64)
 - macOS (amd64, arm64)
 
@@ -99,16 +101,19 @@ agentmail send [flags] [<recipient>] [<message>]
 ```
 
 **Arguments (positional or flags):**
+
 - `<recipient>` - Target tmux window name (required)
 - `<message>` - Message content (optional if using stdin)
 
 **Flags:**
+
 - `-r, --recipient <name>` - Recipient tmux window name
 - `-m, --message <text>` - Message content
 
 Flags take precedence over positional arguments.
 
 **Examples:**
+
 ```bash
 # Send with positional arguments
 agentmail send agent-2 "Task completed successfully"
@@ -126,6 +131,7 @@ cat report.txt | agentmail send agent-2
 ```
 
 **Exit codes:**
+
 - `0` - Message sent successfully
 - `1` - Error (invalid recipient, missing message, etc.)
 - `2` - Not running inside tmux
@@ -139,10 +145,12 @@ agentmail receive [--hook]
 ```
 
 **Flags:**
-- `--hook` - Enable hook mode for Claude Code integration (see [Claude Code Hooks](#claude-code-hooks))
+
+- `--hook` - Enable hook mode for Claude Code integration (see [Claude Code Hooks](#claude-code-hooks-manual-setup))
 
 **Output format (normal mode):**
-```
+
+```text
 From: <sender>
 ID: <message-id>
 
@@ -152,11 +160,13 @@ ID: <message-id>
 Returns "No unread messages" if the mailbox is empty.
 
 **Exit codes (normal mode):**
+
 - `0` - Success (message displayed or no messages)
 - `1` - Error reading mailbox
 - `2` - Not running inside tmux
 
 **Exit codes (hook mode):**
+
 - `0` - No messages, not in tmux, or error (silent)
 - `2` - New message available (output to STDERR)
 
@@ -169,7 +179,8 @@ agentmail recipients
 ```
 
 **Example output:**
-```
+
+```text
 agent-1 [you]
 agent-2
 agent-3
@@ -178,6 +189,7 @@ agent-3
 The current window is marked with `[you]`.
 
 **Exit codes:**
+
 - `0` - Success
 - `1` - Error listing windows
 - `2` - Not running inside tmux
@@ -191,11 +203,13 @@ agentmail status <ready|work|offline>
 ```
 
 **Statuses:**
+
 - `ready` - Available to receive notifications (daemon will alert you of new mail)
 - `work` - Busy working (notifications suppressed until you return to ready)
 - `offline` - Not available (notifications suppressed)
 
 **Examples:**
+
 ```bash
 # Mark yourself as ready to receive notifications
 agentmail status ready
@@ -208,6 +222,7 @@ agentmail status offline
 ```
 
 **Exit codes:**
+
 - `0` - Status updated successfully
 - `1` - Invalid status value
 
@@ -220,9 +235,11 @@ agentmail mailman [--daemon]
 ```
 
 **Flags:**
+
 - `--daemon` - Run in background (daemonize)
 
 **Behavior:**
+
 - Uses file watching (fsnotify) for instant notification on mailbox changes
 - Includes 60-second safety timer that runs alongside watching
 - Sends notifications to agents with `ready` status that have unread mail
@@ -231,6 +248,7 @@ agentmail mailman [--daemon]
 - Gracefully shuts down on SIGTERM/SIGINT
 
 **Examples:**
+
 ```bash
 # Run in foreground (useful for debugging)
 agentmail mailman
@@ -240,6 +258,7 @@ agentmail mailman --daemon
 ```
 
 **Exit codes:**
+
 - `0` - Daemon started/stopped successfully
 - `1` - Error (failed to start, PID file error, etc.)
 - `2` - Daemon already running
@@ -255,7 +274,58 @@ agentmail onboard
 This command outputs a quick reference for AI agents to understand AgentMail's capabilities. Used by Claude Code SessionStart hooks for agent initialization.
 
 **Exit codes:**
+
 - `0` - Success
+
+### cleanup
+
+Remove stale data from the AgentMail system.
+
+```bash
+agentmail cleanup [flags]
+```
+
+**What gets cleaned:**
+
+- **Offline recipients** - Entries in recipients.jsonl for tmux windows that no longer exist
+- **Stale recipients** - Recipients not updated within the threshold (default: 48 hours)
+- **Old delivered messages** - Read messages older than the threshold (default: 2 hours)
+- **Empty mailboxes** - Mailbox files with zero messages
+
+**Flags:**
+
+- `--stale-hours <N>` - Hours threshold for stale recipients (default: 48)
+- `--delivered-hours <N>` - Hours threshold for delivered messages (default: 2)
+- `--dry-run` - Report what would be cleaned without deleting
+
+**Examples:**
+
+```bash
+# Preview what would be cleaned
+agentmail cleanup --dry-run
+
+# Clean with default thresholds (48h stale, 2h delivered)
+agentmail cleanup
+
+# Clean with custom thresholds
+agentmail cleanup --stale-hours 24 --delivered-hours 1
+```
+
+**Output:**
+
+```text
+Cleanup complete:
+  Recipients removed: 3 (2 offline, 1 stale)
+  Messages removed: 15
+  Mailboxes removed: 2
+```
+
+**Exit codes:**
+
+- `0` - Success
+- `1` - Error during cleanup
+
+**Note:** This is an administrative command not intended for AI agent use. It is not exposed via MCP tools or onboarding.
 
 ### help
 
@@ -289,7 +359,7 @@ monitoring
 AgentMail includes a built-in MCP (Model Context Protocol) server that enables AI agents to communicate via a standardized interface. The MCP server exposes four tools:
 
 | Tool | Description |
-|------|-------------|
+| ---- | ----------- |
 | `send` | Send a message to another agent (max 64KB) |
 | `receive` | Receive the oldest unread message (FIFO) |
 | `status` | Set agent availability (ready/work/offline) |
@@ -418,7 +488,7 @@ git clone https://github.com/UserAd/AgentMail.git
 The plugin configures hooks that automatically:
 
 | Event | Action | Status |
-|-------|--------|--------|
+| ----- | ------ | ------ |
 | **SessionStart** | Sets status to ready, runs onboarding | `ready` |
 | **UserPromptSubmit** | Sets status to work (agent is busy) | `work` |
 | **Stop** (end of turn) | Sets status to ready, checks for messages | `ready` |
@@ -495,7 +565,7 @@ Add to your Claude Code settings (`.claude/settings.json` in your project or `~/
 ### How It Works
 
 | Hook Event | Command | Purpose |
-|------------|---------|---------|
+| ---------- | ------- | ------- |
 | **SessionStart** | `agentmail status ready && agentmail onboard` | Sets agent ready, outputs onboarding context |
 | **SessionEnd** | `agentmail status offline` | Marks agent as offline when session ends |
 | **Stop** | `agentmail status ready && agentmail receive --hook` | Sets ready after each turn, checks for mail |
@@ -504,7 +574,7 @@ Add to your Claude Code settings (`.claude/settings.json` in your project or `~/
 ### Hook Mode Behavior (`--hook` flag)
 
 | Condition | Output | Exit Code |
-|-----------|--------|-----------|
+| --------- | ------ | --------- |
 | Unread messages exist | Message to STDERR with "You got new mail" | 2 |
 | No unread messages | None | 0 |
 | Not in tmux session | None | 0 |
@@ -516,7 +586,7 @@ Hook mode is designed to be non-disruptive: errors exit silently rather than int
 
 When you have mail (on Stop hook), Claude Code will display:
 
-```
+```text
 You got new mail
 From: agent-1
 ID: xK7mN2pQ
@@ -524,11 +594,9 @@ ID: xK7mN2pQ
 Task completed! Results are in /tmp/output.json
 ```
 
-## How It Works
+## Architecture
 
-### Architecture
-
-```
+```text
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │   agent-1   │     │   agent-2   │     │   agent-3   │
 │ (tmux win)  │     │ (tmux win)  │     │ (tmux win)  │
@@ -567,7 +635,7 @@ AgentMail uses POSIX file locking (`flock`) to ensure atomic read-modify-write o
 
 The mailman daemon provides proactive notifications for agents:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                     Mailman Daemon                          │
 │                                                             │
@@ -582,12 +650,14 @@ The mailman daemon provides proactive notifications for agents:
 ```
 
 **Recipient State File** (`.agentmail/recipients.jsonl`):
+
 ```json
 {"recipient":"agent-1","status":"ready","updated_at":"2024-01-12T10:00:00Z","notified":false}
 {"recipient":"agent-2","status":"work","updated_at":"2024-01-12T10:05:00Z","notified":false}
 ```
 
 **Notification Flow:**
+
 1. Agent sets status to `ready` using `agentmail status ready`
 2. Mailman daemon detects unread messages for agent
 3. Daemon sends notification via tmux: `Check your agentmail`
@@ -649,6 +719,7 @@ docker run --rm -v $(pwd):/app -w /app golang:1.25.5 go test -v -race ./...
 The project uses GitHub Actions for continuous integration and delivery:
 
 **Test Workflow** (on push to main and PRs):
+
 - Code formatting verification (`gofmt`)
 - Dependency verification (`go mod verify`)
 - Static analysis (`go vet`)
@@ -657,6 +728,7 @@ The project uses GitHub Actions for continuous integration and delivery:
 - Security scanning (`govulncheck`, `gosec`)
 
 **Release Workflow** (on push to main):
+
 - Pre-release test validation
 - Semantic version calculation from commit messages
 - Cross-platform builds (Linux/macOS, amd64/arm64)
@@ -665,7 +737,7 @@ The project uses GitHub Actions for continuous integration and delivery:
 
 ## Project Structure
 
-```
+```text
 AgentMail/
 ├── cmd/
 │   └── agentmail/          # CLI entry point
@@ -709,6 +781,7 @@ AgentMail includes several security measures:
 5. Open a Pull Request
 
 Please ensure:
+
 - Code passes `go fmt` and `go vet`
 - Tests pass with `go test -race ./...`
 - New features include appropriate tests

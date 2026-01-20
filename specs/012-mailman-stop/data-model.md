@@ -19,6 +19,7 @@ This feature introduces a file-based signaling mechanism for stopping the daemon
 **Purpose**: Acts as an inter-process communication (IPC) mechanism between the CLI stop command and the running daemon.
 
 **Operations**:
+
 | Operation | Actor | Trigger |
 |-----------|-------|---------|
 | Create | CLI (stop command) | User runs `agentmail mailman stop` |

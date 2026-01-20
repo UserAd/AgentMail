@@ -31,6 +31,7 @@ Add `agentmail mailman stop` subcommand to gracefully terminate the mailman daem
 | IV. Standard Library | ✅ PASS | Uses only stdlib (os package for file operations) |
 
 **Quality Gates Required**:
+
 1. `gofmt -l .` - no output
 2. `go mod verify` - pass
 3. `go vet ./...` - pass

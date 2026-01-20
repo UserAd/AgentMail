@@ -12,6 +12,7 @@
 **Decision**: Create an empty `.stop` file in `.agentmail/` directory. Daemon detects via existing fsnotify watcher.
 
 **Rationale**:
+
 - File creation is a simple, cross-platform IPC mechanism
 - The daemon already has fsnotify watching `.agentmail/` for mailbox changes
 - No need for Unix signals, process validation, or syscall dependencies
@@ -33,12 +34,14 @@
 **Decision**: Use `os.OpenFile` with `O_CREATE|O_EXCL` flags to atomically create the file only if it doesn't exist.
 
 **Rationale**:
+
 - `O_EXCL` flag causes the open to fail if file exists
 - This is atomic at the filesystem level
 - No race conditions between check and create
 - Go's `os.OpenFile` supports this directly
 
 **Implementation**:
+
 ```go
 // Atomic create - fails if file exists
 f, err := os.OpenFile(stopFilePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
@@ -59,12 +62,14 @@ return "Stop signal sent"
 **Decision**: Extend the existing `FileWatcher` to detect CREATE events for `.stop` file in `.agentmail/` directory.
 
 **Rationale**:
+
 - The daemon already watches `.agentmail/` and `mailboxes/` directories
 - fsnotify provides CREATE events for new files
 - No additional polling or infrastructure needed
 - Detection is nearly instant (< 100ms typically)
 
 **Implementation Notes**:
+
 - The watcher's `Run()` function receives all events
 - Filter for `fsnotify.Create` events where filename is `.stop`
 - When detected, trigger graceful shutdown sequence
@@ -74,6 +79,7 @@ return "Stop signal sent"
 **Question**: What's the correct order for daemon shutdown?
 
 **Decision**: Follow this sequence:
+
 1. Detect `.stop` file
 2. Remove `.stop` file (acknowledge receipt)
 3. Close file watcher (stops notification loop)
@@ -82,11 +88,13 @@ return "Stop signal sent"
 6. Exit with code 0
 
 **Rationale**:
+
 - Removing `.stop` first prevents stale signal files
 - Closing watcher before PID removal ensures clean state
 - Matches existing signal-based shutdown sequence in `runForeground()`
 
 **Existing Code Reference** (`internal/daemon/daemon.go:249-271`):
+
 ```go
 // Wait for shutdown signal or test stop
 <-sigChan

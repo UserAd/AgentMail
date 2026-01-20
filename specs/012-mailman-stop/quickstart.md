@@ -135,11 +135,13 @@ mailmanCmd := &ffcli.Command{
 ### Step 6: Write Tests
 
 #### internal/cli/mailman_stop_test.go
+
 - Test success case (file created)
 - Test "stop already pending" (file exists)
 - Test filesystem error (permissions)
 
 #### internal/daemon/watcher_test.go (extend existing)
+
 - Test stop file detection triggers shutdown
 
 ## Key Files to Modify

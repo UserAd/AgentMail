@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"agentmail/internal/daemon"
@@ -157,7 +158,7 @@ func TestMailmanStop_FilesystemError_ReturnsError(t *testing.T) {
 
 	// Verify error message contains expected prefix
 	expectedPrefix := "Failed to send stop signal:"
-	if len(stderr.String()) < len(expectedPrefix) || stderr.String()[:len(expectedPrefix)] != expectedPrefix {
+	if !strings.HasPrefix(stderr.String(), expectedPrefix) {
 		t.Errorf("Expected stderr to start with %q, got %q", expectedPrefix, stderr.String())
 	}
 

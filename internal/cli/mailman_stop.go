@@ -17,6 +17,10 @@ type MailmanStopOptions struct {
 // MailmanStop implements the agentmail mailman stop command.
 // Creates a .stop file to signal the daemon to shut down.
 //
+// The function attempts to find the repository root via FindGitRoot,
+// falling back to os.Getwd if not in a git repository. If both fail,
+// repoRoot will be empty and file creation will fail with a clear error.
+//
 // Exit codes:
 // - 0: Success (stop signal sent)
 // - 1: Error (file exists or filesystem error)

@@ -228,15 +228,20 @@ agentmail status offline
 
 ### mailman
 
-Start the mailman daemon to monitor mailboxes and notify agents.
+Start or stop the mailman daemon to monitor mailboxes and notify agents.
 
 ```bash
 agentmail mailman [--daemon]
+agentmail mailman stop
 ```
 
 **Flags:**
 
 - `--daemon` - Run in background (daemonize)
+
+**Subcommands:**
+
+- `stop` - Stop the running daemon gracefully
 
 **Behavior:**
 
@@ -245,7 +250,7 @@ agentmail mailman [--daemon]
 - Sends notifications to agents with `ready` status that have unread mail
 - Notifications sent via tmux: `tmux send-keys -t <window> "Check your agentmail"`
 - Stores PID in `.agentmail/mailman.pid`
-- Gracefully shuts down on SIGTERM/SIGINT
+- Gracefully shuts down on SIGTERM/SIGINT or when `stop` command is issued
 
 **Examples:**
 
@@ -255,13 +260,21 @@ agentmail mailman
 
 # Run as background daemon
 agentmail mailman --daemon
+
+# Stop the running daemon
+agentmail mailman stop
 ```
 
-**Exit codes:**
+**Exit codes (start):**
 
-- `0` - Daemon started/stopped successfully
+- `0` - Daemon started successfully
 - `1` - Error (failed to start, PID file error, etc.)
 - `2` - Daemon already running
+
+**Exit codes (stop):**
+
+- `0` - Stop signal sent successfully
+- `1` - Error (stop already pending or filesystem error)
 
 ### onboard
 

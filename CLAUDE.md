@@ -78,7 +78,15 @@ This project uses speckit for feature specification and planning. Available comm
 
 Templates are stored in `.specify/templates/` and project constitution in `.specify/memory/constitution.md`.
 
-**Important:** After implementing a spec, always update `README.md` to reflect the new functionality.
+## Post-Implementation Checklist
+
+After completing any feature implementation or significant work:
+
+1. **Update README.md** - Ensure all new commands, options, and functionality are documented
+2. **Update spec status** - Mark the spec as "Implemented" in the spec.md file
+3. **Verify examples** - Ensure README examples still work with any changes
+
+This checklist ensures documentation stays in sync with the codebase.
 
 ## Active Technologies
 - Go 1.21+ (per IC-001) + Standard library only (os/exec for tmux, encoding/json for JSONL) (001-agent-mail-structure)

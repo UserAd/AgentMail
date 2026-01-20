@@ -54,12 +54,14 @@ Failed to send stop signal: <error message>
 ### Fire-and-Forget Pattern
 
 The stop command creates a signal file and immediately exits with code 0. It does NOT:
+
 - Wait for the daemon to terminate
 - Verify the daemon is running
 - Verify the daemon received the signal
 - Delete any files
 
 The daemon is responsible for:
+
 - Detecting the `.stop` file via file watcher
 - Removing the `.stop` file
 - Removing the `.pid` file
@@ -76,6 +78,7 @@ The stop mechanism uses file creation as inter-process communication:
 5. Daemon initiates shutdown and cleans up files
 
 This approach:
+
 - Requires no process validation
 - Works cross-platform
 - Uses existing file watcher infrastructure

@@ -53,7 +53,7 @@ An agent operator runs the stop command when a previous stop is already pending 
 - **FR-001**: When `agentmail mailman stop` is invoked, the CLI shall attempt to create the file `.agentmail/.stop`.
 - **FR-002**: When the `.stop` file is created successfully, the CLI shall output "Stop signal sent" to stdout and exit with code 0.
 - **FR-003**: If the `.stop` file already exists, then the CLI shall output "Stop already pending" to stderr and exit with code 1.
-- **FR-004**: If the `.stop` file cannot be created due to a filesystem error, then the CLI shall output "Failed to send stop signal: <error>" to stderr and exit with code 1.
+- **FR-004**: If the `.stop` file cannot be created due to a filesystem error, then the CLI shall output "Failed to send stop signal: \<error\>" to stderr and exit with code 1.
 
 **Daemon Stop File Detection:**
 

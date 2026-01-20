@@ -16,6 +16,7 @@
 ## Path Conventions
 
 Based on plan.md structure (Go CLI project):
+
 - `cmd/agentmail/main.go` - CLI entry point
 - `internal/daemon/` - Daemon package (existing + modifications)
 - `internal/cli/` - CLI handlers (existing + new)
@@ -75,7 +76,7 @@ Based on plan.md structure (Go CLI project):
 ### Implementation for User Story 2
 
 - [x] T017 [US2] Add os.IsExist error handling for "Stop already pending" message in internal/cli/mailman_stop.go
-- [x] T018 [US2] Add generic filesystem error handling "Failed to send stop signal: <error>" in internal/cli/mailman_stop.go
+- [x] T018 [US2] Add generic filesystem error handling "Failed to send stop signal: \<error\>" in internal/cli/mailman_stop.go
 - [x] T019 [US2] Run tests to verify US2: `go test -v ./internal/cli/... -run MailmanStop`
 
 **Checkpoint**: Both user stories complete - full stop functionality with error handling
@@ -103,7 +104,7 @@ Based on plan.md structure (Go CLI project):
 
 ### Phase Dependencies
 
-```
+```text
 Phase 1 (Setup)           → No dependencies
 Phase 2 (US1)             → Depends on Phase 1
 Phase 3 (US2)             → Depends on Phase 2 (shares MailmanStop function)

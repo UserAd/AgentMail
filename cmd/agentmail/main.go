@@ -178,26 +178,59 @@ Examples:
 	var daemonMode bool
 	mailmanFlagSet.BoolVar(&daemonMode, "daemon", false, "run in background (daemonize)")
 
+	// Mailman stop subcommand
+	stopFlagSet := flag.NewFlagSet("agentmail mailman stop", flag.ContinueOnError)
+	stopCmd := &ffcli.Command{
+		Name:       "stop",
+		ShortUsage: "agentmail mailman stop",
+		ShortHelp:  "Stop the mailman daemon",
+		LongHelp: `Stop the running mailman daemon using file-based signaling.
+
+Creates a .stop file in .agentmail/ that the daemon detects and
+initiates graceful shutdown.
+
+Exit codes:
+  0  Success (stop signal sent)
+  1  Error (stop already pending or filesystem error)
+
+Examples:
+  agentmail mailman stop`,
+		FlagSet: stopFlagSet,
+		Exec: func(ctx context.Context, args []string) error {
+			exitCode := cli.MailmanStop(os.Stdout, os.Stderr, cli.MailmanStopOptions{})
+			if exitCode != 0 {
+				os.Exit(exitCode)
+			}
+			return nil
+		},
+	}
+
 	mailmanCmd := &ffcli.Command{
 		Name:       "mailman",
-		ShortUsage: "agentmail mailman [--daemon]",
-		ShortHelp:  "Start the mailman daemon",
-		LongHelp: `Start the mailman daemon for message delivery notifications.
+		ShortUsage: "agentmail mailman [--daemon] | agentmail mailman stop",
+		ShortHelp:  "Start or stop the mailman daemon",
+		LongHelp: `Start or stop the mailman daemon for message delivery notifications.
 
 The mailman daemon monitors mailboxes and can notify agents when new
 messages arrive.
+
+Commands:
+  stop        Stop the running mailman daemon
 
 Flags:
   --daemon    Run in background (daemonize)
 
 Exit codes:
   0  Success
-  2  Daemon already running
+  1  Error
+  2  Daemon already running (start only)
 
 Examples:
   agentmail mailman           # Run in foreground
-  agentmail mailman --daemon  # Run in background`,
-		FlagSet: mailmanFlagSet,
+  agentmail mailman --daemon  # Run in background
+  agentmail mailman stop      # Stop the daemon`,
+		FlagSet:     mailmanFlagSet,
+		Subcommands: []*ffcli.Command{stopCmd},
 		Exec: func(ctx context.Context, args []string) error {
 			exitCode := cli.Mailman(os.Stdout, os.Stderr, cli.MailmanOptions{
 				Daemonize: daemonMode,

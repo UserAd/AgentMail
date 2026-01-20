@@ -100,6 +100,7 @@ type FileWatcher struct {
 	mailboxDir   string            // Path to .agentmail/mailboxes/
 	agentmailDir string            // Path to .agentmail/
 	stopChan     chan struct{}     // Signal to stop the watcher
+	fileStopChan chan struct{}     // Signal when .stop file detected (for daemon shutdown)
 	mode         MonitoringMode    // Current monitoring mode
 	mu           sync.Mutex        // Protects mode
 	logger       io.Writer         // Logger for foreground mode (nil = no logging)
@@ -133,6 +134,7 @@ func NewFileWatcher(repoRoot string) (*FileWatcher, error) {
 		mailboxDir:   filepath.Join(repoRoot, mail.MailDir),
 		agentmailDir: filepath.Join(repoRoot, mail.RootDir),
 		stopChan:     make(chan struct{}),
+		fileStopChan: make(chan struct{}),
 		mode:         ModeWatching,
 	}
 
@@ -142,6 +144,20 @@ func NewFileWatcher(repoRoot string) (*FileWatcher, error) {
 // SetLogger sets the logger for the file watcher.
 func (fw *FileWatcher) SetLogger(logger io.Writer) {
 	fw.logger = logger
+}
+
+// StopChan returns a channel that is closed when the .stop file is detected.
+// This can be used by the daemon to detect file-based stop signals.
+func (fw *FileWatcher) StopChan() <-chan struct{} {
+	return fw.fileStopChan
+}
+
+// isStopFileEvent checks if the event is a Create event for the .stop file.
+func (fw *FileWatcher) isStopFileEvent(event fsnotify.Event) bool {
+	if !event.Has(fsnotify.Create) {
+		return false
+	}
+	return filepath.Base(event.Name) == StopFile
 }
 
 // AddWatches adds watches for .agentmail/ and .agentmail/mailboxes/ directories (FR-001, FR-004).
@@ -223,6 +239,13 @@ func (fw *FileWatcher) Run(processFunc func()) error {
 
 		case event, ok := <-fw.watcher.Events:
 			if !ok {
+				return nil
+			}
+
+			// Check for stop signal file (FR-005, FR-006 from 012-mailman-stop)
+			if fw.isStopFileEvent(event) {
+				fw.log("Stop signal file detected, initiating shutdown")
+				close(fw.fileStopChan)
 				return nil
 			}
 

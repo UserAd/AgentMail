@@ -416,3 +416,72 @@ func TestFileWatcher_Run_StopsOnClose(t *testing.T) {
 		t.Error("Watcher did not stop within timeout after Close")
 	}
 }
+
+// =============================================================================
+// T005: Tests for FileWatcher stop file detection (FR-005, FR-006)
+// =============================================================================
+
+func TestFileWatcher_Run_DetectsStopFileCreation(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-watcher-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	fw, err := NewFileWatcher(tmpDir)
+	if err != nil {
+		t.Fatalf("NewFileWatcher failed: %v", err)
+	}
+
+	err = fw.AddWatches()
+	if err != nil {
+		t.Fatalf("AddWatches failed: %v", err)
+	}
+
+	processFunc := func() {}
+
+	// Run watcher in goroutine
+	done := make(chan struct{})
+	go func() {
+		_ = fw.Run(processFunc)
+		close(done)
+	}()
+
+	// Give watcher time to start
+	time.Sleep(50 * time.Millisecond)
+
+	// Create stop file - this should trigger shutdown
+	stopPath := StopFilePath(tmpDir)
+	if err := os.WriteFile(stopPath, []byte{}, 0600); err != nil {
+		t.Fatalf("Failed to create stop file: %v", err)
+	}
+
+	// Run should return after detecting stop file
+	select {
+	case <-done:
+		// Success - watcher detected stop file and stopped
+	case <-time.After(1 * time.Second):
+		t.Error("Watcher did not stop within timeout after stop file creation")
+		_ = fw.Close() // Clean up
+	}
+}
+
+func TestFileWatcher_StopChan_ReturnsChannelForShutdown(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-watcher-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	fw, err := NewFileWatcher(tmpDir)
+	if err != nil {
+		t.Fatalf("NewFileWatcher failed: %v", err)
+	}
+	defer fw.Close()
+
+	// StopChan should return a channel
+	ch := fw.StopChan()
+	if ch == nil {
+		t.Error("StopChan returned nil")
+	}
+}

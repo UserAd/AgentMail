@@ -102,6 +102,8 @@ Templates are stored in `.specify/templates/` and project constitution in `.spec
 - JSONL files in `.agentmail/` directory (existing infrastructure), MCP server via STDIO transport (010-mcp-server)
 - Go 1.21+ (per constitution IC-001, project uses Go 1.25.3) + Standard library only (os/exec, encoding/json, syscall, time, os) (011-cleanup)
 - JSONL files in `.agentmail/` directory (recipients.jsonl, mailboxes/*.jsonl) (011-cleanup)
+- Go 1.25.5 (minimum 1.21+ per IC-001) + Standard library only (os, os/exec, syscall, strconv, strings) (012-mailman-stop)
+- `.agentmail/mailman.pid` (existing PID file from 006-mailman-daemon) (012-mailman-stop)
 
 ## Recent Changes
 - 001-agent-mail-structure: Added Go 1.21+ (per IC-001) + Standard library only (os/exec for tmux, encoding/json for JSONL)

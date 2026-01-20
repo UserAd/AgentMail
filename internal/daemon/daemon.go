@@ -18,6 +18,9 @@ import (
 // PIDFile is the filename for the mailman daemon PID file within .agentmail/
 const PIDFile = "mailman.pid"
 
+// StopFile is the filename for the mailman daemon stop signal within .agentmail/
+const StopFile = ".stop"
+
 // DaemonStatus represents the status of an existing daemon process.
 type DaemonStatus int
 
@@ -43,6 +46,11 @@ func SetStopChannel(ch chan struct{}) {
 // PIDFilePath returns the full path to the PID file for a given repository root.
 func PIDFilePath(repoRoot string) string {
 	return filepath.Join(repoRoot, mail.RootDir, PIDFile)
+}
+
+// StopFilePath returns the full path to the stop signal file for a given repository root.
+func StopFilePath(repoRoot string) string {
+	return filepath.Join(repoRoot, mail.RootDir, StopFile)
 }
 
 // ReadPID reads the PID from the mailman.pid file.
@@ -246,17 +254,24 @@ func runForeground(repoRoot string, stdout, stderr io.Writer) int {
 		close(loopDone)
 	}()
 
-	// Wait for shutdown signal or test stop
+	// Wait for shutdown signal, test stop, or file-based stop
 	if stopChan != nil {
-		// Test mode: wait on either signal or stop channel
+		// Test mode: wait on signal, stop channel, or file-based stop
 		select {
 		case <-sigChan:
 		case <-stopChan:
+		case <-fileWatcher.StopChan():
 		}
 	} else {
-		// Production mode: wait only on signals
-		<-sigChan
+		// Production mode: wait on signals or file-based stop
+		select {
+		case <-sigChan:
+		case <-fileWatcher.StopChan():
+		}
 	}
+
+	// Remove stop file if it exists (FR-007 from 012-mailman-stop)
+	_ = os.Remove(StopFilePath(repoRoot)) // G104: best-effort cleanup
 
 	// Close file watcher to stop the notification loop
 	if fileWatcher != nil {
@@ -265,7 +280,7 @@ func runForeground(repoRoot string, stdout, stderr io.Writer) int {
 
 	<-loopDone // Wait for loop to finish
 
-	// Clean up PID file on shutdown
+	// Clean up PID file on shutdown (FR-008 from 012-mailman-stop)
 	_ = DeletePID(repoRoot) // G104: best-effort cleanup, errors don't affect exit status
 
 	return 0

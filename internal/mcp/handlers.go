@@ -28,6 +28,67 @@ type HandlerOptions struct {
 	RepoRoot string
 }
 
+// getSender returns the sender window name.
+func (opts *HandlerOptions) getSender() (string, error) {
+	if opts.MockSender != "" {
+		return opts.MockSender, nil
+	}
+	return tmux.GetCurrentWindow()
+}
+
+// getReceiver returns the receiver window name.
+func (opts *HandlerOptions) getReceiver() (string, error) {
+	if opts.MockReceiver != "" {
+		return opts.MockReceiver, nil
+	}
+	return tmux.GetCurrentWindow()
+}
+
+// windowExists checks if a window exists.
+func (opts *HandlerOptions) windowExists(window string) (bool, error) {
+	if opts.MockWindows != nil {
+		for _, w := range opts.MockWindows {
+			if w == window {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+	return tmux.WindowExists(window)
+}
+
+// listWindows returns all tmux windows.
+func (opts *HandlerOptions) listWindows() ([]string, error) {
+	if opts.MockWindows != nil {
+		return opts.MockWindows, nil
+	}
+	return tmux.ListWindows()
+}
+
+// loadIgnoreList loads the ignore list.
+func (opts *HandlerOptions) loadIgnoreList() map[string]bool {
+	if opts.MockIgnoreList != nil {
+		return opts.MockIgnoreList
+	}
+	gitRoot := opts.RepoRoot
+	if gitRoot == "" {
+		gitRoot, _ = mail.FindGitRoot()
+	}
+	if gitRoot == "" {
+		return nil
+	}
+	ignoreList, _ := mail.LoadIgnoreList(gitRoot)
+	return ignoreList
+}
+
+// getRepoRoot returns the repository root.
+func (opts *HandlerOptions) getRepoRoot() (string, error) {
+	if opts.RepoRoot != "" {
+		return opts.RepoRoot, nil
+	}
+	return mail.FindGitRoot()
+}
+
 // handlerOptions holds the current handler options.
 // Set via SetHandlerOptions for testing, nil for production.
 // Protected by handlerOptionsMu for thread-safe access.
@@ -92,93 +153,51 @@ func doSend(ctx context.Context, recipient, message string) (any, error) {
 		opts = &HandlerOptions{}
 	}
 
-	// Validate message is not empty
+	// Validate message
 	if message == "" {
 		return nil, fmt.Errorf("no message provided")
 	}
-
-	// FR-013: Validate message size (64KB limit)
 	if len(message) > MaxMessageSize {
 		return nil, fmt.Errorf("message exceeds maximum size of 64KB")
 	}
 
 	// Get sender identity
-	var sender string
-	if opts.MockSender != "" {
-		sender = opts.MockSender
-	} else {
-		var err error
-		sender, err = tmux.GetCurrentWindow()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get current window: %w", err)
-		}
+	sender, err := opts.getSender()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current window: %w", err)
 	}
 
-	// FR-009: Validate recipient exists
-	var recipientExists bool
-	if opts.MockWindows != nil {
-		for _, w := range opts.MockWindows {
-			if w == recipient {
-				recipientExists = true
-				break
-			}
-		}
-	} else {
-		var err error
-		recipientExists, err = tmux.WindowExists(recipient)
-		if err != nil {
-			return nil, fmt.Errorf("failed to check recipient: %w", err)
-		}
+	// Validate recipient exists
+	exists, err := opts.windowExists(recipient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check recipient: %w", err)
 	}
-
-	if !recipientExists {
+	if !exists {
 		return nil, fmt.Errorf("recipient not found")
 	}
 
-	// Check if sending to self (not allowed)
+	// Check self-send
 	if recipient == sender {
 		return nil, fmt.Errorf("cannot send message to self")
 	}
 
-	// Load and check ignore list
-	var ignoreList map[string]bool
-	if opts.MockIgnoreList != nil {
-		ignoreList = opts.MockIgnoreList
-	} else {
-		// Determine git root for loading ignore list.
-		// Errors are intentionally ignored: if we can't find git root or load
-		// the ignore list, we proceed without filtering - this is acceptable
-		// as the ignore list is optional.
-		gitRoot := opts.RepoRoot
-		if gitRoot == "" {
-			gitRoot, _ = mail.FindGitRoot() // Error ignored: proceed without ignore list
-		}
-		if gitRoot != "" {
-			ignoreList, _ = mail.LoadIgnoreList(gitRoot) // Error ignored: proceed without ignore list
-		}
-	}
-
-	// Check if recipient is in ignore list
-	if ignoreList != nil && ignoreList[recipient] {
+	// Check ignore list
+	if ignoreList := opts.loadIgnoreList(); ignoreList != nil && ignoreList[recipient] {
 		return nil, fmt.Errorf("recipient not found")
 	}
 
-	// Generate message ID
+	// Get repository root
+	repoRoot, err := opts.getRepoRoot()
+	if err != nil {
+		return nil, fmt.Errorf("not in a git repository: %w", err)
+	}
+
+	// Generate ID and store message
 	id, err := mail.GenerateID()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate message ID: %w", err)
 	}
 
-	// Determine repository root
-	repoRoot := opts.RepoRoot
-	if repoRoot == "" {
-		repoRoot, err = mail.FindGitRoot()
-		if err != nil {
-			return nil, fmt.Errorf("not in a git repository: %w", err)
-		}
-	}
-
-	// Store message
 	msg := mail.Message{
 		ID:       id,
 		From:     sender,
@@ -191,10 +210,7 @@ func doSend(ctx context.Context, recipient, message string) (any, error) {
 		return nil, fmt.Errorf("failed to write message: %w", err)
 	}
 
-	// FR-004: Return response with message_id
-	return SendResponse{
-		MessageID: id,
-	}, nil
+	return SendResponse{MessageID: id}, nil
 }
 
 // sendParams holds the unmarshaled parameters for the send tool.
@@ -256,54 +272,33 @@ func doReceive(ctx context.Context) (any, error) {
 	}
 
 	// Get receiver identity
-	var receiver string
-	if opts.MockReceiver != "" {
-		receiver = opts.MockReceiver
-	} else {
-		var err error
-		receiver, err = tmux.GetCurrentWindow()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get current window: %w", err)
-		}
+	receiver, err := opts.getReceiver()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current window: %w", err)
 	}
 
-	// Determine repository root
-	repoRoot := opts.RepoRoot
-	if repoRoot == "" {
-		var err error
-		repoRoot, err = mail.FindGitRoot()
-		if err != nil {
-			return nil, fmt.Errorf("not in a git repository: %w", err)
-		}
+	// Get repository root
+	repoRoot, err := opts.getRepoRoot()
+	if err != nil {
+		return nil, fmt.Errorf("not in a git repository: %w", err)
 	}
 
-	// Find unread messages for receiver (FR-003: FIFO order)
+	// Find unread messages (FIFO order)
 	unread, err := mail.FindUnread(repoRoot, receiver)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read messages: %w", err)
 	}
-
-	// FR-008: Handle no unread messages
 	if len(unread) == 0 {
-		return ReceiveEmptyResponse{
-			Status: "No unread messages",
-		}, nil
+		return ReceiveEmptyResponse{Status: "No unread messages"}, nil
 	}
 
-	// Get oldest unread message (FIFO - first in list) per FR-003
+	// Get oldest and mark as read
 	msg := unread[0]
-
-	// FR-012: Mark as read
 	if err := mail.MarkAsRead(repoRoot, receiver, msg.ID); err != nil {
 		return nil, fmt.Errorf("failed to mark message as read: %w", err)
 	}
 
-	// Return response with from, id, message fields per data-model.md
-	return ReceiveResponse{
-		From:    msg.From,
-		ID:      msg.ID,
-		Message: msg.Message,
-	}, nil
+	return ReceiveResponse{From: msg.From, ID: msg.ID, Message: msg.Message}, nil
 }
 
 // handleReceive is the MCP handler function for the receive tool.
@@ -358,46 +353,30 @@ func doStatus(ctx context.Context, status string) (any, error) {
 		opts = &HandlerOptions{}
 	}
 
-	// T039: Validate status value (ready/work/offline only)
+	// Validate status
 	if !validateStatus(status) {
-		// T040: Return error message matching FR-016 format
 		return nil, fmt.Errorf("Invalid status: %s. Valid: ready, work, offline", status)
 	}
 
-	// Get agent identity (current tmux window)
-	var agent string
-	if opts.MockReceiver != "" {
-		agent = opts.MockReceiver
-	} else {
-		var err error
-		agent, err = tmux.GetCurrentWindow()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get current window: %w", err)
-		}
+	// Get agent identity
+	agent, err := opts.getReceiver()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current window: %w", err)
 	}
 
-	// Determine repository root
-	repoRoot := opts.RepoRoot
-	if repoRoot == "" {
-		var err error
-		repoRoot, err = mail.FindGitRoot()
-		if err != nil {
-			return nil, fmt.Errorf("not in a git repository: %w", err)
-		}
+	// Get repository root
+	repoRoot, err := opts.getRepoRoot()
+	if err != nil {
+		return nil, fmt.Errorf("not in a git repository: %w", err)
 	}
 
-	// Reset notified flag when status is work or offline
-	resetNotified := (status == mail.StatusWork || status == mail.StatusOffline)
-
-	// Update recipient state using existing mail infrastructure
+	// Update state (reset notified for work/offline)
+	resetNotified := status == mail.StatusWork || status == mail.StatusOffline
 	if err := mail.UpdateRecipientState(repoRoot, agent, status, resetNotified); err != nil {
 		return nil, fmt.Errorf("failed to update status: %w", err)
 	}
 
-	// T041: Return {"status": "ok"} on success
-	return StatusResponse{
-		Status: "ok",
-	}, nil
+	return StatusResponse{Status: "ok"}, nil
 }
 
 // statusParams holds the unmarshaled parameters for the status tool.
@@ -458,69 +437,30 @@ func doListRecipients(ctx context.Context) (any, error) {
 		opts = &HandlerOptions{}
 	}
 
-	// Get current window (agent identity)
-	var currentWindow string
-	if opts.MockReceiver != "" {
-		currentWindow = opts.MockReceiver
-	} else {
-		var err error
-		currentWindow, err = tmux.GetCurrentWindow()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get current window: %w", err)
-		}
+	// Get current window
+	currentWindow, err := opts.getReceiver()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current window: %w", err)
 	}
 
-	// Get list of all windows
-	var windows []string
-	if opts.MockWindows != nil {
-		windows = opts.MockWindows
-	} else {
-		var err error
-		windows, err = tmux.ListWindows()
-		if err != nil {
-			return nil, fmt.Errorf("failed to list windows: %w", err)
-		}
+	// Get all windows
+	windows, err := opts.listWindows()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list windows: %w", err)
 	}
 
-	// Load ignore list
-	var ignoreList map[string]bool
-	if opts.MockIgnoreList != nil {
-		ignoreList = opts.MockIgnoreList
-	} else {
-		// Determine git root for loading ignore list.
-		// Errors are intentionally ignored: if we can't find git root or load
-		// the ignore list, we proceed without filtering - this is acceptable
-		// as the ignore list is optional.
-		gitRoot := opts.RepoRoot
-		if gitRoot == "" {
-			gitRoot, _ = mail.FindGitRoot() // Error ignored: proceed without ignore list
-		}
-		if gitRoot != "" {
-			ignoreList, _ = mail.LoadIgnoreList(gitRoot) // Error ignored: proceed without ignore list
-		}
-	}
-
-	// Build recipients list, filtering ignored windows but always including current
-	recipients := []RecipientInfo{}
+	// Build filtered recipients list
+	ignoreList := opts.loadIgnoreList()
+	recipients := make([]RecipientInfo, 0, len(windows))
 	for _, window := range windows {
-		// Current window is always shown (even if in ignore list)
 		if window == currentWindow {
-			recipients = append(recipients, RecipientInfo{
-				Name:      window,
-				IsCurrent: true,
-			})
+			recipients = append(recipients, RecipientInfo{Name: window, IsCurrent: true})
 		} else if ignoreList == nil || !ignoreList[window] {
-			// Only show non-current windows if they're not in the ignore list
-			recipients = append(recipients, RecipientInfo{
-				Name:      window,
-				IsCurrent: false,
-			})
+			recipients = append(recipients, RecipientInfo{Name: window, IsCurrent: false})
 		}
 	}
 
-	return ListRecipientsResponse{
-		Recipients: recipients,
-	}, nil
+	return ListRecipientsResponse{Recipients: recipients}, nil
 }
 
 // handleListRecipients is the MCP handler function for the list-recipients tool.

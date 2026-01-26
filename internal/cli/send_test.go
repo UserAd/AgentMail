@@ -252,8 +252,8 @@ func TestSendCommand_SendToSelf(t *testing.T) {
 	}
 
 	stderrStr := stderr.String()
-	if stderrStr != "error: recipient not found\n" {
-		t.Errorf("Expected 'error: recipient not found\\n', got: %q", stderrStr)
+	if stderrStr != "error: cannot send message to self\n" {
+		t.Errorf("Expected 'error: cannot send message to self\\n', got: %q", stderrStr)
 	}
 
 	if stdout.String() != "" {

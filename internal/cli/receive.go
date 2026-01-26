@@ -12,115 +12,135 @@ import (
 // ReceiveOptions configures the Receive command behavior.
 // Used for testing to mock tmux and file system operations.
 type ReceiveOptions struct {
-	SkipTmuxCheck bool     // Skip tmux environment check
-	MockWindows   []string // Mock list of tmux windows
-	MockReceiver  string   // Mock receiver window name
-	RepoRoot      string   // Repository root (defaults to current directory)
-	HookMode      bool     // Enable hook mode for Claude Code integration
+	SkipTmuxCheck       bool     // Skip tmux environment check
+	SkipTimestampUpdate bool     // Skip updating last_read_at timestamp (for testing)
+	MockWindows         []string // Mock list of tmux windows
+	MockReceiver        string   // Mock receiver window name
+	RepoRoot            string   // Repository root (defaults to current directory)
+	HookMode            bool     // Enable hook mode for Claude Code integration
+}
+
+// receiveError represents an error during receive with context.
+type receiveError struct {
+	msg      string
+	exitCode int
+}
+
+// getReceiver returns the receiver window name.
+func (opts *ReceiveOptions) getReceiver() (string, error) {
+	if opts.MockReceiver != "" {
+		return opts.MockReceiver, nil
+	}
+	return tmux.GetCurrentWindow()
+}
+
+// windowExists checks if a window exists in the tmux session.
+func (opts *ReceiveOptions) windowExists(window string) (bool, error) {
+	if opts.MockWindows != nil {
+		for _, w := range opts.MockWindows {
+			if w == window {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+	return tmux.WindowExists(window)
+}
+
+// getRepoRoot returns the repository root path.
+func (opts *ReceiveOptions) getRepoRoot() (string, error) {
+	if opts.RepoRoot != "" {
+		return opts.RepoRoot, nil
+	}
+	return mail.FindGitRoot()
+}
+
+// receiveCore contains the core receive logic, returning message or error info.
+func (opts *ReceiveOptions) receiveCore() (*mail.Message, *receiveError) {
+	// Get receiver identity
+	receiver, err := opts.getReceiver()
+	if err != nil {
+		return nil, &receiveError{"failed to get current window: " + err.Error(), 1}
+	}
+
+	// Validate current window exists
+	exists, err := opts.windowExists(receiver)
+	if err != nil {
+		return nil, &receiveError{"failed to check window: " + err.Error(), 1}
+	}
+	if !exists {
+		return nil, &receiveError{fmt.Sprintf("current window '%s' not found in tmux session", receiver), 1}
+	}
+
+	// Get repository root
+	repoRoot, err := opts.getRepoRoot()
+	if err != nil {
+		return nil, &receiveError{"not in a git repository: " + err.Error(), 1}
+	}
+
+	// Find unread messages
+	unread, err := mail.FindUnread(repoRoot, receiver)
+	if err != nil {
+		return nil, &receiveError{"failed to read messages: " + err.Error(), 1}
+	}
+
+	// No messages case
+	if len(unread) == 0 {
+		return nil, nil
+	}
+
+	// Get oldest message and mark as read
+	msg := unread[0]
+	if err := mail.MarkAsRead(repoRoot, receiver, msg.ID); err != nil {
+		return nil, &receiveError{"failed to mark message as read: " + err.Error(), 1}
+	}
+
+	// Update last_read_at timestamp (best-effort, skipped in tests)
+	if !opts.SkipTimestampUpdate {
+		_ = mail.UpdateLastReadAt(repoRoot, receiver, time.Now().UnixMilli())
+	}
+
+	return &msg, nil
+}
+
+// outputMessage writes the message to the given writer.
+func outputMessage(w io.Writer, msg *mail.Message, prefix string) {
+	if prefix != "" {
+		fmt.Fprintln(w, prefix)
+	}
+	fmt.Fprintf(w, "From: %s\n", msg.From)
+	fmt.Fprintf(w, "ID: %s\n", msg.ID)
+	fmt.Fprintln(w)
+	fmt.Fprint(w, msg.Message)
 }
 
 // Receive implements the agentmail receive command.
-// T034: Implement Receive command structure
-// T035: Add tmux validation (exit code 2 if not in tmux)
-// T036: Add message retrieval and display formatting
-// T037: Add "No unread messages" handling (exit code 0)
-//
-// Hook mode behavior (FR-001 through FR-005):
-// - FR-001a/b/c: Write notification to STDERR, exit 2, mark as read when messages exist
-// - FR-002: Exit 0 with no output when no messages
-// - FR-003: Exit 0 with no output when not in tmux
-// - FR-004a/b/c: Exit 0 with no output on any error
-// - FR-005: All output to STDERR in hook mode
+// Hook mode: silent on errors/no messages, output to stderr, exit 2 on message.
+// Normal mode: verbose errors, output to stdout, exit 0 on success.
 func Receive(stdout, stderr io.Writer, opts ReceiveOptions) int {
-	// T035: Validate running inside tmux
-	if !opts.SkipTmuxCheck {
-		if !tmux.InTmux() {
-			// FR-003: Hook mode exits silently when not in tmux
-			if opts.HookMode {
-				return 0
-			}
-			fmt.Fprintln(stderr, "error: agentmail must run inside a tmux session")
-			return 2
-		}
-	}
-
-	// Get receiver identity
-	var receiver string
-	if opts.MockReceiver != "" {
-		receiver = opts.MockReceiver
-	} else {
-		var err error
-		receiver, err = tmux.GetCurrentWindow()
-		if err != nil {
-			// FR-004a: Hook mode exits silently on errors
-			if opts.HookMode {
-				return 0
-			}
-			fmt.Fprintf(stderr, "error: failed to get current window: %v\n", err)
-			return 1
-		}
-	}
-
-	// Validate current window exists in tmux session
-	var receiverExists bool
-	if opts.MockWindows != nil {
-		for _, w := range opts.MockWindows {
-			if w == receiver {
-				receiverExists = true
-				break
-			}
-		}
-	} else {
-		var err error
-		receiverExists, err = tmux.WindowExists(receiver)
-		if err != nil {
-			// FR-004a: Hook mode exits silently on errors
-			if opts.HookMode {
-				return 0
-			}
-			fmt.Fprintf(stderr, "error: failed to check window: %v\n", err)
-			return 1
-		}
-	}
-
-	if !receiverExists {
-		// FR-004a: Hook mode exits silently on errors
+	// Validate tmux environment
+	if !opts.SkipTmuxCheck && !tmux.InTmux() {
 		if opts.HookMode {
 			return 0
 		}
-		fmt.Fprintf(stderr, "error: current window '%s' not found in tmux session\n", receiver)
-		return 1
+		fmt.Fprintln(stderr, "error: agentmail must run inside a tmux session")
+		return 2
 	}
 
-	// Determine repository root (find git root, not current directory)
-	repoRoot := opts.RepoRoot
-	if repoRoot == "" {
-		var err error
-		repoRoot, err = mail.FindGitRoot()
-		if err != nil {
-			// FR-004a: Hook mode exits silently on errors
-			if opts.HookMode {
-				return 0
-			}
-			fmt.Fprintf(stderr, "error: not in a git repository: %v\n", err)
-			return 1
-		}
-	}
+	// Execute core logic
+	msg, recvErr := opts.receiveCore()
 
-	// T036: Find unread messages for receiver
-	unread, err := mail.FindUnread(repoRoot, receiver)
-	if err != nil {
-		// FR-004a/b/c: Hook mode exits silently on file/lock/corruption errors
+	// Handle errors
+	if recvErr != nil {
 		if opts.HookMode {
 			return 0
 		}
-		fmt.Fprintf(stderr, "error: failed to read messages: %v\n", err)
-		return 1
+		fmt.Fprintf(stderr, "error: %s\n", recvErr.msg)
+		return recvErr.exitCode
 	}
 
-	// T037: Handle no unread messages
-	if len(unread) == 0 {
-		// FR-002: Hook mode exits silently with no messages
+	// Handle no messages
+	if msg == nil {
 		if opts.HookMode {
 			return 0
 		}
@@ -128,49 +148,12 @@ func Receive(stdout, stderr io.Writer, opts ReceiveOptions) int {
 		return 0
 	}
 
-	// Get oldest unread message (FIFO - first in list)
-	msg := unread[0]
-
-	// FR-001c: Mark as read
-	if err := mail.MarkAsRead(repoRoot, receiver, msg.ID); err != nil {
-		// FR-004a: Hook mode exits silently on errors
-		if opts.HookMode {
-			return 0
-		}
-		fmt.Fprintf(stderr, "error: failed to mark message as read: %v\n", err)
-		return 1
-	}
-
-	// FR-017, FR-018: Update last_read_at timestamp when inside tmux
-	// FR-021: Skip update when outside tmux (SkipTmuxCheck means we're in test mode or outside tmux)
-	if !opts.SkipTmuxCheck {
-		// We're inside tmux, update the last-read timestamp
-		timestamp := time.Now().UnixMilli()                      // FR-018: Unix timestamp in milliseconds
-		_ = mail.UpdateLastReadAt(repoRoot, receiver, timestamp) // G104: best-effort, errors don't affect receive
-	}
-
-	// FR-005: Hook mode writes all output to STDERR
-	// FR-001a: Hook mode prefixes with "You got new mail\n"
+	// Output message
 	if opts.HookMode {
-		fmt.Fprintln(stderr, "You got new mail")
-		fmt.Fprintf(stderr, "From: %s\n", msg.From)
-		fmt.Fprintf(stderr, "ID: %s\n", msg.ID)
-		fmt.Fprintln(stderr)
-		fmt.Fprint(stderr, msg.Message)
-		// FR-001b: Hook mode exits with code 2 when messages exist
+		outputMessage(stderr, msg, "You got new mail")
 		return 2
 	}
 
-	// Normal mode: Display message to stdout
-	// Format:
-	// From: <sender>
-	// ID: <id>
-	//
-	// <message>
-	fmt.Fprintf(stdout, "From: %s\n", msg.From)
-	fmt.Fprintf(stdout, "ID: %s\n", msg.ID)
-	fmt.Fprintln(stdout)
-	fmt.Fprint(stdout, msg.Message)
-
+	outputMessage(stdout, msg, "")
 	return 0
 }

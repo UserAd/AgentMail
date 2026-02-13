@@ -28,9 +28,9 @@ func TestStatusCommand_Ready(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
 	exitCode := Status([]string{"ready"}, &stdout, &stderr, StatusOptions{
-		SkipTmuxCheck: true,
-		MockWindow:    "agent-1",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-1",
+		RepoRoot:        tmpDir,
 	})
 
 	if exitCode != 0 {
@@ -80,9 +80,9 @@ func TestStatusCommand_Work(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
 	exitCode := Status([]string{"work"}, &stdout, &stderr, StatusOptions{
-		SkipTmuxCheck: true,
-		MockWindow:    "agent-1",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-1",
+		RepoRoot:        tmpDir,
 	})
 
 	if exitCode != 0 {
@@ -132,9 +132,9 @@ func TestStatusCommand_Offline(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
 	exitCode := Status([]string{"offline"}, &stdout, &stderr, StatusOptions{
-		SkipTmuxCheck: true,
-		MockWindow:    "agent-1",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-1",
+		RepoRoot:        tmpDir,
 	})
 
 	if exitCode != 0 {
@@ -209,9 +209,9 @@ func TestStatusCommand_InvalidStatus(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
 	exitCode := Status([]string{"foo"}, &stdout, &stderr, StatusOptions{
-		SkipTmuxCheck: true,
-		MockWindow:    "agent-1",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-1",
+		RepoRoot:        tmpDir,
 	})
 
 	if exitCode != 1 {
@@ -287,9 +287,9 @@ func TestStatusCommand_NotifiedResetOnWorkOffline(t *testing.T) {
 
 	// Transition to work - should reset notified to false
 	exitCode := Status([]string{"work"}, &stdout, &stderr, StatusOptions{
-		SkipTmuxCheck: true,
-		MockWindow:    "agent-1",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-1",
+		RepoRoot:        tmpDir,
 	})
 
 	if exitCode != 0 {
@@ -344,9 +344,9 @@ func TestStatusCommand_NotifiedResetOnOffline(t *testing.T) {
 
 	// Transition to offline - should reset notified to false
 	exitCode := Status([]string{"offline"}, &stdout, &stderr, StatusOptions{
-		SkipTmuxCheck: true,
-		MockWindow:    "agent-1",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-1",
+		RepoRoot:        tmpDir,
 	})
 
 	if exitCode != 0 {
@@ -398,9 +398,9 @@ func TestStatusCommand_NotifiedPreservedOnReady(t *testing.T) {
 
 	// Transition to ready - should NOT reset notified
 	exitCode := Status([]string{"ready"}, &stdout, &stderr, StatusOptions{
-		SkipTmuxCheck: true,
-		MockWindow:    "agent-1",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-1",
+		RepoRoot:        tmpDir,
 	})
 
 	if exitCode != 0 {
@@ -431,8 +431,8 @@ func TestStatusCommand_MissingArgument(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
 	exitCode := Status([]string{}, &stdout, &stderr, StatusOptions{
-		SkipTmuxCheck: true,
-		MockWindow:    "agent-1",
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-1",
 	})
 
 	if exitCode != 1 {
@@ -465,9 +465,9 @@ func TestStatusCommand_Integration(t *testing.T) {
 
 	// 1. Set ready
 	exitCode := Status([]string{"ready"}, &stdout, &stderr, StatusOptions{
-		SkipTmuxCheck: true,
-		MockWindow:    "agent-1",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-1",
+		RepoRoot:        tmpDir,
 	})
 	if exitCode != 0 {
 		t.Errorf("Step 1 (ready): Expected exit code 0, got %d", exitCode)
@@ -482,9 +482,9 @@ func TestStatusCommand_Integration(t *testing.T) {
 	stdout.Reset()
 	stderr.Reset()
 	exitCode = Status([]string{"work"}, &stdout, &stderr, StatusOptions{
-		SkipTmuxCheck: true,
-		MockWindow:    "agent-1",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-1",
+		RepoRoot:        tmpDir,
 	})
 	if exitCode != 0 {
 		t.Errorf("Step 2 (work): Expected exit code 0, got %d", exitCode)
@@ -499,9 +499,9 @@ func TestStatusCommand_Integration(t *testing.T) {
 	stdout.Reset()
 	stderr.Reset()
 	exitCode = Status([]string{"ready"}, &stdout, &stderr, StatusOptions{
-		SkipTmuxCheck: true,
-		MockWindow:    "agent-1",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-1",
+		RepoRoot:        tmpDir,
 	})
 	if exitCode != 0 {
 		t.Errorf("Step 3 (ready): Expected exit code 0, got %d", exitCode)
@@ -516,9 +516,9 @@ func TestStatusCommand_Integration(t *testing.T) {
 	stdout.Reset()
 	stderr.Reset()
 	exitCode = Status([]string{"offline"}, &stdout, &stderr, StatusOptions{
-		SkipTmuxCheck: true,
-		MockWindow:    "agent-1",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-1",
+		RepoRoot:        tmpDir,
 	})
 	if exitCode != 0 {
 		t.Errorf("Step 4 (offline): Expected exit code 0, got %d", exitCode)
@@ -560,9 +560,9 @@ func TestStatusCommand_MultipleAgents(t *testing.T) {
 
 	// Add agent-1 status
 	exitCode := Status([]string{"work"}, &stdout, &stderr, StatusOptions{
-		SkipTmuxCheck: true,
-		MockWindow:    "agent-1",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-1",
+		RepoRoot:        tmpDir,
 	})
 
 	if exitCode != 0 {
@@ -599,5 +599,107 @@ func TestStatusCommand_MultipleAgents(t *testing.T) {
 		t.Error("agent-2 not found in recipients")
 	} else if agent2.Status != mail.StatusReady {
 		t.Errorf("Expected agent-2 status 'ready' (unchanged), got %s", agent2.Status)
+	}
+}
+
+func TestStatusCommand_MissingStatusArg(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	var stdout, stderr bytes.Buffer
+	exitCode := Status(
+		[]string{}, // No status argument
+		&stdout,
+		&stderr,
+		StatusOptions{
+			SkipTmuxCheck:   true,
+			MockPaneAddress: "mysession:agent.0",
+			RepoRoot:        tmpDir,
+		},
+	)
+
+	if exitCode != 1 {
+		t.Errorf("Expected exit code 1 for missing status arg, got %d", exitCode)
+	}
+
+	if !strings.Contains(stderr.String(), "missing required argument") {
+		t.Errorf("Expected 'missing required argument' error, got: %s", stderr.String())
+	}
+}
+
+func TestStatusCommand_AllValidStatuses(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	testCases := []struct {
+		status   string
+		expected string
+	}{
+		{"ready", mail.StatusReady},
+		{"work", mail.StatusWork},
+		{"offline", mail.StatusOffline},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.status, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			exitCode := Status(
+				[]string{tc.status},
+				&stdout,
+				&stderr,
+				StatusOptions{
+					SkipTmuxCheck:   true,
+					MockPaneAddress: "mysession:agent.0",
+					RepoRoot:        tmpDir,
+				},
+			)
+
+			if exitCode != 0 {
+				t.Errorf("Expected exit code 0 for status '%s', got %d. Stderr: %s", tc.status, exitCode, stderr.String())
+			}
+
+			// Verify status was set
+			recipients, err := mail.ReadAllRecipients(tmpDir)
+			if err != nil {
+				t.Fatalf("Failed to read recipients: %v", err)
+			}
+
+			found := false
+			for _, r := range recipients {
+				if r.Recipient == "mysession:agent.0" {
+					found = true
+					if r.Status != tc.expected {
+						t.Errorf("Expected status '%s', got '%s'", tc.expected, r.Status)
+					}
+				}
+			}
+
+			if !found {
+				t.Error("Recipient not found after status update")
+			}
+		})
+	}
+}
+
+func TestStatusCommand_NonTmuxSilentExit(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	var stdout, stderr bytes.Buffer
+	exitCode := Status(
+		[]string{"ready"},
+		&stdout,
+		&stderr,
+		StatusOptions{
+			SkipTmuxCheck: false, // Use real tmux check
+			RepoRoot:      tmpDir,
+		},
+	)
+
+	// Should exit silently with code 0 when not in tmux (status is a no-op outside tmux)
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0 when not in tmux, got %d", exitCode)
+	}
+
+	// Should have no error output
+	if stderr.String() != "" {
+		t.Errorf("Expected empty stderr, got: %s", stderr.String())
 	}
 }

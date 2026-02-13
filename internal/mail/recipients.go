@@ -1,6 +1,7 @@
 package mail
 
 import (
+	"agentmail/internal/tmux"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -121,7 +122,7 @@ func WriteAllRecipients(repoRoot string, recipients []RecipientState) error {
 	}
 
 	// Acquire exclusive lock
-	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
+	if err := syscall.Flock(fileFd(file), syscall.LOCK_EX); err != nil {
 		_ = file.Close() // G104: error intentionally ignored in cleanup path
 		return err
 	}
@@ -130,8 +131,8 @@ func WriteAllRecipients(repoRoot string, recipients []RecipientState) error {
 	writeErr := writeAllRecipientsLocked(file, recipients)
 
 	// Unlock before close (correct order)
-	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
-	_ = file.Close()                                   // G104: close errors don't affect the write result
+	_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
+	_ = file.Close()                                 // G104: close errors don't affect the write result
 	return writeErr
 }
 
@@ -154,7 +155,7 @@ func UpdateRecipientState(repoRoot string, recipient string, status string, rese
 	}
 
 	// Acquire exclusive lock for atomic read-modify-write
-	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
+	if err := syscall.Flock(fileFd(file), syscall.LOCK_EX); err != nil {
 		_ = file.Close() // G104: error intentionally ignored in cleanup path
 		return err
 	}
@@ -162,7 +163,7 @@ func UpdateRecipientState(repoRoot string, recipient string, status string, rese
 	// Read all recipient states while holding lock
 	data, err := os.ReadFile(filePath) // #nosec G304 - path is constructed from constant
 	if err != nil && !os.IsNotExist(err) {
-		_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+		_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
 		_ = file.Close()
 		return err
 	}
@@ -176,7 +177,7 @@ func UpdateRecipientState(repoRoot string, recipient string, status string, rese
 			}
 			var state RecipientState
 			if err := json.Unmarshal([]byte(line), &state); err != nil {
-				_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+				_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
 				_ = file.Close()
 				return err
 			}
@@ -213,8 +214,8 @@ func UpdateRecipientState(repoRoot string, recipient string, status string, rese
 	writeErr := writeAllRecipientsLocked(file, recipients)
 
 	// Unlock before close (correct order)
-	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
-	_ = file.Close()                                   // G104: close errors don't affect the write result
+	_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
+	_ = file.Close()                                 // G104: close errors don't affect the write result
 	return writeErr
 }
 
@@ -242,7 +243,9 @@ func ListMailboxRecipients(repoRoot string) ([]string, error) {
 			continue
 		}
 		// Extract recipient name (remove .jsonl suffix)
-		recipient := strings.TrimSuffix(name, ".jsonl")
+		encodedRecipient := strings.TrimSuffix(name, ".jsonl")
+		// Decode pane address from filename
+		recipient := tmux.UnsanitizeFromFilename(encodedRecipient)
 		recipients = append(recipients, recipient)
 	}
 
@@ -265,7 +268,7 @@ func CleanStaleStates(repoRoot string, threshold time.Duration) (int, error) {
 	}
 
 	// Acquire exclusive lock for atomic read-modify-write
-	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
+	if err := syscall.Flock(fileFd(file), syscall.LOCK_EX); err != nil {
 		_ = file.Close() // G104: error intentionally ignored in cleanup path
 		return 0, err
 	}
@@ -273,7 +276,7 @@ func CleanStaleStates(repoRoot string, threshold time.Duration) (int, error) {
 	// Read all recipient states while holding lock
 	data, err := os.ReadFile(filePath) // #nosec G304 - path is constructed from constant
 	if err != nil && !os.IsNotExist(err) {
-		_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+		_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
 		_ = file.Close()
 		return 0, err
 	}
@@ -287,7 +290,7 @@ func CleanStaleStates(repoRoot string, threshold time.Duration) (int, error) {
 			}
 			var state RecipientState
 			if err := json.Unmarshal([]byte(line), &state); err != nil {
-				_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+				_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
 				_ = file.Close()
 				return 0, err
 			}
@@ -314,8 +317,8 @@ func CleanStaleStates(repoRoot string, threshold time.Duration) (int, error) {
 	}
 
 	// Unlock before close (correct order)
-	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
-	_ = file.Close()                                   // G104: close errors don't affect the write result
+	_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
+	_ = file.Close()                                 // G104: close errors don't affect the write result
 	return removedCount, writeErr
 }
 
@@ -335,7 +338,7 @@ func SetNotifiedAt(repoRoot string, recipient string, notifiedAt time.Time) erro
 	}
 
 	// Acquire exclusive lock for atomic read-modify-write
-	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
+	if err := syscall.Flock(fileFd(file), syscall.LOCK_EX); err != nil {
 		_ = file.Close() // G104: error intentionally ignored in cleanup path
 		return err
 	}
@@ -343,7 +346,7 @@ func SetNotifiedAt(repoRoot string, recipient string, notifiedAt time.Time) erro
 	// Read all recipient states while holding lock
 	data, err := os.ReadFile(filePath) // #nosec G304 - path is constructed from constant
 	if err != nil {
-		_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+		_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
 		_ = file.Close()
 		return err
 	}
@@ -357,7 +360,7 @@ func SetNotifiedAt(repoRoot string, recipient string, notifiedAt time.Time) erro
 			}
 			var state RecipientState
 			if err := json.Unmarshal([]byte(line), &state); err != nil {
-				_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+				_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
 				_ = file.Close()
 				return err
 			}
@@ -377,7 +380,7 @@ func SetNotifiedAt(repoRoot string, recipient string, notifiedAt time.Time) erro
 
 	if !found {
 		// Recipient doesn't exist, don't create it
-		_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+		_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
 		_ = file.Close()
 		return nil
 	}
@@ -386,8 +389,8 @@ func SetNotifiedAt(repoRoot string, recipient string, notifiedAt time.Time) erro
 	writeErr := writeAllRecipientsLocked(file, recipients)
 
 	// Unlock before close (correct order)
-	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
-	_ = file.Close()                                   // G104: close errors don't affect the write result
+	_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
+	_ = file.Close()                                 // G104: close errors don't affect the write result
 	return writeErr
 }
 
@@ -514,7 +517,7 @@ func UpdateLastReadAt(repoRoot string, recipient string, timestamp int64) error 
 	}
 
 	// Acquire exclusive lock for atomic read-modify-write (FR-020)
-	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
+	if err := syscall.Flock(fileFd(file), syscall.LOCK_EX); err != nil {
 		_ = file.Close() // G104: error intentionally ignored in cleanup path
 		return err
 	}
@@ -522,7 +525,7 @@ func UpdateLastReadAt(repoRoot string, recipient string, timestamp int64) error 
 	// Read all recipient states while holding lock
 	data, err := os.ReadFile(filePath) // #nosec G304 - path is constructed from constant
 	if err != nil && !os.IsNotExist(err) {
-		_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+		_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
 		_ = file.Close()
 		return err
 	}
@@ -536,7 +539,7 @@ func UpdateLastReadAt(repoRoot string, recipient string, timestamp int64) error 
 			}
 			var state RecipientState
 			if err := json.Unmarshal([]byte(line), &state); err != nil {
-				_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+				_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
 				_ = file.Close()
 				return err
 			}
@@ -570,7 +573,7 @@ func UpdateLastReadAt(repoRoot string, recipient string, timestamp int64) error 
 	writeErr := writeAllRecipientsLocked(file, recipients)
 
 	// Unlock before close (correct order)
-	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
-	_ = file.Close()                                   // G104: close errors don't affect the write result
+	_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
+	_ = file.Close()                                 // G104: close errors don't affect the write result
 	return writeErr
 }

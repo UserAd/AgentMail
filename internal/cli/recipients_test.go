@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -29,9 +30,9 @@ func TestRecipientsCommand_ListsAllWindows(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
 	exitCode := Recipients(&stdout, &stderr, RecipientsOptions{
-		SkipTmuxCheck: true,
-		MockWindows:   []string{"main", "agent1", "agent2", "worker"},
-		MockCurrent:   "main",
+		SkipTmuxCheck:   true,
+		MockPanes:       []string{"main", "agent1", "agent2", "worker"},
+		MockPaneAddress: "main",
 	})
 
 	if exitCode != 0 {
@@ -71,9 +72,9 @@ func TestRecipientsCommand_MarksCurrentWindow(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
 	exitCode := Recipients(&stdout, &stderr, RecipientsOptions{
-		SkipTmuxCheck: true,
-		MockWindows:   []string{"main", "agent1", "agent2"},
-		MockCurrent:   "agent1",
+		SkipTmuxCheck:   true,
+		MockPanes:       []string{"main", "agent1", "agent2"},
+		MockPaneAddress: "agent1",
 	})
 
 	if exitCode != 0 {
@@ -127,9 +128,9 @@ func TestRecipientsCommand_EmptyWindowList(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
 	exitCode := Recipients(&stdout, &stderr, RecipientsOptions{
-		SkipTmuxCheck: true,
-		MockWindows:   []string{},
-		MockCurrent:   "",
+		SkipTmuxCheck:   true,
+		MockPanes:       []string{},
+		MockPaneAddress: "AgentMail:test.0",
 	})
 
 	if exitCode != 0 {
@@ -151,9 +152,9 @@ func TestRecipientsCommand_SingleWindow(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
 	exitCode := Recipients(&stdout, &stderr, RecipientsOptions{
-		SkipTmuxCheck: true,
-		MockWindows:   []string{"main"},
-		MockCurrent:   "main",
+		SkipTmuxCheck:   true,
+		MockPanes:       []string{"main"},
+		MockPaneAddress: "main",
 	})
 
 	if exitCode != 0 {
@@ -175,9 +176,9 @@ func TestRecipientsCommand_CurrentWindowNotInList(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
 	exitCode := Recipients(&stdout, &stderr, RecipientsOptions{
-		SkipTmuxCheck: true,
-		MockWindows:   []string{"agent1", "agent2"},
-		MockCurrent:   "orphan",
+		SkipTmuxCheck:   true,
+		MockPanes:       []string{"agent1", "agent2"},
+		MockPaneAddress: "orphan",
 	})
 
 	if exitCode != 0 {
@@ -205,9 +206,9 @@ func TestRecipientsCommand_OutputFormat(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
 	exitCode := Recipients(&stdout, &stderr, RecipientsOptions{
-		SkipTmuxCheck: true,
-		MockWindows:   []string{"main", "agent1"},
-		MockCurrent:   "main",
+		SkipTmuxCheck:   true,
+		MockPanes:       []string{"main", "agent1"},
+		MockPaneAddress: "main",
 	})
 
 	if exitCode != 0 {
@@ -236,10 +237,10 @@ func TestRecipientsCommand_ExcludesIgnoredWindows(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
 	exitCode := Recipients(&stdout, &stderr, RecipientsOptions{
-		SkipTmuxCheck:  true,
-		MockWindows:    []string{"main", "agent1", "agent2", "worker"},
-		MockCurrent:    "main",
-		MockIgnoreList: map[string]bool{"agent1": true, "worker": true},
+		SkipTmuxCheck:   true,
+		MockPanes:       []string{"main", "agent1", "agent2", "worker"},
+		MockPaneAddress: "main",
+		MockIgnoreList:  map[string]bool{"agent1": true, "worker": true},
 	})
 
 	if exitCode != 0 {
@@ -279,10 +280,10 @@ func TestRecipientsCommand_HandlesMissingIgnoreFile(t *testing.T) {
 	tempDir := t.TempDir()
 
 	exitCode := Recipients(&stdout, &stderr, RecipientsOptions{
-		SkipTmuxCheck: true,
-		MockWindows:   []string{"main", "agent1", "agent2"},
-		MockCurrent:   "main",
-		MockGitRoot:   tempDir, // Directory without .agentmailignore
+		SkipTmuxCheck:   true,
+		MockPanes:       []string{"main", "agent1", "agent2"},
+		MockPaneAddress: "main",
+		MockGitRoot:     tempDir, // Directory without .agentmailignore
 	})
 
 	if exitCode != 0 {
@@ -321,10 +322,10 @@ func TestRecipientsCommand_IgnoresEmptyLinesInIgnoreFile(t *testing.T) {
 	}
 
 	exitCode := Recipients(&stdout, &stderr, RecipientsOptions{
-		SkipTmuxCheck: true,
-		MockWindows:   []string{"main", "agent1", "agent2", "worker"},
-		MockCurrent:   "main",
-		MockGitRoot:   tempDir,
+		SkipTmuxCheck:   true,
+		MockPanes:       []string{"main", "agent1", "agent2", "worker"},
+		MockPaneAddress: "main",
+		MockGitRoot:     tempDir,
 	})
 
 	if exitCode != 0 {
@@ -372,10 +373,10 @@ func TestRecipientsCommand_HandlesUnreadableIgnoreFile(t *testing.T) {
 	defer os.Chmod(ignorePath, 0o644)
 
 	exitCode := Recipients(&stdout, &stderr, RecipientsOptions{
-		SkipTmuxCheck: true,
-		MockWindows:   []string{"main", "agent1", "agent2"},
-		MockCurrent:   "main",
-		MockGitRoot:   tempDir,
+		SkipTmuxCheck:   true,
+		MockPanes:       []string{"main", "agent1", "agent2"},
+		MockPaneAddress: "main",
+		MockGitRoot:     tempDir,
 	})
 
 	if exitCode != 0 {
@@ -401,10 +402,10 @@ func TestRecipientsCommand_CurrentWindowShownEvenIfIgnored(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
 	exitCode := Recipients(&stdout, &stderr, RecipientsOptions{
-		SkipTmuxCheck:  true,
-		MockWindows:    []string{"main", "agent1", "agent2"},
-		MockCurrent:    "agent1", // Current window is in ignore list
-		MockIgnoreList: map[string]bool{"agent1": true, "agent2": true},
+		SkipTmuxCheck:   true,
+		MockPanes:       []string{"main", "agent1", "agent2"},
+		MockPaneAddress: "agent1", // Current window is in ignore list
+		MockIgnoreList:  map[string]bool{"agent1": true, "agent2": true},
 	})
 
 	if exitCode != 0 {
@@ -432,5 +433,107 @@ func TestRecipientsCommand_CurrentWindowShownEvenIfIgnored(t *testing.T) {
 	lines := strings.Split(strings.TrimSuffix(output, "\n"), "\n")
 	if len(lines) != 2 {
 		t.Errorf("Expected 2 lines (main and agent1 [you]), got %d: %v", len(lines), lines)
+	}
+}
+
+func TestRecipientsCommand_EmptyPaneList(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	exitCode := Recipients(
+		&stdout,
+		&stderr,
+		RecipientsOptions{
+			SkipTmuxCheck:   true,
+			MockPanes:       []string{}, // No panes
+			MockPaneAddress: "mysession:agent.0",
+			MockSession:     "mysession",
+		},
+	)
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	output := stdout.String()
+	// With an empty pane list, the loop has nothing to iterate over,
+	// so no output is produced (the current pane only appears if it's in the pane list)
+	if output != "" {
+		t.Errorf("Expected empty output with no panes, got: %s", output)
+	}
+}
+
+func TestRecipientsCommand_NoIgnoreList(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	exitCode := Recipients(
+		&stdout,
+		&stderr,
+		RecipientsOptions{
+			SkipTmuxCheck:   true,
+			MockPanes:       []string{"mysession:agent1.0", "mysession:agent2.0", "mysession:agent3.0"},
+			MockPaneAddress: "mysession:agent1.0",
+			MockSession:     "mysession",
+			MockIgnoreList:  nil, // No ignore list
+		},
+	)
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	output := stdout.String()
+
+	// All panes should be shown
+	if !strings.Contains(output, "agent2") {
+		t.Errorf("Expected agent2 in output, got: %s", output)
+	}
+	if !strings.Contains(output, "agent3") {
+		t.Errorf("Expected agent3 in output, got: %s", output)
+	}
+}
+
+func TestRecipientsCommand_IgnoreListFromFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .agentmailignore file
+	ignoreContent := `# Test ignore file
+mysession:agent2.0
+:agent3.0
+`
+	gitRoot := tmpDir
+	ignorePath := filepath.Join(gitRoot, ".agentmailignore")
+	if err := os.WriteFile(ignorePath, []byte(ignoreContent), 0644); err != nil {
+		t.Fatalf("Failed to create ignore file: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	exitCode := Recipients(
+		&stdout,
+		&stderr,
+		RecipientsOptions{
+			SkipTmuxCheck:   true,
+			MockPanes:       []string{"mysession:agent1.0", "mysession:agent2.0", "mysession:agent3.0"},
+			MockPaneAddress: "mysession:agent1.0",
+			MockSession:     "mysession",
+			MockGitRoot:     gitRoot,
+			MockIgnoreList:  nil, // Load from file
+		},
+	)
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	output := stdout.String()
+
+	// agent2 and agent3 should be ignored
+	if strings.Contains(output, "agent2") {
+		t.Errorf("agent2 should be ignored, got: %s", output)
+	}
+	if strings.Contains(output, "agent3") {
+		t.Errorf("agent3 should be ignored, got: %s", output)
+	}
+
+	// agent1 (current) should still be shown
+	if !strings.Contains(output, "agent1") {
+		t.Errorf("Current agent should be shown, got: %s", output)
 	}
 }

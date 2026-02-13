@@ -108,3 +108,96 @@ func WindowExists(name string) (bool, error) {
 
 	return false, nil
 }
+
+// GetCurrentPaneAddress returns the pane address of the current pane.
+func GetCurrentPaneAddress() (string, error) {
+	paneID, err := GetCurrentPaneID()
+	if err != nil {
+		return "", err
+	}
+
+	cmd := exec.Command("tmux", "display-message", "-t", paneID, "-p", "#{session_name}:#{window_name}.#{pane_index}") // #nosec G204 - paneID validated by GetCurrentPaneID
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(string(output)), nil
+}
+
+// GetCurrentSession returns the name of the current tmux session.
+func GetCurrentSession() (string, error) {
+	paneID, err := GetCurrentPaneID()
+	if err != nil {
+		return "", err
+	}
+
+	cmd := exec.Command("tmux", "display-message", "-t", paneID, "-p", "#{session_name}") // #nosec G204 - paneID validated by GetCurrentPaneID
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(string(output)), nil
+}
+
+// ListPanes returns a list of all pane addresses in the current session.
+func ListPanes() ([]string, error) {
+	if !InTmux() {
+		return nil, ErrNotInTmux
+	}
+
+	cmd := exec.Command("tmux", "list-panes", "-s", "-F", "#{session_name}:#{window_name}.#{pane_index}")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	var panes []string
+	for _, line := range lines {
+		if line != "" {
+			panes = append(panes, line)
+		}
+	}
+
+	return panes, nil
+}
+
+// ListAllPanes returns a list of all pane addresses across all sessions.
+func ListAllPanes() ([]string, error) {
+	if !InTmux() {
+		return nil, ErrNotInTmux
+	}
+
+	cmd := exec.Command("tmux", "list-panes", "-a", "-F", "#{session_name}:#{window_name}.#{pane_index}")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	var panes []string
+	for _, line := range lines {
+		if line != "" {
+			panes = append(panes, line)
+		}
+	}
+
+	return panes, nil
+}
+
+// PaneExists checks if a pane with the given address exists.
+func PaneExists(address string) (bool, error) {
+	if !InTmux() {
+		return false, ErrNotInTmux
+	}
+
+	cmd := exec.Command("tmux", "display-message", "-t", address, "-p", "#{pane_id}") // #nosec G204 - address is parsed/validated by callers via ParseAddress
+	err := cmd.Run()
+	if err != nil {
+		return false, nil
+	}
+
+	return true, nil
+}

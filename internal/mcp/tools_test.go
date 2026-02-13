@@ -148,7 +148,7 @@ func TestSendTool_SchemaValidation(t *testing.T) {
 	}
 
 	// Verify description
-	expectedDesc := "Send a message to another agent in a tmux window"
+	expectedDesc := "Send a message to another agent in a tmux pane"
 	if sendTool.Description != expectedDesc {
 		t.Errorf("send tool description mismatch: got %q, want %q", sendTool.Description, expectedDesc)
 	}
@@ -364,7 +364,7 @@ func TestListRecipientsTool_SchemaValidation(t *testing.T) {
 	}
 
 	// Verify description
-	expectedDesc := "List all available agents that can receive messages"
+	expectedDesc := "List all available agent panes that can receive messages"
 	if listRecipientsTool.Description != expectedDesc {
 		t.Errorf("list-recipients tool description mismatch: got %q, want %q", listRecipientsTool.Description, expectedDesc)
 	}

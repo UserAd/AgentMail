@@ -111,3 +111,92 @@ func TestGetCurrentWindow_NoPaneID(t *testing.T) {
 		t.Errorf("GetCurrentWindow() should return ErrNoPaneID when TMUX_PANE is empty, got: %v", err)
 	}
 }
+
+// T002: Tests for new pane-aware tmux functions
+
+func TestGetCurrentPaneAddress_NotInTmux(t *testing.T) {
+	t.Setenv("TMUX", "")
+	t.Setenv("TMUX_PANE", "")
+
+	_, err := GetCurrentPaneAddress()
+	if err != ErrNotInTmux {
+		t.Errorf("GetCurrentPaneAddress() should return ErrNotInTmux when not in tmux, got: %v", err)
+	}
+}
+
+func TestGetCurrentPaneAddress_NoPaneID(t *testing.T) {
+	t.Setenv("TMUX", "/tmp/tmux-501/default,12345,0")
+	t.Setenv("TMUX_PANE", "")
+
+	_, err := GetCurrentPaneAddress()
+	if err != ErrNoPaneID {
+		t.Errorf("GetCurrentPaneAddress() should return ErrNoPaneID when TMUX_PANE is empty, got: %v", err)
+	}
+}
+
+func TestGetCurrentSession_NotInTmux(t *testing.T) {
+	t.Setenv("TMUX", "")
+	t.Setenv("TMUX_PANE", "")
+
+	_, err := GetCurrentSession()
+	if err != ErrNotInTmux {
+		t.Errorf("GetCurrentSession() should return ErrNotInTmux when not in tmux, got: %v", err)
+	}
+}
+
+func TestGetCurrentSession_NoPaneID(t *testing.T) {
+	t.Setenv("TMUX", "/tmp/tmux-501/default,12345,0")
+	t.Setenv("TMUX_PANE", "")
+
+	_, err := GetCurrentSession()
+	if err != ErrNoPaneID {
+		t.Errorf("GetCurrentSession() should return ErrNoPaneID when TMUX_PANE is empty, got: %v", err)
+	}
+}
+
+func TestListPanes_NotInTmux(t *testing.T) {
+	t.Setenv("TMUX", "")
+
+	_, err := ListPanes()
+	if err != ErrNotInTmux {
+		t.Errorf("ListPanes() should return ErrNotInTmux when not in tmux, got: %v", err)
+	}
+}
+
+func TestListAllPanes_NotInTmux(t *testing.T) {
+	t.Setenv("TMUX", "")
+
+	_, err := ListAllPanes()
+	if err != ErrNotInTmux {
+		t.Errorf("ListAllPanes() should return ErrNotInTmux when not in tmux, got: %v", err)
+	}
+}
+
+func TestPaneExists_NotInTmux(t *testing.T) {
+	t.Setenv("TMUX", "")
+
+	_, err := PaneExists("mysession:editor.0")
+	if err != ErrNotInTmux {
+		t.Errorf("PaneExists() should return ErrNotInTmux when not in tmux, got: %v", err)
+	}
+}
+
+func TestGetCurrentPaneAddress_InvalidPaneID(t *testing.T) {
+	t.Setenv("TMUX", "/tmp/tmux-501/default,12345,0")
+	t.Setenv("TMUX_PANE", "invalid")
+
+	_, err := GetCurrentPaneAddress()
+	if err != ErrInvalidPaneID {
+		t.Errorf("GetCurrentPaneAddress() should return ErrInvalidPaneID for invalid pane ID, got: %v", err)
+	}
+}
+
+func TestGetCurrentSession_InvalidPaneID(t *testing.T) {
+	t.Setenv("TMUX", "/tmp/tmux-501/default,12345,0")
+	t.Setenv("TMUX_PANE", "not-a-pane-id")
+
+	_, err := GetCurrentSession()
+	if err != ErrInvalidPaneID {
+		t.Errorf("GetCurrentSession() should return ErrInvalidPaneID for invalid pane ID, got: %v", err)
+	}
+}

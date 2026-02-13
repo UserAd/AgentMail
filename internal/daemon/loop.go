@@ -22,7 +22,7 @@ const StatelessNotifyInterval = 60 * time.Second
 // It uses in-memory storage that resets on daemon restart.
 type StatelessTracker struct {
 	mu             sync.Mutex           // Protects concurrent access
-	lastNotified   map[string]time.Time // Window name → last notification time
+	lastNotified   map[string]time.Time // Pane address → last notification time
 	notifyInterval time.Duration        // Minimum interval between notifications
 }
 
@@ -34,13 +34,13 @@ func NewStatelessTracker(interval time.Duration) *StatelessTracker {
 	}
 }
 
-// ShouldNotify returns true if the window is eligible for notification (T011).
-// Returns true if: (a) window not in tracker, or (b) interval elapsed since last notification.
-func (t *StatelessTracker) ShouldNotify(window string) bool {
+// ShouldNotify returns true if the pane is eligible for notification (T011).
+// Returns true if: (a) pane not in tracker, or (b) interval elapsed since last notification.
+func (t *StatelessTracker) ShouldNotify(pane string) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	lastTime, exists := t.lastNotified[window]
+	lastTime, exists := t.lastNotified[pane]
 	if !exists {
 		return true
 	}
@@ -48,29 +48,29 @@ func (t *StatelessTracker) ShouldNotify(window string) bool {
 	return time.Since(lastTime) >= t.notifyInterval
 }
 
-// MarkNotified records that a notification was sent to the window (T012).
-func (t *StatelessTracker) MarkNotified(window string) {
+// MarkNotified records that a notification was sent to the pane (T012).
+func (t *StatelessTracker) MarkNotified(pane string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	t.lastNotified[window] = time.Now()
+	t.lastNotified[pane] = time.Now()
 }
 
-// Cleanup removes entries for windows that are no longer active (T013).
-func (t *StatelessTracker) Cleanup(activeWindows []string) {
+// Cleanup removes entries for panes that are no longer active (T013).
+func (t *StatelessTracker) Cleanup(activePanes []string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	// Build a set of active windows for O(1) lookup
-	activeSet := make(map[string]struct{}, len(activeWindows))
-	for _, w := range activeWindows {
+	// Build a set of active panes for O(1) lookup
+	activeSet := make(map[string]struct{}, len(activePanes))
+	for _, w := range activePanes {
 		activeSet[w] = struct{}{}
 	}
 
 	// Remove entries not in the active set
-	for window := range t.lastNotified {
-		if _, exists := activeSet[window]; !exists {
-			delete(t.lastNotified, window)
+	for pane := range t.lastNotified {
+		if _, exists := activeSet[pane]; !exists {
+			delete(t.lastNotified, pane)
 		}
 	}
 }
@@ -93,17 +93,17 @@ func (opts *LoopOptions) log(format string, args ...interface{}) {
 // NotifyFunc is the function signature for notifying an agent.
 type NotifyFunc func(window string) error
 
-// WindowCheckerFunc is the function signature for checking if a window exists.
-type WindowCheckerFunc func(window string) (bool, error)
+// PaneCheckerFunc is the function signature for checking if a window exists.
+type PaneCheckerFunc func(window string) (bool, error)
 
 // NotifyAgent sends a notification to an agent's tmux window.
 // Notification protocol:
 // 1. tmux send-keys -t <window> "Check your agentmail"
 // 2. time.Sleep(1 * time.Second)
 // 3. tmux send-keys -t <window> Enter
-func NotifyAgent(window string) error {
+func NotifyAgent(pane string) error {
 	// Send the notification message
-	if err := tmux.SendKeys(window, "Check your agentmail"); err != nil {
+	if err := tmux.SendKeys(pane, "Check your agentmail"); err != nil {
 		return err
 	}
 
@@ -111,7 +111,7 @@ func NotifyAgent(window string) error {
 	time.Sleep(1 * time.Second)
 
 	// Send Enter to execute the command
-	if err := tmux.SendEnter(window); err != nil {
+	if err := tmux.SendEnter(pane); err != nil {
 		return err
 	}
 
@@ -127,17 +127,17 @@ func CheckAndNotify(opts LoopOptions) error {
 		// In test mode, skip actual notifications but still update flags
 		return CheckAndNotifyWithNotifier(opts, nil, nil)
 	}
-	return CheckAndNotifyWithNotifier(opts, NotifyAgent, tmux.WindowExists)
+	return CheckAndNotifyWithNotifier(opts, NotifyAgent, tmux.PaneExists)
 }
 
 // CheckAndNotifyWithNotifier performs a single notification cycle with a custom notifier.
 // This allows for testing without actual tmux calls.
 // When notify is non-nil, it will be called for each agent that should be notified.
-// When windowChecker is non-nil, it will be used to verify window existence before notifying.
+// When paneChecker is non-nil, it will be used to verify window existence before notifying.
 // The function handles two types of agents:
 // - Phase 1: Stated agents (with recipient state in recipients.jsonl)
 // - Phase 2: Stateless agents (mailbox but no recipient state)
-func CheckAndNotifyWithNotifier(opts LoopOptions, notify NotifyFunc, windowChecker WindowCheckerFunc) error {
+func CheckAndNotifyWithNotifier(opts LoopOptions, notify NotifyFunc, paneChecker PaneCheckerFunc) error {
 	opts.log("Starting notification cycle")
 
 	// =========================================================================
@@ -255,9 +255,9 @@ func CheckAndNotifyWithNotifier(opts LoopOptions, notify NotifyFunc, windowCheck
 			continue
 		}
 
-		// Check if window exists before attempting notification
-		if windowChecker != nil {
-			exists, err := windowChecker(mailboxRecipient)
+		// Check if pane exists before attempting notification
+		if paneChecker != nil {
+			exists, err := paneChecker(mailboxRecipient)
 			if err != nil {
 				opts.log("Error checking window existence for %q: %v", mailboxRecipient, err)
 				continue

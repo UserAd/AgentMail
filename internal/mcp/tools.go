@@ -21,7 +21,7 @@ const (
 
 // SendArgs represents the input parameters for the send tool.
 type SendArgs struct {
-	// Recipient is the tmux window name of the recipient agent.
+	// Recipient is the pane address of the recipient agent (session:window.pane, :window.pane, or window).
 	Recipient string `json:"recipient"`
 	// Message is the message content to send (max 64KB).
 	Message string `json:"message"`
@@ -49,7 +49,7 @@ func sendToolSchema() json.RawMessage {
 		"properties": {
 			"recipient": {
 				"type": "string",
-				"description": "The tmux window name of the recipient agent"
+				"description": "The pane address of the recipient agent (session:window.pane, :window.pane, or window)"
 			},
 			"message": {
 				"type": "string",
@@ -106,7 +106,7 @@ func RegisterTools(s *Server) {
 	// Register send tool with explicit schema
 	mcpServer.AddTool(&mcp.Tool{
 		Name:        ToolSend,
-		Description: "Send a message to another agent in a tmux window",
+		Description: "Send a message to another agent in a tmux pane",
 		InputSchema: sendToolSchema(),
 	}, sendHandler)
 
@@ -127,7 +127,7 @@ func RegisterTools(s *Server) {
 	// Register list-recipients tool with explicit schema
 	mcpServer.AddTool(&mcp.Tool{
 		Name:        ToolListRecipients,
-		Description: "List all available agents that can receive messages",
+		Description: "List all available agent panes that can receive messages",
 		InputSchema: listRecipientsToolSchema(),
 	}, listRecipientsHandler)
 }

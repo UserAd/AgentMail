@@ -1,6 +1,7 @@
 package mail
 
 import (
+	"agentmail/internal/tmux"
 	"encoding/json"
 	"errors"
 	"io"
@@ -10,6 +11,12 @@ import (
 	"syscall"
 	"time"
 )
+
+// fileFd returns the file descriptor as an int for use with syscall.Flock.
+// The uintptr-to-int conversion is safe on all supported 64-bit platforms.
+func fileFd(f *os.File) int {
+	return int(f.Fd()) // #nosec G115 -- file descriptors fit in int on 64-bit platforms
+}
 
 // RootDir is the root directory for AgentMail storage
 const RootDir = ".agentmail"
@@ -59,7 +66,7 @@ func isLockContention(err error) bool {
 // Returns the underlying error immediately for non-transient errors (e.g., EBADF, ENOLCK).
 func TryLockWithTimeout(file *os.File, timeout time.Duration) error {
 	// Try non-blocking lock first
-	err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+	err := syscall.Flock(fileFd(file), syscall.LOCK_EX|syscall.LOCK_NB)
 	if err == nil {
 		return nil
 	}
@@ -73,7 +80,7 @@ func TryLockWithTimeout(file *os.File, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		time.Sleep(10 * time.Millisecond)
-		err = syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+		err = syscall.Flock(fileFd(file), syscall.LOCK_EX|syscall.LOCK_NB)
 		if err == nil {
 			return nil
 		}
@@ -109,7 +116,7 @@ func Append(repoRoot string, msg Message) error {
 
 	// Build file path for recipient with path traversal protection (G304)
 	mailDir := filepath.Join(repoRoot, MailDir)
-	filePath, err := safePath(mailDir, msg.To+".jsonl")
+	filePath, err := safePath(mailDir, tmux.SanitizeForFilename(msg.To)+".jsonl")
 	if err != nil {
 		return err
 	}
@@ -121,7 +128,7 @@ func Append(repoRoot string, msg Message) error {
 	}
 
 	// Acquire exclusive lock on the file
-	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
+	if err := syscall.Flock(fileFd(file), syscall.LOCK_EX); err != nil {
 		_ = file.Close() // G104: error intentionally ignored in cleanup path
 		return err
 	}
@@ -132,7 +139,7 @@ func Append(repoRoot string, msg Message) error {
 	// Marshal message to JSON
 	data, err := json.Marshal(msg)
 	if err != nil {
-		_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+		_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
 		_ = file.Close()
 		return err
 	}
@@ -141,8 +148,8 @@ func Append(repoRoot string, msg Message) error {
 	_, err = file.Write(append(data, '\n'))
 
 	// Unlock before close (correct order)
-	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
-	_ = file.Close()                                   // G104: close errors don't affect the write result
+	_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
+	_ = file.Close()                                 // G104: close errors don't affect the write result
 	return err
 }
 
@@ -150,7 +157,7 @@ func Append(repoRoot string, msg Message) error {
 func ReadAll(repoRoot string, recipient string) ([]Message, error) {
 	// Build file path with path traversal protection (G304)
 	mailDir := filepath.Join(repoRoot, MailDir)
-	filePath, err := safePath(mailDir, recipient+".jsonl")
+	filePath, err := safePath(mailDir, tmux.SanitizeForFilename(recipient)+".jsonl")
 	if err != nil {
 		return nil, err
 	}
@@ -166,10 +173,10 @@ func ReadAll(repoRoot string, recipient string) ([]Message, error) {
 	defer file.Close()
 
 	// Acquire shared lock
-	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_SH); err != nil {
+	if err := syscall.Flock(fileFd(file), syscall.LOCK_SH); err != nil {
 		return nil, err
 	}
-	defer syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
+	defer syscall.Flock(fileFd(file), syscall.LOCK_UN)
 
 	data, err := io.ReadAll(file)
 	if err != nil {
@@ -244,7 +251,7 @@ func WriteAll(repoRoot string, recipient string, messages []Message) error {
 
 	// Build file path with path traversal protection (G304)
 	mailDir := filepath.Join(repoRoot, MailDir)
-	filePath, err := safePath(mailDir, recipient+".jsonl")
+	filePath, err := safePath(mailDir, tmux.SanitizeForFilename(recipient)+".jsonl")
 	if err != nil {
 		return err
 	}
@@ -256,7 +263,7 @@ func WriteAll(repoRoot string, recipient string, messages []Message) error {
 	}
 
 	// Acquire exclusive lock
-	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
+	if err := syscall.Flock(fileFd(file), syscall.LOCK_EX); err != nil {
 		_ = file.Close() // G104: error intentionally ignored in cleanup path
 		return err
 	}
@@ -265,8 +272,8 @@ func WriteAll(repoRoot string, recipient string, messages []Message) error {
 	writeErr := writeAllLocked(file, messages)
 
 	// Unlock before close (correct order)
-	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
-	_ = file.Close()                                   // G104: close errors don't affect the write result
+	_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
+	_ = file.Close()                                 // G104: close errors don't affect the write result
 	return writeErr
 }
 
@@ -277,7 +284,7 @@ func WriteAll(repoRoot string, recipient string, messages []Message) error {
 func CleanOldMessages(repoRoot string, recipient string, threshold time.Duration) (int, error) {
 	// Build file path with path traversal protection (G304)
 	mailDir := filepath.Join(repoRoot, MailDir)
-	filePath, err := safePath(mailDir, recipient+".jsonl")
+	filePath, err := safePath(mailDir, tmux.SanitizeForFilename(recipient)+".jsonl")
 	if err != nil {
 		return 0, err
 	}
@@ -292,7 +299,7 @@ func CleanOldMessages(repoRoot string, recipient string, threshold time.Duration
 	}
 
 	// Acquire exclusive lock for atomic read-modify-write
-	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
+	if err := syscall.Flock(fileFd(file), syscall.LOCK_EX); err != nil {
 		_ = file.Close() // G104: error intentionally ignored in cleanup path
 		return 0, err
 	}
@@ -300,7 +307,7 @@ func CleanOldMessages(repoRoot string, recipient string, threshold time.Duration
 	// Read all messages while holding lock
 	data, err := os.ReadFile(filePath) // #nosec G304 - path validated by safePath
 	if err != nil {
-		_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+		_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
 		_ = file.Close()
 		return 0, err
 	}
@@ -313,7 +320,7 @@ func CleanOldMessages(repoRoot string, recipient string, threshold time.Duration
 		}
 		var msg Message
 		if err := json.Unmarshal([]byte(line), &msg); err != nil {
-			_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+			_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
 			_ = file.Close()
 			return 0, err
 		}
@@ -350,8 +357,8 @@ func CleanOldMessages(repoRoot string, recipient string, threshold time.Duration
 	}
 
 	// Unlock before close (correct order)
-	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
-	_ = file.Close()                                   // G104: close errors don't affect the write result
+	_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
+	_ = file.Close()                                 // G104: close errors don't affect the write result
 	return removedCount, writeErr
 }
 
@@ -365,7 +372,7 @@ func MarkAsRead(repoRoot string, recipient string, messageID string) error {
 
 	// Build file path with path traversal protection (G304)
 	mailDir := filepath.Join(repoRoot, MailDir)
-	filePath, err := safePath(mailDir, recipient+".jsonl")
+	filePath, err := safePath(mailDir, tmux.SanitizeForFilename(recipient)+".jsonl")
 	if err != nil {
 		return err
 	}
@@ -380,7 +387,7 @@ func MarkAsRead(repoRoot string, recipient string, messageID string) error {
 	}
 
 	// Acquire exclusive lock for atomic read-modify-write
-	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
+	if err := syscall.Flock(fileFd(file), syscall.LOCK_EX); err != nil {
 		_ = file.Close() // G104: error intentionally ignored in cleanup path
 		return err
 	}
@@ -388,7 +395,7 @@ func MarkAsRead(repoRoot string, recipient string, messageID string) error {
 	// Read all messages while holding lock
 	data, err := os.ReadFile(filePath) // #nosec G304 - path validated by safePath
 	if err != nil {
-		_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+		_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
 		_ = file.Close()
 		return err
 	}
@@ -401,7 +408,7 @@ func MarkAsRead(repoRoot string, recipient string, messageID string) error {
 		}
 		var msg Message
 		if err := json.Unmarshal([]byte(line), &msg); err != nil {
-			_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
+			_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: error intentionally ignored in cleanup path
 			_ = file.Close()
 			return err
 		}
@@ -420,8 +427,8 @@ func MarkAsRead(repoRoot string, recipient string, messageID string) error {
 	writeErr := writeAllLocked(file, messages)
 
 	// Unlock before close (correct order)
-	_ = syscall.Flock(int(file.Fd()), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
-	_ = file.Close()                                   // G104: close errors don't affect the write result
+	_ = syscall.Flock(fileFd(file), syscall.LOCK_UN) // G104: unlock errors don't affect the write result
+	_ = file.Close()                                 // G104: close errors don't affect the write result
 	return writeErr
 }
 
@@ -439,7 +446,7 @@ func RemoveEmptyMailboxes(repoRoot string) (int, error) {
 
 	for _, recipient := range recipients {
 		// Build file path with path traversal protection (G304)
-		filePath, err := safePath(mailDir, recipient+".jsonl")
+		filePath, err := safePath(mailDir, tmux.SanitizeForFilename(recipient)+".jsonl")
 		if err != nil {
 			continue // Skip invalid paths
 		}
@@ -519,7 +526,7 @@ func CountEmptyMailboxes(repoRoot string) (int, error) {
 	count := 0
 
 	for _, recipient := range recipients {
-		filePath, err := safePath(mailDir, recipient+".jsonl")
+		filePath, err := safePath(mailDir, tmux.SanitizeForFilename(recipient)+".jsonl")
 		if err != nil {
 			continue
 		}

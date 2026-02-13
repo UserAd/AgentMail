@@ -24,7 +24,7 @@ A Go CLI tool for inter-agent communication within tmux sessions. Agents running
 
 ## Requirements
 
-- Go 1.25.5 or later
+- Go 1.25.7 or later
 - tmux (must be running inside a tmux session)
 - Linux or macOS
 
@@ -94,7 +94,7 @@ agentmail receive
 
 ### send
 
-Send a message to another agent (tmux window).
+Send a message to another agent (tmux pane).
 
 ```bash
 agentmail send [flags] [<recipient>] [<message>]
@@ -102,15 +102,29 @@ agentmail send [flags] [<recipient>] [<message>]
 
 **Arguments (positional or flags):**
 
-- `<recipient>` - Target tmux window name (required)
+- `<recipient>` - Target pane address (required). Accepts three forms:
+  - **Full**: `session:window.pane` (e.g., `AgentMail:editor.1`)
+  - **Medium**: `:window.pane` (e.g., `:editor.1`) — session inferred from current
+  - **Short**: `window` (e.g., `editor`) — backward compatible, resolves if single pane
 - `<message>` - Message content (optional if using stdin)
 
 **Flags:**
 
-- `-r, --recipient <name>` - Recipient tmux window name
+- `-r, --recipient <address>` - Recipient pane address
 - `-m, --message <text>` - Message content
 
 Flags take precedence over positional arguments.
+
+**Pane Addressing:**
+
+When using the short form (window name only), AgentMail resolves it to a specific pane:
+- If the window has **one pane**: message is sent to that pane
+- If the window has **multiple panes**: returns an ambiguity error listing all pane addresses
+
+Example ambiguity error:
+```
+Ambiguous recipient: window 'editor' has 3 panes. Use AgentMail:editor.0, AgentMail:editor.1 or AgentMail:editor.2
+```
 
 **Examples:**
 
@@ -118,13 +132,19 @@ Flags take precedence over positional arguments.
 # Send with positional arguments
 agentmail send agent-2 "Task completed successfully"
 
+# Send to specific pane (full address)
+agentmail send AgentMail:editor.1 "Review this code"
+
+# Send to specific pane (medium address)
+agentmail send :editor.1 "Update from pane 0"
+
 # Send with flags (equivalent)
 agentmail send -r agent-2 -m "Task completed successfully"
-agentmail send --recipient agent-2 --message "Task completed"
+agentmail send --recipient AgentMail:editor.0 --message "Task completed"
 
 # Send via stdin
 echo "Results from analysis" | agentmail send agent-2
-echo "Results" | agentmail send -r agent-2
+echo "Results" | agentmail send -r :editor.1
 
 # Send multi-line content
 cat report.txt | agentmail send agent-2
@@ -147,6 +167,13 @@ agentmail receive [--hook]
 **Flags:**
 
 - `--hook` - Enable hook mode for Claude Code integration (see [Claude Code Hooks](#claude-code-hooks-manual-setup))
+
+**Pane-specific mailboxes:**
+
+Each tmux pane has its own mailbox. Messages are received per-pane, meaning:
+- Pane `AgentMail:editor.0` has a separate mailbox from `AgentMail:editor.1`
+- Messages sent to `:editor.0` are only visible when receiving from that specific pane
+- This enables pane isolation for multi-pane workflows
 
 **Output format (normal mode):**
 
@@ -172,11 +199,13 @@ Returns "No unread messages" if the mailbox is empty.
 
 ### recipients
 
-List all available recipients (tmux windows in the current session).
+List all available recipients (tmux panes in the current session).
 
 ```bash
 agentmail recipients
 ```
+
+Displays all pane addresses in the session in the format `session:window.pane`. The current pane is marked with `[you]`.
 
 **Example output:**
 
@@ -721,10 +750,10 @@ gosec ./...
 
 ### Testing in CI Environment
 
-To match the CI environment (Go 1.25.5, Linux):
+To match the CI environment (Go 1.25.7, Linux):
 
 ```bash
-docker run --rm -v $(pwd):/app -w /app golang:1.25.5 go test -v -race ./...
+docker run --rm -v $(pwd):/app -w /app golang:1.25.7 go test -v -race ./...
 ```
 
 ### CI/CD Pipeline

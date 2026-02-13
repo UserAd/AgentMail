@@ -16,12 +16,12 @@ import (
 type HandlerOptions struct {
 	// SkipTmuxCheck disables tmux validation (for testing).
 	SkipTmuxCheck bool
-	// MockReceiver is the mock receiver window name (for testing).
-	MockReceiver string
-	// MockSender is the mock sender window name (for testing).
-	MockSender string
-	// MockWindows is the mock list of tmux windows (for testing).
-	MockWindows []string
+	// MockPaneAddress is the mock pane address for sender/receiver (for testing).
+	MockPaneAddress string
+	// MockSession is the mock session name (for testing).
+	MockSession string
+	// MockPanes is the mock list of tmux panes (for testing).
+	MockPanes []string
 	// MockIgnoreList is the mock ignore list (for testing).
 	MockIgnoreList map[string]bool
 	// RepoRoot is the repository root (defaults to git root).
@@ -58,7 +58,7 @@ type SendResponse struct {
 
 // ReceiveResponse represents a successful receive response with a message.
 type ReceiveResponse struct {
-	From    string `json:"from"`    // Sender window name
+	From    string `json:"from"`    // Sender pane address
 	ID      string `json:"id"`      // Message ID
 	Message string `json:"message"` // Message content
 }
@@ -80,8 +80,8 @@ type ListRecipientsResponse struct {
 
 // RecipientInfo represents a single recipient in the list-recipients response.
 type RecipientInfo struct {
-	Name      string `json:"name"`       // Window name
-	IsCurrent bool   `json:"is_current"` // True if this is the caller's window
+	Address   string `json:"address"`    // Pane address (session:window.pane)
+	IsCurrent bool   `json:"is_current"` // True if this is the caller's pane
 }
 
 // doSend implements the send handler logic.
@@ -102,41 +102,97 @@ func doSend(ctx context.Context, recipient, message string) (any, error) {
 		return nil, fmt.Errorf("message exceeds maximum size of 64KB")
 	}
 
-	// Get sender identity
+	// Get sender identity (pane address)
 	var sender string
-	if opts.MockSender != "" {
-		sender = opts.MockSender
+	if opts.MockPaneAddress != "" {
+		sender = opts.MockPaneAddress
 	} else {
 		var err error
-		sender, err = tmux.GetCurrentWindow()
+		sender, err = tmux.GetCurrentPaneAddress()
 		if err != nil {
-			return nil, fmt.Errorf("failed to get current window: %w", err)
+			return nil, fmt.Errorf("failed to get current pane address: %w", err)
 		}
 	}
 
-	// FR-009: Validate recipient exists
-	var recipientExists bool
-	if opts.MockWindows != nil {
-		for _, w := range opts.MockWindows {
-			if w == recipient {
-				recipientExists = true
-				break
+	// Get current session for address resolution
+	var currentSession string
+	if opts.MockSession != "" {
+		currentSession = opts.MockSession
+	} else {
+		// Try to extract session from sender address
+		addr, err := tmux.ParseAddress(sender, "")
+		if err == nil {
+			currentSession = addr.Session
+		} else {
+			var sessionErr error
+			currentSession, sessionErr = tmux.GetCurrentSession()
+			if sessionErr != nil {
+				return nil, fmt.Errorf("failed to get current session: %w", sessionErr)
 			}
 		}
-	} else {
-		var err error
-		recipientExists, err = tmux.WindowExists(recipient)
-		if err != nil {
-			return nil, fmt.Errorf("failed to check recipient: %w", err)
-		}
 	}
 
-	if !recipientExists {
+	// Parse recipient address
+	addr, err := tmux.ParseAddress(recipient, currentSession)
+	if err != nil {
 		return nil, fmt.Errorf("recipient not found")
 	}
 
+	// Resolve recipient address
+	var resolvedRecipient string
+	if addr.Pane == -1 {
+		// Short form - need to resolve window name to pane address
+		var panes []string
+		if opts.MockPanes != nil {
+			panes = opts.MockPanes
+		} else {
+			panes, err = tmux.ListPanes()
+			if err != nil {
+				return nil, fmt.Errorf("failed to list panes: %w", err)
+			}
+		}
+
+		// Find matching panes
+		var matches []string
+		for _, pane := range panes {
+			paneAddr, parseErr := tmux.ParseAddress(pane, currentSession)
+			if parseErr == nil && paneAddr.Window == addr.Window {
+				matches = append(matches, pane)
+			}
+		}
+
+		if len(matches) == 0 {
+			return nil, fmt.Errorf("recipient not found")
+		} else if len(matches) > 1 {
+			// Ambiguous - suggest all matching panes
+			return nil, fmt.Errorf("Ambiguous recipient: window '%s' has %d panes. Use %s", addr.Window, len(matches), formatAddressList(matches))
+		}
+		resolvedRecipient = matches[0]
+	} else {
+		// Full or medium form - validate pane exists
+		fullAddr := tmux.FormatAddress(addr)
+		var exists bool
+		if opts.MockPanes != nil {
+			for _, p := range opts.MockPanes {
+				if p == fullAddr {
+					exists = true
+					break
+				}
+			}
+		} else {
+			exists, err = tmux.PaneExists(fullAddr)
+			if err != nil {
+				return nil, fmt.Errorf("failed to check recipient: %w", err)
+			}
+		}
+		if !exists {
+			return nil, fmt.Errorf("recipient not found")
+		}
+		resolvedRecipient = fullAddr
+	}
+
 	// Check if sending to self (not allowed)
-	if recipient == sender {
+	if resolvedRecipient == sender {
 		return nil, fmt.Errorf("cannot send message to self")
 	}
 
@@ -145,21 +201,17 @@ func doSend(ctx context.Context, recipient, message string) (any, error) {
 	if opts.MockIgnoreList != nil {
 		ignoreList = opts.MockIgnoreList
 	} else {
-		// Determine git root for loading ignore list.
-		// Errors are intentionally ignored: if we can't find git root or load
-		// the ignore list, we proceed without filtering - this is acceptable
-		// as the ignore list is optional.
 		gitRoot := opts.RepoRoot
 		if gitRoot == "" {
-			gitRoot, _ = mail.FindGitRoot() // Error ignored: proceed without ignore list
+			gitRoot, _ = mail.FindGitRoot()
 		}
 		if gitRoot != "" {
-			ignoreList, _ = mail.LoadIgnoreList(gitRoot) // Error ignored: proceed without ignore list
+			ignoreList, _ = mail.LoadIgnoreList(gitRoot)
 		}
 	}
 
 	// Check if recipient is in ignore list
-	if ignoreList != nil && ignoreList[recipient] {
+	if mail.IsIgnored(resolvedRecipient, ignoreList, currentSession) {
 		return nil, fmt.Errorf("recipient not found")
 	}
 
@@ -182,7 +234,7 @@ func doSend(ctx context.Context, recipient, message string) (any, error) {
 	msg := mail.Message{
 		ID:       id,
 		From:     sender,
-		To:       recipient,
+		To:       resolvedRecipient,
 		Message:  message,
 		ReadFlag: false,
 	}
@@ -195,6 +247,28 @@ func doSend(ctx context.Context, recipient, message string) (any, error) {
 	return SendResponse{
 		MessageID: id,
 	}, nil
+}
+
+// formatAddressList formats a list of addresses for error messages.
+func formatAddressList(addresses []string) string {
+	if len(addresses) == 0 {
+		return ""
+	}
+	if len(addresses) == 1 {
+		return addresses[0]
+	}
+	result := ""
+	for i, addr := range addresses {
+		if i > 0 {
+			if i == len(addresses)-1 {
+				result += ", or "
+			} else {
+				result += ", "
+			}
+		}
+		result += addr
+	}
+	return result
 }
 
 // sendParams holds the unmarshaled parameters for the send tool.
@@ -255,15 +329,15 @@ func doReceive(ctx context.Context) (any, error) {
 		opts = &HandlerOptions{}
 	}
 
-	// Get receiver identity
+	// Get receiver identity (pane address)
 	var receiver string
-	if opts.MockReceiver != "" {
-		receiver = opts.MockReceiver
+	if opts.MockPaneAddress != "" {
+		receiver = opts.MockPaneAddress
 	} else {
 		var err error
-		receiver, err = tmux.GetCurrentWindow()
+		receiver, err = tmux.GetCurrentPaneAddress()
 		if err != nil {
-			return nil, fmt.Errorf("failed to get current window: %w", err)
+			return nil, fmt.Errorf("failed to get current pane address: %w", err)
 		}
 	}
 
@@ -364,15 +438,15 @@ func doStatus(ctx context.Context, status string) (any, error) {
 		return nil, fmt.Errorf("Invalid status: %s. Valid: ready, work, offline", status)
 	}
 
-	// Get agent identity (current tmux window)
+	// Get agent identity (current tmux pane address)
 	var agent string
-	if opts.MockReceiver != "" {
-		agent = opts.MockReceiver
+	if opts.MockPaneAddress != "" {
+		agent = opts.MockPaneAddress
 	} else {
 		var err error
-		agent, err = tmux.GetCurrentWindow()
+		agent, err = tmux.GetCurrentPaneAddress()
 		if err != nil {
-			return nil, fmt.Errorf("failed to get current window: %w", err)
+			return nil, fmt.Errorf("failed to get current pane address: %w", err)
 		}
 	}
 
@@ -450,35 +524,52 @@ func handleStatus(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolR
 }
 
 // doListRecipients implements the list-recipients handler logic.
-// It returns all available agents (tmux windows) with the current window marked.
-// Ignored windows are excluded, but current window is always shown.
+// It returns all available agents (tmux panes) with the current pane marked.
+// Ignored panes are excluded, but current pane is always shown.
 func doListRecipients(ctx context.Context) (any, error) {
 	opts := getHandlerOptions()
 	if opts == nil {
 		opts = &HandlerOptions{}
 	}
 
-	// Get current window (agent identity)
-	var currentWindow string
-	if opts.MockReceiver != "" {
-		currentWindow = opts.MockReceiver
+	// Get current pane (agent identity)
+	var currentPane string
+	if opts.MockPaneAddress != "" {
+		currentPane = opts.MockPaneAddress
 	} else {
 		var err error
-		currentWindow, err = tmux.GetCurrentWindow()
+		currentPane, err = tmux.GetCurrentPaneAddress()
 		if err != nil {
-			return nil, fmt.Errorf("failed to get current window: %w", err)
+			return nil, fmt.Errorf("failed to get current pane address: %w", err)
 		}
 	}
 
-	// Get list of all windows
-	var windows []string
-	if opts.MockWindows != nil {
-		windows = opts.MockWindows
+	// Get current session for ignore matching
+	var currentSession string
+	if opts.MockSession != "" {
+		currentSession = opts.MockSession
+	} else {
+		addr, err := tmux.ParseAddress(currentPane, "")
+		if err == nil {
+			currentSession = addr.Session
+		} else {
+			var sessionErr error
+			currentSession, sessionErr = tmux.GetCurrentSession()
+			if sessionErr != nil {
+				return nil, fmt.Errorf("failed to get current session: %w", sessionErr)
+			}
+		}
+	}
+
+	// Get list of all panes
+	var panes []string
+	if opts.MockPanes != nil {
+		panes = opts.MockPanes
 	} else {
 		var err error
-		windows, err = tmux.ListWindows()
+		panes, err = tmux.ListPanes()
 		if err != nil {
-			return nil, fmt.Errorf("failed to list windows: %w", err)
+			return nil, fmt.Errorf("failed to list panes: %w", err)
 		}
 	}
 
@@ -487,32 +578,28 @@ func doListRecipients(ctx context.Context) (any, error) {
 	if opts.MockIgnoreList != nil {
 		ignoreList = opts.MockIgnoreList
 	} else {
-		// Determine git root for loading ignore list.
-		// Errors are intentionally ignored: if we can't find git root or load
-		// the ignore list, we proceed without filtering - this is acceptable
-		// as the ignore list is optional.
 		gitRoot := opts.RepoRoot
 		if gitRoot == "" {
-			gitRoot, _ = mail.FindGitRoot() // Error ignored: proceed without ignore list
+			gitRoot, _ = mail.FindGitRoot()
 		}
 		if gitRoot != "" {
-			ignoreList, _ = mail.LoadIgnoreList(gitRoot) // Error ignored: proceed without ignore list
+			ignoreList, _ = mail.LoadIgnoreList(gitRoot)
 		}
 	}
 
-	// Build recipients list, filtering ignored windows but always including current
+	// Build recipients list, filtering ignored panes but always including current
 	recipients := []RecipientInfo{}
-	for _, window := range windows {
-		// Current window is always shown (even if in ignore list)
-		if window == currentWindow {
+	for _, pane := range panes {
+		// Current pane is always shown (even if in ignore list)
+		if pane == currentPane {
 			recipients = append(recipients, RecipientInfo{
-				Name:      window,
+				Address:   pane,
 				IsCurrent: true,
 			})
-		} else if ignoreList == nil || !ignoreList[window] {
-			// Only show non-current windows if they're not in the ignore list
+		} else if !mail.IsIgnored(pane, ignoreList, currentSession) {
+			// Only show non-current panes if they're not ignored
 			recipients = append(recipients, RecipientInfo{
-				Name:      window,
+				Address:   pane,
 				IsCurrent: false,
 			})
 		}

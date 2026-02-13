@@ -12,9 +12,9 @@ REVIEW CRITERIA (priority order):
 1. The reviewer shall verify the code does what the tests expect (correctness).
 2. The reviewer shall flag unnecessary complexity that could be simpler.
 3. The reviewer shall flag code that goes beyond what tests require (over-engineering).
-4. The reviewer shall verify the code follows the project's established patterns (Rails conventions, existing code style).
+4. The reviewer shall verify the code follows the project's established patterns (Go conventions, existing code style).
 5. The reviewer shall flag edge cases that tests cover but implementation mishandles.
-6. The reviewer shall verify RuboCop compliance and Rails best practices are followed.
+6. The reviewer shall verify `go vet` compliance and Go best practices are followed (error handling, naming, package structure).
 
 The reviewer shall not suggest adding features or error handling not covered by tests.
 The reviewer shall not suggest refactoring for hypothetical future needs.

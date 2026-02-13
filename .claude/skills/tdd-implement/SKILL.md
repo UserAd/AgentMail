@@ -76,7 +76,7 @@ Assign to **qa**. Use prompt from [references/qa-prompt.md](references/qa-prompt
 
 The lead shall substitute `{REQUIREMENTS}` with requirements from user input or spec files.
 The lead shall append to qa prompt: "When done, mark task #N as completed using TaskUpdate, then send a message to team-lead via SendMessage with test file paths and confirmation they fail."
-When qa completes, the lead shall verify tests exist and fail via `bundle exec rspec`.
+When qa completes, the lead shall verify tests exist and fail via `go test ./...`.
 
 ### Phase 2: GREEN — Minimal Implementation
 
@@ -96,8 +96,11 @@ Assign to **qa** (or spawn dedicated qa agent). The lead shall instruct qa:
 The lead may run quality gates in parallel with the reviewer (Phase 4) since both are read-only.
 
 ```bash
-bundle exec rspec
-bundle exec rubocop -A
+gofmt -l .
+go vet ./...
+go test -v -race ./...
+govulncheck ./...
+gosec ./...
 ```
 
 If any quality gate fails, then the lead shall send exact error output to **implementor** via SendMessage for fix, including: "After fixing, run [failed command] to verify clean, then message team-lead."
@@ -131,7 +134,7 @@ The lead shall create these tasks at start:
 
 ## Error Handling
 
-If qa writes tests that error on missing classes/modules, then the lead shall instruct qa via SendMessage to use `instance_double` or stub missing dependencies so tests fail on assertions instead.
+If qa writes tests that error on missing types/packages, then the lead shall instruct qa via SendMessage to write interface-based tests or use stub implementations so tests fail on assertions instead.
 If implementor cannot make tests pass after 2 attempts, then the lead shall shutdown the implementor and spawn a fresh implementor agent with full context of the problem.
 If reviewer suggests scope-expanding changes, then the lead shall reject them via SendMessage and request review within stated criteria only.
 If any agent is unresponsive after 2 messages, then the lead shall shutdown that agent and spawn a replacement with the same role.

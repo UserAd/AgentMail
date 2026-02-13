@@ -416,14 +416,23 @@ After all phases complete, run quality gates sequentially with a dedicated agent
 .claude/skills/tmux/scripts/send_command.sh agent-qa-gates "/clear"
 .claude/skills/tmux/scripts/send_command.sh agent-qa-gates "Run all quality gates SEQUENTIALLY:
 
-## Gate 1: RuboCop
-bundle exec rubocop
+## Gate 1: Formatting
+gofmt -l .
 
-## Gate 2: RSpec
-bundle exec rspec
+## Gate 2: Dependencies
+go mod verify
 
-## Gate 3: Playwright E2E
-bin/rails playwright:run_with_patch
+## Gate 3: Static Analysis
+go vet ./...
+
+## Gate 4: Tests
+go test -v -race -coverprofile=coverage.out ./...
+
+## Gate 5: Vulnerability Check
+govulncheck ./...
+
+## Gate 6: Security Scan
+gosec ./...
 
 Report results in table format:
 | Gate | Status | Details |

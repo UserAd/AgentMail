@@ -1,6 +1,7 @@
 package mail
 
 import (
+	"agentmail/internal/tmux"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -242,7 +243,9 @@ func ListMailboxRecipients(repoRoot string) ([]string, error) {
 			continue
 		}
 		// Extract recipient name (remove .jsonl suffix)
-		recipient := strings.TrimSuffix(name, ".jsonl")
+		encodedRecipient := strings.TrimSuffix(name, ".jsonl")
+		// Decode pane address from filename
+		recipient := tmux.UnsanitizeFromFilename(encodedRecipient)
 		recipients = append(recipients, recipient)
 	}
 

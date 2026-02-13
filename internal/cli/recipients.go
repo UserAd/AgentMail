@@ -10,15 +10,16 @@ import (
 
 // RecipientsOptions configures the Recipients command behavior.
 type RecipientsOptions struct {
-	SkipTmuxCheck  bool            // Skip tmux environment check
-	MockWindows    []string        // Mock list of tmux windows
-	MockCurrent    string          // Mock current window name
-	MockIgnoreList map[string]bool // Mock ignore list (nil = load from file)
-	MockGitRoot    string          // Mock git root (for testing)
+	SkipTmuxCheck   bool            // Skip tmux environment check
+	MockPanes       []string        // Mock list of tmux panes
+	MockPaneAddress string          // Mock current pane address
+	MockSession     string          // Mock session name
+	MockIgnoreList  map[string]bool // Mock ignore list (nil = load from file)
+	MockGitRoot     string          // Mock git root (for testing)
 }
 
 // Recipients implements the agentmail recipients command.
-// It lists all tmux windows with the current window marked "[you]".
+// It lists all tmux panes with the current pane marked "[you]".
 func Recipients(stdout, stderr io.Writer, opts RecipientsOptions) int {
 	// Validate running inside tmux
 	if !opts.SkipTmuxCheck {
@@ -28,30 +29,48 @@ func Recipients(stdout, stderr io.Writer, opts RecipientsOptions) int {
 		}
 	}
 
-	// Get list of windows
-	var windows []string
-	if opts.MockWindows != nil {
-		windows = opts.MockWindows
+	// Get list of panes
+	var panes []string
+	if opts.MockPanes != nil {
+		panes = opts.MockPanes
 	} else {
 		var err error
-		windows, err = tmux.ListWindows()
+		panes, err = tmux.ListPanes()
 		if err != nil {
-			fmt.Fprintf(stderr, "error: failed to list windows: %v\n", err)
+			fmt.Fprintf(stderr, "error: failed to list panes: %v\n", err)
 			return 1
 		}
 	}
 
-	// Get current window
-	// In mock mode (MockWindows is set), use MockCurrent even if empty
-	var currentWindow string
-	if opts.MockWindows != nil {
-		currentWindow = opts.MockCurrent
+	// Get current pane address
+	var currentPane string
+	if opts.MockPaneAddress != "" {
+		currentPane = opts.MockPaneAddress
 	} else {
 		var err error
-		currentWindow, err = tmux.GetCurrentWindow()
+		currentPane, err = tmux.GetCurrentPaneAddress()
 		if err != nil {
-			fmt.Fprintf(stderr, "error: failed to get current window: %v\n", err)
+			fmt.Fprintf(stderr, "error: failed to get current pane address: %v\n", err)
 			return 1
+		}
+	}
+
+	// Get current session for ignore matching
+	var currentSession string
+	if opts.MockSession != "" {
+		currentSession = opts.MockSession
+	} else {
+		// Try to extract session from current pane address
+		addr, err := tmux.ParseAddress(currentPane, "")
+		if err == nil {
+			currentSession = addr.Session
+		} else {
+			var sessionErr error
+			currentSession, sessionErr = tmux.GetCurrentSession()
+			if sessionErr != nil {
+				fmt.Fprintf(stderr, "error: failed to get current session: %v\n", sessionErr)
+				return 1
+			}
 		}
 	}
 
@@ -74,14 +93,14 @@ func Recipients(stdout, stderr io.Writer, opts RecipientsOptions) int {
 		}
 	}
 
-	// Output windows with current marked, filtering ignored windows
-	for _, window := range windows {
-		// Current window is always shown (per FR-004), even if in ignore list
-		if window == currentWindow {
-			fmt.Fprintf(stdout, "%s [you]\n", window)
-		} else if ignoreList == nil || !ignoreList[window] {
-			// Only show non-current windows if they're not in the ignore list
-			fmt.Fprintf(stdout, "%s\n", window)
+	// Output panes with current marked, filtering ignored panes
+	for _, pane := range panes {
+		// Current pane is always shown (per FR-004), even if in ignore list
+		if pane == currentPane {
+			fmt.Fprintf(stdout, "%s [you]\n", pane)
+		} else if !mail.IsIgnored(pane, ignoreList, currentSession) {
+			// Only show non-current panes if they're not ignored
+			fmt.Fprintf(stdout, "%s\n", pane)
 		}
 	}
 

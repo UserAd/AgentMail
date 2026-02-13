@@ -264,3 +264,107 @@ another-ignored
 		t.Error("Should not find 'not-ignored' in ignore list")
 	}
 }
+
+// Tests for IsIgnored function with pane addresses
+
+func TestIsIgnored_FullMatch(t *testing.T) {
+	ignoreList := map[string]bool{
+		"mysession:editor.1": true,
+	}
+
+	if !IsIgnored("mysession:editor.1", ignoreList, "mysession") {
+		t.Error("Should match full pane address")
+	}
+
+	if IsIgnored("mysession:editor.0", ignoreList, "mysession") {
+		t.Error("Should not match different pane")
+	}
+}
+
+func TestIsIgnored_MediumFormMatch(t *testing.T) {
+	ignoreList := map[string]bool{
+		":editor.1": true,
+	}
+
+	if !IsIgnored("mysession:editor.1", ignoreList, "mysession") {
+		t.Error("Should match medium form against current session")
+	}
+
+	if IsIgnored("othersession:editor.1", ignoreList, "mysession") {
+		t.Error("Should not match different session")
+	}
+
+	if IsIgnored("mysession:editor.0", ignoreList, "mysession") {
+		t.Error("Should not match different pane")
+	}
+}
+
+func TestIsIgnored_ShortFormMatch(t *testing.T) {
+	ignoreList := map[string]bool{
+		"editor": true,
+	}
+
+	if !IsIgnored("mysession:editor.0", ignoreList, "mysession") {
+		t.Error("Should match window name against any pane")
+	}
+
+	if !IsIgnored("mysession:editor.1", ignoreList, "mysession") {
+		t.Error("Should match window name against any pane")
+	}
+
+	if !IsIgnored("mysession:editor.99", ignoreList, "mysession") {
+		t.Error("Should match window name against any pane")
+	}
+
+	if IsIgnored("mysession:logs.0", ignoreList, "mysession") {
+		t.Error("Should not match different window")
+	}
+}
+
+func TestIsIgnored_NoMatch(t *testing.T) {
+	ignoreList := map[string]bool{
+		"other": true,
+	}
+
+	if IsIgnored("mysession:editor.0", ignoreList, "mysession") {
+		t.Error("Should not match when window name differs")
+	}
+}
+
+func TestIsIgnored_MultiplePatterns(t *testing.T) {
+	ignoreList := map[string]bool{
+		"mysession:logs.0": true,
+		":editor.1":        true,
+		"debug":            true,
+	}
+
+	if !IsIgnored("mysession:logs.0", ignoreList, "mysession") {
+		t.Error("Should match full form")
+	}
+
+	if !IsIgnored("mysession:editor.1", ignoreList, "mysession") {
+		t.Error("Should match medium form")
+	}
+
+	if !IsIgnored("mysession:debug.0", ignoreList, "mysession") {
+		t.Error("Should match short form")
+	}
+
+	if !IsIgnored("othersession:debug.5", ignoreList, "mysession") {
+		t.Error("Should match short form regardless of session")
+	}
+}
+
+func TestIsIgnored_EmptyIgnoreList(t *testing.T) {
+	ignoreList := map[string]bool{}
+
+	if IsIgnored("mysession:editor.0", ignoreList, "mysession") {
+		t.Error("Should not match with empty ignore list")
+	}
+}
+
+func TestIsIgnored_NilIgnoreList(t *testing.T) {
+	if IsIgnored("mysession:editor.0", nil, "mysession") {
+		t.Error("Should not match with nil ignore list")
+	}
+}

@@ -112,6 +112,8 @@ This checklist ensures documentation stays in sync with the codebase.
 - JSONL files in `.agentmail/` directory (recipients.jsonl, mailboxes/*.jsonl) (011-cleanup)
 - Go 1.25.5 (minimum 1.21+ per IC-001) + Standard library only (os, os/exec, syscall, strconv, strings) (012-mailman-stop)
 - `.agentmail/mailman.pid` (existing PID file from 006-mailman-daemon) (012-mailman-stop)
+- Go 1.25.5 (minimum 1.21+ per constitution IC-001) + Standard library only (`os/exec`, `encoding/json`, `strings`, `strconv`, `fmt`, `regexp`). Existing approved deps: `fsnotify`, `go-sdk` (MCP), `ff/v3` (CLI flags) (tmux-pane-addressing)
+- JSONL files in `.agentmail/` directory — mailbox files renamed from `<window>.jsonl` to `<sanitized-pane-address>.jsonl` (tmux-pane-addressing)
 
 ## Recent Changes
 - 001-agent-mail-structure: Added Go 1.21+ (per IC-001) + Standard library only (os/exec for tmux, encoding/json for JSONL)

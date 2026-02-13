@@ -44,7 +44,7 @@ type CleanupOptions struct {
 	RepoRoot      string   // Repository root (defaults to "." if empty)
 	SkipTmuxCheck bool     // Skip real tmux check (for testing)
 	MockInTmux    bool     // Mocked value for InTmux() when SkipTmuxCheck is true
-	MockWindows   []string // Mock list of tmux windows (for testing, nil means use real tmux)
+	MockPanes     []string // Mock list of tmux panes (for testing, nil means use real tmux)
 }
 
 // CleanupResult holds the counts from a cleanup operation
@@ -91,25 +91,25 @@ func Cleanup(stdout, stderr io.Writer, opts CleanupOptions) int {
 
 	// Phase 1: Clean offline recipients (US1)
 	if inTmux {
-		// Get list of valid tmux windows
-		var windows []string
+		// Get list of valid tmux panes
+		var panes []string
 		if isMocking {
-			windows = opts.MockWindows
+			panes = opts.MockPanes
 		} else {
 			var err error
-			windows, err = tmux.ListWindows()
+			panes, err = tmux.ListPanes()
 			if err != nil {
-				fmt.Fprintf(stderr, "Warning: failed to list tmux windows: %v\n", err)
+				fmt.Fprintf(stderr, "Warning: failed to list tmux panes: %v\n", err)
 				// Continue without offline cleanup
-				windows = nil
+				panes = nil
 			}
 		}
 
-		// Clean or count offline recipients if we have a window list
-		if windows != nil {
+		// Clean or count offline recipients if we have a pane list
+		if panes != nil {
 			if opts.DryRun {
 				// Dry-run mode: just count
-				count, err := mail.CountOfflineRecipients(repoRoot, windows)
+				count, err := mail.CountOfflineRecipients(repoRoot, panes)
 				if err != nil {
 					fmt.Fprintf(stderr, "Error counting offline recipients: %v\n", err)
 					return 1
@@ -118,7 +118,7 @@ func Cleanup(stdout, stderr io.Writer, opts CleanupOptions) int {
 				result.RecipientsRemoved += count
 			} else {
 				// Normal mode: actually remove
-				removed, err := mail.CleanOfflineRecipients(repoRoot, windows)
+				removed, err := mail.CleanOfflineRecipients(repoRoot, panes)
 				if err != nil {
 					fmt.Fprintf(stderr, "Error cleaning offline recipients: %v\n", err)
 					return 1

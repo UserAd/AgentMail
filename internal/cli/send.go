@@ -9,17 +9,39 @@ import (
 	"agentmail/internal/tmux"
 )
 
+// formatPaneList formats a list of pane addresses for error messages.
+func formatPaneList(panes []string) string {
+	if len(panes) == 0 {
+		return ""
+	}
+	if len(panes) == 1 {
+		return panes[0]
+	}
+	if len(panes) == 2 {
+		return panes[0] + ", " + panes[1]
+	}
+	// For 3+ panes, use commas with "or" before the last one
+	parts := make([]string, len(panes))
+	for i := 0; i < len(panes)-1; i++ {
+		parts[i] = panes[i]
+	}
+	return strings.Join(parts[:len(panes)-1], ", ") + " or " + panes[len(panes)-1]
+}
+
 // SendOptions configures the Send command behavior.
 // Used for testing to mock tmux and file system operations.
 type SendOptions struct {
-	SkipTmuxCheck  bool            // Skip tmux environment check
-	MockWindows    []string        // Mock list of tmux windows
-	MockSender     string          // Mock sender window name
-	RepoRoot       string          // Repository root (defaults to current directory)
-	MockIgnoreList map[string]bool // Mock ignore list (nil = load from file)
-	MockGitRoot    string          // Mock git root (for testing)
-	StdinContent   string          // Mock stdin content (empty = no stdin)
-	StdinIsPipe    bool            // Mock whether stdin is a pipe
+	SkipTmuxCheck   bool            // Skip tmux environment check
+	MockWindows     []string        // Mock list of tmux windows (deprecated, use MockPanes)
+	MockPanes       []string        // Mock list of full pane addresses
+	MockSender      string          // Mock sender window name (deprecated, use MockPaneAddress)
+	MockPaneAddress string          // Mock sender pane address
+	MockSession     string          // Mock current session for address resolution
+	RepoRoot        string          // Repository root (defaults to current directory)
+	MockIgnoreList  map[string]bool // Mock ignore list (nil = load from file)
+	MockGitRoot     string          // Mock git root (for testing)
+	StdinContent    string          // Mock stdin content (empty = no stdin)
+	StdinIsPipe     bool            // Mock whether stdin is a pipe
 }
 
 // Send implements the agentmail send command.
@@ -85,44 +107,113 @@ func Send(args []string, stdin io.Reader, stdout, stderr io.Writer, opts SendOpt
 		return 1
 	}
 
-	// Get sender identity
+	// Get sender identity (pane address)
 	var sender string
-	if opts.MockSender != "" {
+	if opts.MockPaneAddress != "" {
+		sender = opts.MockPaneAddress
+	} else if opts.MockSender != "" {
+		// Backward compatibility for old tests
 		sender = opts.MockSender
 	} else {
 		var err error
-		sender, err = tmux.GetCurrentWindow()
+		sender, err = tmux.GetCurrentPaneAddress()
 		if err != nil {
-			fmt.Fprintf(stderr, "error: failed to get current window: %v\n", err)
+			fmt.Fprintf(stderr, "error: failed to get current pane: %v\n", err)
 			return 1
 		}
 	}
 
-	// T022: Validate recipient exists
-	var recipientExists bool
-	if opts.MockWindows != nil {
-		for _, w := range opts.MockWindows {
-			if w == recipient {
-				recipientExists = true
-				break
-			}
+	// Get current session for address resolution
+	var currentSession string
+	if opts.MockSession != "" {
+		currentSession = opts.MockSession
+	} else if opts.SkipTmuxCheck {
+		// In tests without mock session, extract from sender
+		addr, err := tmux.ParseAddress(sender, "")
+		if err == nil {
+			currentSession = addr.Session
 		}
 	} else {
 		var err error
-		recipientExists, err = tmux.WindowExists(recipient)
+		currentSession, err = tmux.GetCurrentSession()
 		if err != nil {
-			fmt.Fprintf(stderr, "error: failed to check recipient: %v\n", err)
+			fmt.Fprintf(stderr, "error: failed to get current session: %v\n", err)
 			return 1
 		}
 	}
 
-	if !recipientExists {
+	// Resolve recipient address
+	addr, err := tmux.ParseAddress(recipient, currentSession)
+	if err != nil {
 		fmt.Fprintln(stderr, "error: recipient not found")
 		return 1
 	}
 
-	// T029: Check if recipient is the sender (self-send not allowed)
-	if recipient == sender {
+	var resolvedRecipient string
+	if addr.Pane == -1 {
+		// Short form - need to resolve window name to pane address
+		var panes []string
+		if opts.MockPanes != nil {
+			panes = opts.MockPanes
+		} else if opts.MockWindows != nil {
+			// Backward compatibility for old tests
+			panes = opts.MockWindows
+		} else {
+			panes, err = tmux.ListPanes()
+			if err != nil {
+				fmt.Fprintf(stderr, "error: failed to list panes: %v\n", err)
+				return 1
+			}
+		}
+
+		// Find matching panes
+		var matches []string
+		for _, pane := range panes {
+			paneAddr, err := tmux.ParseAddress(pane, currentSession)
+			if err == nil && paneAddr.Window == addr.Window {
+				matches = append(matches, pane)
+			}
+		}
+
+		if len(matches) == 0 {
+			fmt.Fprintln(stderr, "error: recipient not found")
+			return 1
+		} else if len(matches) > 1 {
+			fmt.Fprintf(stderr, "Ambiguous recipient: window '%s' has %d panes. Use %s\n",
+				addr.Window, len(matches), formatPaneList(matches))
+			return 1
+		}
+		resolvedRecipient = matches[0]
+	} else {
+		// Full or medium form - validate pane exists
+		resolvedRecipient = tmux.FormatAddress(addr)
+		var paneExists bool
+		if opts.MockPanes != nil {
+			for _, p := range opts.MockPanes {
+				if p == resolvedRecipient {
+					paneExists = true
+					break
+				}
+			}
+		} else if opts.MockWindows != nil {
+			// Backward compatibility
+			paneExists = true
+		} else {
+			paneExists, err = tmux.PaneExists(resolvedRecipient)
+			if err != nil {
+				fmt.Fprintf(stderr, "error: failed to check recipient: %v\n", err)
+				return 1
+			}
+		}
+
+		if !paneExists {
+			fmt.Fprintln(stderr, "error: recipient not found")
+			return 1
+		}
+	}
+
+	// Check if recipient is the sender (self-send not allowed)
+	if resolvedRecipient == sender {
 		fmt.Fprintln(stderr, "error: recipient not found")
 		return 1
 	}
@@ -146,8 +237,8 @@ func Send(args []string, stdin io.Reader, stdout, stderr io.Writer, opts SendOpt
 		}
 	}
 
-	// T030: Check if recipient is in ignore list
-	if ignoreList != nil && ignoreList[recipient] {
+	// Check if recipient is in ignore list
+	if mail.IsIgnored(resolvedRecipient, ignoreList, currentSession) {
 		fmt.Fprintln(stderr, "error: recipient not found")
 		return 1
 	}
@@ -169,11 +260,11 @@ func Send(args []string, stdin io.Reader, stdout, stderr io.Writer, opts SendOpt
 		}
 	}
 
-	// T023: Store message
+	// Store message
 	msg := mail.Message{
 		ID:       id,
 		From:     sender,
-		To:       recipient,
+		To:       resolvedRecipient,
 		Message:  message,
 		ReadFlag: false,
 	}

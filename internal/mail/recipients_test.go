@@ -1125,3 +1125,168 @@ func TestUpdateLastReadAt_PreservesOtherRecipients(t *testing.T) {
 		}
 	}
 }
+
+func TestCountOfflineRecipients(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tempDir, ".agentmail")
+	if err := os.Mkdir(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
+	}
+
+	// Create recipient states via UpdateRecipientState
+	if err := UpdateRecipientState(tempDir, "mysession:agent-1.0", StatusWork, false); err != nil {
+		t.Fatalf("Failed to create agent-1: %v", err)
+	}
+	if err := UpdateRecipientState(tempDir, "mysession:agent-2.0", StatusOffline, false); err != nil {
+		t.Fatalf("Failed to create agent-2: %v", err)
+	}
+	if err := UpdateRecipientState(tempDir, "mysession:agent-3.0", StatusOffline, false); err != nil {
+		t.Fatalf("Failed to create agent-3: %v", err)
+	}
+	if err := UpdateRecipientState(tempDir, "mysession:agent-4.0", StatusWork, false); err != nil {
+		t.Fatalf("Failed to create agent-4: %v", err)
+	}
+
+	// Mock valid panes - only agent-1 and agent-4 are still in tmux
+	// agent-2 and agent-3 no longer exist (offline/closed)
+	validPanes := []string{"mysession:agent-1.0", "mysession:agent-4.0"}
+
+	count, err := CountOfflineRecipients(tempDir, validPanes)
+	if err != nil {
+		t.Fatalf("CountOfflineRecipients failed: %v", err)
+	}
+
+	if count != 2 {
+		t.Errorf("Expected 2 offline recipients (not in validPanes), got %d", count)
+	}
+}
+
+func TestCountStaleStates(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tempDir, ".agentmail")
+	if err := os.Mkdir(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
+	}
+
+	// Manually create recipient states with specific timestamps
+	now := time.Now()
+	recipients := []RecipientState{
+		{Recipient: "mysession:agent-1.0", Status: StatusWork, UpdatedAt: now.Add(-1 * time.Hour)},          // 1 hour old - fresh
+		{Recipient: "mysession:agent-2.0", Status: StatusWork, UpdatedAt: now.Add(-8 * 24 * time.Hour)},     // 8 days old - stale
+		{Recipient: "mysession:agent-3.0", Status: StatusOffline, UpdatedAt: now.Add(-10 * 24 * time.Hour)}, // 10 days old - stale
+		{Recipient: "mysession:agent-4.0", Status: StatusWork, UpdatedAt: now.Add(-2 * time.Hour)},          // 2 hours old - fresh
+	}
+
+	// Write recipients manually
+	filePath := filepath.Join(tempDir, RecipientsFile)
+	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		t.Fatalf("Failed to create recipients file: %v", err)
+	}
+	defer file.Close()
+
+	if err := writeAllRecipientsLocked(file, recipients); err != nil {
+		t.Fatalf("Failed to write recipients: %v", err)
+	}
+
+	// Test with 7 day threshold
+	count, err := CountStaleStates(tempDir, 7*24*time.Hour)
+	if err != nil {
+		t.Fatalf("CountStaleStates failed: %v", err)
+	}
+
+	if count != 2 {
+		t.Errorf("Expected 2 stale states (>7 days), got %d", count)
+	}
+}
+
+func TestShouldNotify_ReadyNeverNotified(t *testing.T) {
+	r := RecipientState{
+		Recipient:  "agent-1",
+		Status:     StatusReady,
+		UpdatedAt:  time.Now(),
+		NotifiedAt: time.Time{}, // Zero value = never notified
+	}
+
+	if !r.ShouldNotify() {
+		t.Error("ShouldNotify should return true for ready agent never notified")
+	}
+}
+
+func TestShouldNotify_ReadyRecentlyNotified(t *testing.T) {
+	r := RecipientState{
+		Recipient:  "agent-1",
+		Status:     StatusReady,
+		UpdatedAt:  time.Now(),
+		NotifiedAt: time.Now().Add(-30 * time.Second), // Notified 30s ago (within 60s debounce)
+	}
+
+	if r.ShouldNotify() {
+		t.Error("ShouldNotify should return false for ready agent notified within 60s")
+	}
+}
+
+func TestShouldNotify_ReadyDebounceElapsed(t *testing.T) {
+	r := RecipientState{
+		Recipient:  "agent-1",
+		Status:     StatusReady,
+		UpdatedAt:  time.Now(),
+		NotifiedAt: time.Now().Add(-65 * time.Second), // Notified 65s ago (beyond 60s debounce)
+	}
+
+	if !r.ShouldNotify() {
+		t.Error("ShouldNotify should return true for ready agent after 60s debounce")
+	}
+}
+
+func TestShouldNotify_WorkRecentlyUpdated(t *testing.T) {
+	r := RecipientState{
+		Recipient: "agent-1",
+		Status:    StatusWork,
+		UpdatedAt: time.Now().Add(-30 * time.Minute), // Changed to work 30 min ago (within 1 hour)
+	}
+
+	if r.ShouldNotify() {
+		t.Error("ShouldNotify should return false for work agent within 1 hour of status change")
+	}
+}
+
+func TestShouldNotify_WorkProtectionElapsed(t *testing.T) {
+	r := RecipientState{
+		Recipient: "agent-1",
+		Status:    StatusWork,
+		UpdatedAt: time.Now().Add(-65 * time.Minute), // Changed to work 65 min ago (beyond 1 hour)
+	}
+
+	if !r.ShouldNotify() {
+		t.Error("ShouldNotify should return true for work agent after 1 hour protection")
+	}
+}
+
+func TestShouldNotify_OfflineRecentlyUpdated(t *testing.T) {
+	r := RecipientState{
+		Recipient: "agent-1",
+		Status:    StatusOffline,
+		UpdatedAt: time.Now().Add(-45 * time.Minute), // Changed to offline 45 min ago (within 1 hour)
+	}
+
+	if r.ShouldNotify() {
+		t.Error("ShouldNotify should return false for offline agent within 1 hour of status change")
+	}
+}
+
+func TestShouldNotify_OfflineProtectionElapsed(t *testing.T) {
+	r := RecipientState{
+		Recipient: "agent-1",
+		Status:    StatusOffline,
+		UpdatedAt: time.Now().Add(-2 * time.Hour), // Changed to offline 2 hours ago (beyond 1 hour)
+	}
+
+	if !r.ShouldNotify() {
+		t.Error("ShouldNotify should return true for offline agent after 1 hour protection")
+	}
+}

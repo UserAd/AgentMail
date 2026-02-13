@@ -1,6 +1,7 @@
 package mail
 
 import (
+	"agentmail/internal/tmux"
 	"bufio"
 	"errors"
 	"os"
@@ -50,4 +51,40 @@ func LoadIgnoreList(gitRoot string) (map[string]bool, error) {
 		}
 	}
 	return ignored, scanner.Err()
+}
+
+// IsIgnored checks if a pane address matches any pattern in the ignore list.
+func IsIgnored(address string, ignoreList map[string]bool, currentSession string) bool {
+	if ignoreList == nil {
+		return false
+	}
+
+	// Check exact match on full address
+	if ignoreList[address] {
+		return true
+	}
+
+	// Parse the address to extract components
+	addr, err := tmux.ParseAddress(address, currentSession)
+	if err != nil {
+		return false
+	}
+
+	// Check medium form (:window.pane) if it matches current session
+	for pattern := range ignoreList {
+		if strings.HasPrefix(pattern, ":") {
+			// Parse medium form pattern with current session
+			patternAddr, err := tmux.ParseAddress(pattern, currentSession)
+			if err == nil && patternAddr.Session == addr.Session && patternAddr.Window == addr.Window && patternAddr.Pane == addr.Pane {
+				return true
+			}
+		}
+	}
+
+	// Check short form (window name only)
+	if ignoreList[addr.Window] {
+		return true
+	}
+
+	return false
 }

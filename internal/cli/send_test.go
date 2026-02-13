@@ -550,3 +550,290 @@ func TestSendCommand_NoMessageProvided_Regression(t *testing.T) {
 		t.Errorf("FR-011 Regression: Expected empty stdout, got: %s", stdout.String())
 	}
 }
+
+// T007: Tests for pane address support
+
+func TestSendCommand_FullPaneAddress(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	var stdout, stderr bytes.Buffer
+	exitCode := Send([]string{"mysession:editor.1", "Hello from pane"}, nil, &stdout, &stderr, SendOptions{
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "mysession:sender.0",
+		MockSession:     "mysession",
+		MockPanes:       []string{"mysession:sender.0", "mysession:editor.1"},
+		RepoRoot:        tmpDir,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	if !strings.Contains(stdout.String(), "Message #") {
+		t.Errorf("Expected message confirmation, got: %s", stdout.String())
+	}
+}
+
+func TestSendCommand_MediumPaneAddress(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	var stdout, stderr bytes.Buffer
+	exitCode := Send([]string{":editor.1", "Hello"}, nil, &stdout, &stderr, SendOptions{
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "mysession:sender.0",
+		MockSession:     "mysession",
+		MockPanes:       []string{"mysession:sender.0", "mysession:editor.1"},
+		RepoRoot:        tmpDir,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+}
+
+func TestSendCommand_ShortAddressSinglePane(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	var stdout, stderr bytes.Buffer
+	exitCode := Send([]string{"editor", "Hello"}, nil, &stdout, &stderr, SendOptions{
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "mysession:sender.0",
+		MockSession:     "mysession",
+		MockPanes:       []string{"mysession:sender.0", "mysession:editor.0"},
+		RepoRoot:        tmpDir,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+}
+
+func TestSendCommand_ShortAddressMultiPaneAmbiguity(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	exitCode := Send([]string{"editor", "Hello"}, nil, &stdout, &stderr, SendOptions{
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "mysession:sender.0",
+		MockSession:     "mysession",
+		MockPanes:       []string{"mysession:sender.0", "mysession:editor.0", "mysession:editor.1"},
+	})
+
+	if exitCode != 1 {
+		t.Errorf("Expected exit code 1 for ambiguous recipient, got %d", exitCode)
+	}
+
+	stderrStr := stderr.String()
+	if !strings.Contains(stderrStr, "Ambiguous recipient: window 'editor' has 2 panes") {
+		t.Errorf("Expected ambiguity error, got: %s", stderrStr)
+	}
+
+	if !strings.Contains(stderrStr, "mysession:editor.0") || !strings.Contains(stderrStr, "mysession:editor.1") {
+		t.Errorf("Expected pane addresses in error message, got: %s", stderrStr)
+	}
+}
+
+func TestSendCommand_DottedWindowNameShortForm(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	var stdout, stderr bytes.Buffer
+	exitCode := Send([]string{"my.app", "Hello"}, nil, &stdout, &stderr, SendOptions{
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "mysession:sender.0",
+		MockSession:     "mysession",
+		MockPanes:       []string{"mysession:sender.0", "mysession:my.app.0"},
+		RepoRoot:        tmpDir,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+}
+
+func TestSendCommand_SelfSendRejectionWithPanes(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	exitCode := Send([]string{"mysession:sender.0", "Hello"}, nil, &stdout, &stderr, SendOptions{
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "mysession:sender.0",
+		MockSession:     "mysession",
+		MockPanes:       []string{"mysession:sender.0"},
+	})
+
+	if exitCode != 1 {
+		t.Errorf("Expected exit code 1 for self-send, got %d", exitCode)
+	}
+
+	if !strings.Contains(stderr.String(), "error: recipient not found") {
+		t.Errorf("Expected 'recipient not found' error, got: %s", stderr.String())
+	}
+}
+
+func TestSendCommand_IgnoreListWithPaneAddresses(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	exitCode := Send([]string{"mysession:editor.1", "Hello"}, nil, &stdout, &stderr, SendOptions{
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "mysession:sender.0",
+		MockSession:     "mysession",
+		MockPanes:       []string{"mysession:sender.0", "mysession:editor.1"},
+		MockIgnoreList:  map[string]bool{"mysession:editor.1": true},
+	})
+
+	if exitCode != 1 {
+		t.Errorf("Expected exit code 1 for ignored recipient, got %d", exitCode)
+	}
+
+	if !strings.Contains(stderr.String(), "error: recipient not found") {
+		t.Errorf("Expected 'recipient not found' error, got: %s", stderr.String())
+	}
+}
+
+// T009: Backward compatibility tests
+
+func TestSendCommand_BackwardCompat_SinglePaneWindow(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	var stdout, stderr bytes.Buffer
+	exitCode := Send([]string{"editor", "Hello"}, nil, &stdout, &stderr, SendOptions{
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "mysession:sender.0",
+		MockSession:     "mysession",
+		MockPanes:       []string{"mysession:sender.0", "mysession:editor.0"},
+		RepoRoot:        tmpDir,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Backward compat: single-pane window should resolve, got exit code %d. Stderr: %s", exitCode, stderr.String())
+	}
+}
+
+func TestSendCommand_BackwardCompat_MultiPaneAmbiguityFormat(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	exitCode := Send([]string{"logs", "Hello"}, nil, &stdout, &stderr, SendOptions{
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "mysession:sender.0",
+		MockSession:     "mysession",
+		MockPanes:       []string{"mysession:sender.0", "mysession:logs.0", "mysession:logs.1", "mysession:logs.2"},
+	})
+
+	if exitCode != 1 {
+		t.Errorf("Expected exit code 1 for ambiguous recipient, got %d", exitCode)
+	}
+
+	stderrStr := stderr.String()
+	expectedFormat := "Ambiguous recipient: window 'logs' has 3 panes"
+	if !strings.Contains(stderrStr, expectedFormat) {
+		t.Errorf("Expected error message containing %q, got: %s", expectedFormat, stderrStr)
+	}
+
+	// Verify all pane addresses are listed
+	for _, pane := range []string{"mysession:logs.0", "mysession:logs.1", "mysession:logs.2"} {
+		if !strings.Contains(stderrStr, pane) {
+			t.Errorf("Expected pane address %s in error message, got: %s", pane, stderrStr)
+		}
+	}
+}
+
+func TestSendCommand_BackwardCompat_DottedWindowName(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	var stdout, stderr bytes.Buffer
+	exitCode := Send([]string{"logs.1", "Test message"}, nil, &stdout, &stderr, SendOptions{
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "mysession:sender.0",
+		MockSession:     "mysession",
+		MockPanes:       []string{"mysession:sender.0", "mysession:logs.1.0"},
+		RepoRoot:        tmpDir,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Dotted window name 'logs.1' should be treated as short form, got exit code %d. Stderr: %s", exitCode, stderr.String())
+	}
+}
+
+func TestSendCommand_StdinPipeEmptyContent(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	var stdout, stderr bytes.Buffer
+	exitCode := Send(
+		[]string{"mysession:receiver.0"},
+		nil, // No stdin
+		&stdout,
+		&stderr,
+		SendOptions{
+			SkipTmuxCheck:   true,
+			MockPaneAddress: "mysession:sender.0",
+			MockSession:     "mysession",
+			MockPanes:       []string{"mysession:sender.0", "mysession:receiver.0"},
+			RepoRoot:        tmpDir,
+			StdinContent:    "", // Empty stdin
+			StdinIsPipe:     true,
+		},
+	)
+
+	if exitCode != 1 {
+		t.Errorf("Expected exit code 1 for empty stdin, got %d", exitCode)
+	}
+
+	if !strings.Contains(stderr.String(), "no message provided") {
+		t.Errorf("Expected 'no message provided' error, got: %s", stderr.String())
+	}
+}
+
+func TestSendCommand_GitRootNotFound(t *testing.T) {
+	// Change to a temp directory without .git so FindGitRoot() fails
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current dir: %v", err)
+	}
+	defer os.Chdir(origDir)
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Failed to chdir: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	exitCode := Send(
+		[]string{"mysession:receiver.0", "test message"},
+		nil,
+		&stdout,
+		&stderr,
+		SendOptions{
+			SkipTmuxCheck:   true,
+			MockPaneAddress: "mysession:sender.0",
+			MockSession:     "mysession",
+			MockPanes:       []string{"mysession:sender.0", "mysession:receiver.0"},
+			RepoRoot:        "", // Force it to search for git root
+			MockGitRoot:     "", // No git root
+		},
+	)
+
+	if exitCode != 1 {
+		t.Errorf("Expected exit code 1 for no git root, got %d", exitCode)
+	}
+
+	if !strings.Contains(stderr.String(), "not in a git repository") {
+		t.Errorf("Expected 'not in a git repository' error, got: %s", stderr.String())
+	}
+}

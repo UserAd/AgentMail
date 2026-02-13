@@ -73,9 +73,9 @@ func TestReceiveHandler_ReturnsOldestUnreadMessage(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "agent-2",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-2",
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -127,9 +127,9 @@ func TestReceiveHandler_NoMessagesReturnsEmptyStatus(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "agent-2",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-2",
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -179,9 +179,9 @@ func TestReceiveHandler_AllMessagesReadReturnsEmptyStatus(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "agent-2",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-2",
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -229,9 +229,9 @@ func TestReceiveHandler_MessageMarkedAsReadAfterReceive(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "agent-2",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-2",
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -270,9 +270,9 @@ func TestReceiveHandler_ResponseFieldsMatchDataModel(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "receiver-agent",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "receiver-agent",
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -324,9 +324,9 @@ func TestReceiveHandler_OutputMatchesCLIFormat(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "cli-receiver",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "cli-receiver",
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -380,9 +380,9 @@ func TestReceiveHandler_ConsecutiveReceivesFIFOOrder(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "agent-b",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-b",
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -447,9 +447,9 @@ func TestReceiveHandler_SkipsReadMessages(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "agent-2",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-2",
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -481,9 +481,9 @@ func TestReceiveHandler_EmptyResponseStructure(t *testing.T) {
 
 	// Configure handler for testing (empty mailbox)
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "agent-2",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-2",
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -524,9 +524,9 @@ func TestReceiveHandler_MCPClientIntegration(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "mcp-receiver",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "mcp-receiver",
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -582,10 +582,10 @@ func TestSendHandler_DeliversMessageAndReturnsID(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockSender:    "agent-sender",
-		MockWindows:   []string{"agent-sender", "agent-receiver"},
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-sender",
+		MockPanes:       []string{"agent-sender", "agent-receiver"},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -643,10 +643,10 @@ func TestSendHandler_InvalidRecipientReturnsError(t *testing.T) {
 
 	// Configure handler for testing - nonexistent-agent not in MockWindows
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockSender:    "agent-sender",
-		MockWindows:   []string{"agent-sender", "agent-receiver"},
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-sender",
+		MockPanes:       []string{"agent-sender", "agent-receiver"},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -684,10 +684,10 @@ func TestSendHandler_OversizedMessageReturnsError(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockSender:    "agent-sender",
-		MockWindows:   []string{"agent-sender", "agent-receiver"},
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-sender",
+		MockPanes:       []string{"agent-sender", "agent-receiver"},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -728,10 +728,10 @@ func TestSendHandler_EmptyMessageReturnsError(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockSender:    "agent-sender",
-		MockWindows:   []string{"agent-sender", "agent-receiver"},
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-sender",
+		MockPanes:       []string{"agent-sender", "agent-receiver"},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -769,10 +769,10 @@ func TestSendHandler_SendToSelfReturnsError(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockSender:    "agent-self",
-		MockWindows:   []string{"agent-self"},
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-self",
+		MockPanes:       []string{"agent-self"},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -816,11 +816,11 @@ func TestSendHandler_IgnoredRecipientReturnsError(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck:  true,
-		MockSender:     "agent-sender",
-		MockWindows:    []string{"agent-sender", "ignored-agent"},
-		RepoRoot:       tmpDir,
-		MockIgnoreList: map[string]bool{"ignored-agent": true},
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-sender",
+		MockPanes:       []string{"agent-sender", "ignored-agent"},
+		RepoRoot:        tmpDir,
+		MockIgnoreList:  map[string]bool{"ignored-agent": true},
 	})
 	defer SetHandlerOptions(nil)
 
@@ -854,10 +854,10 @@ func TestSendHandler_ResponseFormat(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockSender:    "agent-sender",
-		MockWindows:   []string{"agent-sender", "agent-receiver"},
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-sender",
+		MockPanes:       []string{"agent-sender", "agent-receiver"},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -902,11 +902,10 @@ func TestSendHandler_MessageReadableViaCLI(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockSender:    "mcp-sender",
-		MockReceiver:  "cli-receiver",
-		MockWindows:   []string{"mcp-sender", "cli-receiver"},
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "mcp-sender",
+		MockPanes:       []string{"mcp-sender", "cli-receiver"},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -929,6 +928,14 @@ func TestSendHandler_MessageReadableViaCLI(t *testing.T) {
 	}
 
 	// Now receive the message via MCP receive handler (simulates CLI receive)
+	// Update handler options to receive as cli-receiver
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "cli-receiver",
+		MockPanes:       []string{"mcp-sender", "cli-receiver"},
+		RepoRoot:        tmpDir,
+	})
+
 	receiveResult, err := receiveHandler(ctx, &mcp.CallToolRequest{})
 	if err != nil {
 		t.Fatalf("receiveHandler returned error: %v", err)
@@ -964,10 +971,10 @@ func TestSendHandler_MCPClientIntegration(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockSender:    "mcp-client-sender",
-		MockWindows:   []string{"mcp-client-sender", "mcp-client-receiver"},
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "mcp-client-sender",
+		MockPanes:       []string{"mcp-client-sender", "mcp-client-receiver"},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -1032,10 +1039,10 @@ func TestSendHandler_ExactlyMaxSizeSucceeds(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockSender:    "agent-sender",
-		MockWindows:   []string{"agent-sender", "agent-receiver"},
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-sender",
+		MockPanes:       []string{"agent-sender", "agent-receiver"},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -1091,9 +1098,9 @@ func TestStatusHandler_UpdatesStatusAndReturnsOk(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "test-agent",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "test-agent",
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -1151,9 +1158,9 @@ func TestStatusHandler_InvalidValueReturnsError(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "test-agent",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "test-agent",
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -1216,9 +1223,9 @@ func TestStatusHandler_ResetsNotifiedFlagOnWorkOrOffline(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "test-agent",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "test-agent",
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -1286,9 +1293,9 @@ func TestStatusHandler_ReadyDoesNotResetNotifiedFlag(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "test-agent",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "test-agent",
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -1327,9 +1334,9 @@ func TestStatusHandler_ResponseFormat(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "test-agent",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "test-agent",
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -1374,9 +1381,9 @@ func TestStatusHandler_MCPClientIntegration(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "mcp-status-agent",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "mcp-status-agent",
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -1433,9 +1440,9 @@ func TestStatusHandler_AllValidStatuses(t *testing.T) {
 
 			// Configure handler for testing
 			SetHandlerOptions(&HandlerOptions{
-				SkipTmuxCheck: true,
-				MockReceiver:  "test-agent",
-				RepoRoot:      tmpDir,
+				SkipTmuxCheck:   true,
+				MockPaneAddress: "test-agent",
+				RepoRoot:        tmpDir,
 			})
 			defer SetHandlerOptions(nil)
 
@@ -1487,10 +1494,10 @@ func TestListRecipientsHandler_ReturnsAllAgents(t *testing.T) {
 
 	// Configure handler for testing with multiple windows
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "agent-1",
-		MockWindows:   []string{"agent-1", "agent-2", "agent-3"},
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-1",
+		MockPanes:       []string{"agent-1", "agent-2", "agent-3"},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -1529,7 +1536,7 @@ func TestListRecipientsHandler_ReturnsAllAgents(t *testing.T) {
 	// Verify all windows are present
 	found := make(map[string]bool)
 	for _, r := range response.Recipients {
-		found[r.Name] = true
+		found[r.Address] = true
 	}
 	for _, expected := range []string{"agent-1", "agent-2", "agent-3"} {
 		if !found[expected] {
@@ -1545,10 +1552,10 @@ func TestListRecipientsHandler_CurrentWindowMarkedIsCurrent(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "agent-2",
-		MockWindows:   []string{"agent-1", "agent-2", "agent-3"},
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-2",
+		MockPanes:       []string{"agent-1", "agent-2", "agent-3"},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -1574,14 +1581,14 @@ func TestListRecipientsHandler_CurrentWindowMarkedIsCurrent(t *testing.T) {
 	// Verify current window is marked correctly
 	currentCount := 0
 	for _, r := range response.Recipients {
-		if r.Name == "agent-2" {
+		if r.Address == "agent-2" {
 			if !r.IsCurrent {
 				t.Error("Current window 'agent-2' should have is_current: true")
 			}
 			currentCount++
 		} else {
 			if r.IsCurrent {
-				t.Errorf("Non-current window '%s' should have is_current: false", r.Name)
+				t.Errorf("Non-current window '%s' should have is_current: false", r.Address)
 			}
 		}
 	}
@@ -1599,11 +1606,11 @@ func TestListRecipientsHandler_IgnoredWindowsExcluded(t *testing.T) {
 
 	// Configure handler for testing with ignored windows
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck:  true,
-		MockReceiver:   "agent-1",
-		MockWindows:    []string{"agent-1", "agent-2", "ignored-agent", "agent-3"},
-		MockIgnoreList: map[string]bool{"ignored-agent": true},
-		RepoRoot:       tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-1",
+		MockPanes:       []string{"agent-1", "agent-2", "ignored-agent", "agent-3"},
+		MockIgnoreList:  map[string]bool{"ignored-agent": true},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -1633,7 +1640,7 @@ func TestListRecipientsHandler_IgnoredWindowsExcluded(t *testing.T) {
 
 	// Verify ignored window is not in the list
 	for _, r := range response.Recipients {
-		if r.Name == "ignored-agent" {
+		if r.Address == "ignored-agent" {
 			t.Error("Ignored window 'ignored-agent' should not be in recipients list")
 		}
 	}
@@ -1646,11 +1653,11 @@ func TestListRecipientsHandler_CurrentWindowShownEvenIfIgnored(t *testing.T) {
 
 	// Configure handler where current window is in ignore list
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck:  true,
-		MockReceiver:   "ignored-current",
-		MockWindows:    []string{"agent-1", "ignored-current", "agent-2"},
-		MockIgnoreList: map[string]bool{"ignored-current": true},
-		RepoRoot:       tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "ignored-current",
+		MockPanes:       []string{"agent-1", "ignored-current", "agent-2"},
+		MockIgnoreList:  map[string]bool{"ignored-current": true},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -1681,7 +1688,7 @@ func TestListRecipientsHandler_CurrentWindowShownEvenIfIgnored(t *testing.T) {
 	// Verify current window is in the list and marked as current
 	found := false
 	for _, r := range response.Recipients {
-		if r.Name == "ignored-current" {
+		if r.Address == "ignored-current" {
 			found = true
 			if !r.IsCurrent {
 				t.Error("Current window 'ignored-current' should have is_current: true")
@@ -1700,10 +1707,10 @@ func TestListRecipientsHandler_ResponseFormat(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "test-agent",
-		MockWindows:   []string{"test-agent", "other-agent"},
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "test-agent",
+		MockPanes:       []string{"test-agent", "other-agent"},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -1740,8 +1747,8 @@ func TestListRecipientsHandler_ResponseFormat(t *testing.T) {
 		if !ok {
 			t.Fatalf("recipient %d is not an object", i)
 		}
-		if _, ok := recipient["name"]; !ok {
-			t.Errorf("recipient %d missing 'name' field", i)
+		if _, ok := recipient["address"]; !ok {
+			t.Errorf("recipient %d missing 'address' field", i)
 		}
 		if _, ok := recipient["is_current"]; !ok {
 			t.Errorf("recipient %d missing 'is_current' field", i)
@@ -1757,10 +1764,10 @@ func TestListRecipientsHandler_EmptyWindowsList(t *testing.T) {
 	// Configure handler with no windows (edge case)
 	// MockReceiver must be non-empty to be recognized as mocked
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "test-window",
-		MockWindows:   []string{},
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "test-window",
+		MockPanes:       []string{},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -1796,10 +1803,10 @@ func TestListRecipientsHandler_MCPClientIntegration(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "mcp-agent",
-		MockWindows:   []string{"mcp-agent", "other-agent"},
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "mcp-agent",
+		MockPanes:       []string{"mcp-agent", "other-agent"},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -1851,11 +1858,11 @@ func TestListRecipientsHandler_MultipleIgnoredWindowsExcluded(t *testing.T) {
 
 	// Configure handler with multiple ignored windows
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck:  true,
-		MockReceiver:   "agent-1",
-		MockWindows:    []string{"agent-1", "ignored-1", "agent-2", "ignored-2", "agent-3"},
-		MockIgnoreList: map[string]bool{"ignored-1": true, "ignored-2": true},
-		RepoRoot:       tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-1",
+		MockPanes:       []string{"agent-1", "ignored-1", "agent-2", "ignored-2", "agent-3"},
+		MockIgnoreList:  map[string]bool{"ignored-1": true, "ignored-2": true},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -1880,8 +1887,8 @@ func TestListRecipientsHandler_MultipleIgnoredWindowsExcluded(t *testing.T) {
 
 	// Verify neither ignored window is in the list
 	for _, r := range response.Recipients {
-		if r.Name == "ignored-1" || r.Name == "ignored-2" {
-			t.Errorf("Ignored window '%s' should not be in recipients list", r.Name)
+		if r.Address == "ignored-1" || r.Address == "ignored-2" {
+			t.Errorf("Ignored window '%s' should not be in recipients list", r.Address)
 		}
 	}
 }
@@ -1893,10 +1900,10 @@ func TestListRecipientsHandler_SingleWindow(t *testing.T) {
 
 	// Configure handler with only one window
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "solo-agent",
-		MockWindows:   []string{"solo-agent"},
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "solo-agent",
+		MockPanes:       []string{"solo-agent"},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -1921,8 +1928,8 @@ func TestListRecipientsHandler_SingleWindow(t *testing.T) {
 
 	// Should be marked as current
 	if len(response.Recipients) > 0 {
-		if response.Recipients[0].Name != "solo-agent" {
-			t.Errorf("Expected name 'solo-agent', got '%s'", response.Recipients[0].Name)
+		if response.Recipients[0].Address != "solo-agent" {
+			t.Errorf("Expected name 'solo-agent', got '%s'", response.Recipients[0].Address)
 		}
 		if !response.Recipients[0].IsCurrent {
 			t.Error("Solo window should be marked as current")
@@ -1978,10 +1985,10 @@ func TestSendHandler_MissingRecipientReturnsError(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockSender:    "agent-sender",
-		MockWindows:   []string{"agent-sender", "agent-receiver"},
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-sender",
+		MockPanes:       []string{"agent-sender", "agent-receiver"},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -2015,10 +2022,10 @@ func TestSendHandler_MissingMessageReturnsError(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockSender:    "agent-sender",
-		MockWindows:   []string{"agent-sender", "agent-receiver"},
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-sender",
+		MockPanes:       []string{"agent-sender", "agent-receiver"},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -2052,9 +2059,9 @@ func TestStatusHandler_MissingStatusReturnsError(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "test-agent",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "test-agent",
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -2098,9 +2105,9 @@ func TestReceiveHandler_NoMockReceiverWithoutTmuxReturnsError(t *testing.T) {
 	// Configure handler for testing - NO MockReceiver set, SkipTmuxCheck false
 	// This will cause tmux.GetCurrentWindow() to fail if not in tmux
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: false, // Enable tmux check
-		MockReceiver:  "",    // No mock receiver
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   false, // Enable tmux check
+		MockPaneAddress: "",    // No mock receiver
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -2132,9 +2139,9 @@ func TestReceiveHandler_InvalidRepoRootReturnsError(t *testing.T) {
 	// Configure handler with no RepoRoot and MockReceiver set
 	// The handler will try to find git root which should fail in a non-existent directory
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "test-agent",
-		RepoRoot:      "", // Empty - will try to find git root
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "test-agent",
+		RepoRoot:        "", // Empty - will try to find git root
 	})
 	defer SetHandlerOptions(nil)
 
@@ -2188,10 +2195,10 @@ func TestSendHandler_NoMockSenderWithoutTmuxReturnsError(t *testing.T) {
 
 	// Configure handler - NO MockSender set, SkipTmuxCheck false
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: false,
-		MockSender:    "",                                         // No mock sender
-		MockWindows:   []string{"agent-sender", "agent-receiver"}, // Mock windows still set for recipient check
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   false,
+		MockPaneAddress: "",                                         // No mock sender
+		MockPanes:       []string{"agent-sender", "agent-receiver"}, // Mock windows still set for recipient check
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -2222,10 +2229,10 @@ func TestSendHandler_NoMockSenderWithoutTmuxReturnsError(t *testing.T) {
 func TestSendHandler_InvalidRepoRootReturnsError(t *testing.T) {
 	// Configure handler with no RepoRoot
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockSender:    "agent-sender",
-		MockWindows:   []string{"agent-sender", "agent-receiver"},
-		RepoRoot:      "", // Empty - will try to find git root
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-sender",
+		MockPanes:       []string{"agent-sender", "agent-receiver"},
+		RepoRoot:        "", // Empty - will try to find git root
 	})
 	defer SetHandlerOptions(nil)
 
@@ -2279,9 +2286,9 @@ func TestStatusHandler_NoMockReceiverWithoutTmuxReturnsError(t *testing.T) {
 
 	// Configure handler - NO MockReceiver set, SkipTmuxCheck false
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: false, // Enable tmux check
-		MockReceiver:  "",    // No mock receiver
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   false, // Enable tmux check
+		MockPaneAddress: "",    // No mock receiver
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -2312,9 +2319,9 @@ func TestStatusHandler_NoMockReceiverWithoutTmuxReturnsError(t *testing.T) {
 func TestStatusHandler_InvalidRepoRootReturnsError(t *testing.T) {
 	// Configure handler with no RepoRoot
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "test-agent",
-		RepoRoot:      "", // Empty - will try to find git root
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "test-agent",
+		RepoRoot:        "", // Empty - will try to find git root
 	})
 	defer SetHandlerOptions(nil)
 
@@ -2368,10 +2375,10 @@ func TestListRecipientsHandler_NoMockWindowsWithoutTmuxReturnsError(t *testing.T
 
 	// Configure handler - NO MockWindows and NO MockReceiver, SkipTmuxCheck false
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: false, // Enable tmux check
-		MockReceiver:  "",    // No mock receiver
-		MockWindows:   nil,   // No mock windows - will try real tmux
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   false, // Enable tmux check
+		MockPaneAddress: "",    // No mock receiver
+		MockPanes:       nil,   // No mock windows - will try real tmux
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -2413,10 +2420,10 @@ func TestListRecipientsHandler_ListWindowsFailsReturnsError(t *testing.T) {
 	// Configure handler with MockReceiver but NO MockWindows
 	// This will use MockReceiver for current window but will try real tmux.ListWindows()
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "test-agent",
-		MockWindows:   nil, // nil triggers real tmux.ListWindows() call
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "test-agent",
+		MockPanes:       nil, // nil triggers real tmux.ListWindows() call
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -2450,10 +2457,10 @@ func TestSendHandler_InvalidJSONArgumentsReturnsError(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockSender:    "agent-sender",
-		MockWindows:   []string{"agent-sender", "agent-receiver"},
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-sender",
+		MockPanes:       []string{"agent-sender", "agent-receiver"},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -2494,9 +2501,9 @@ func TestStatusHandler_InvalidJSONArgumentsReturnsError(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "test-agent",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "test-agent",
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -2537,10 +2544,10 @@ func TestSendHandler_NilParamsReturnsError(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockSender:    "agent-sender",
-		MockWindows:   []string{"agent-sender", "agent-receiver"},
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-sender",
+		MockPanes:       []string{"agent-sender", "agent-receiver"},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -2578,9 +2585,9 @@ func TestStatusHandler_NilParamsReturnsError(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockReceiver:  "test-agent",
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "test-agent",
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -2618,10 +2625,10 @@ func TestSendHandler_NilArgumentsReturnsError(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockSender:    "agent-sender",
-		MockWindows:   []string{"agent-sender", "agent-receiver"},
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-sender",
+		MockPanes:       []string{"agent-sender", "agent-receiver"},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -2666,11 +2673,10 @@ func TestToolInvocations_CompleteWithinTwoSeconds(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockSender:    "agent-sender",
-		MockReceiver:  "agent-receiver",
-		MockWindows:   []string{"agent-sender", "agent-receiver", "agent-other"},
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-sender",
+		MockPanes:       []string{"agent-sender", "agent-receiver", "agent-other"},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -2739,11 +2745,10 @@ func TestServer_100ConsecutiveInvocations(t *testing.T) {
 
 	// Configure handler for testing
 	SetHandlerOptions(&HandlerOptions{
-		SkipTmuxCheck: true,
-		MockSender:    "agent-sender",
-		MockReceiver:  "agent-receiver",
-		MockWindows:   []string{"agent-sender", "agent-receiver"},
-		RepoRoot:      tmpDir,
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "agent-sender",
+		MockPanes:       []string{"agent-sender", "agent-receiver"},
+		RepoRoot:        tmpDir,
 	})
 	defer SetHandlerOptions(nil)
 
@@ -2802,5 +2807,75 @@ func TestServer_100ConsecutiveInvocations(t *testing.T) {
 		}
 		t.Errorf("SC-005 violation: %d errors in 100 consecutive invocations:\n%s",
 			len(errors), strings.Join(errors[:maxErrors], "\n"))
+	}
+}
+
+func TestFormatAddressList_Empty(t *testing.T) {
+	result := formatAddressList([]string{})
+	if result != "" {
+		t.Errorf("Expected empty string for empty list, got: %s", result)
+	}
+}
+
+func TestFormatAddressList_Single(t *testing.T) {
+	result := formatAddressList([]string{"mysession:agent.0"})
+	if result != "mysession:agent.0" {
+		t.Errorf("Expected 'mysession:agent.0', got: %s", result)
+	}
+}
+
+func TestFormatAddressList_Two(t *testing.T) {
+	result := formatAddressList([]string{"mysession:agent.0", "mysession:agent.1"})
+	expected := "mysession:agent.0, or mysession:agent.1"
+	if result != expected {
+		t.Errorf("Expected '%s', got: %s", expected, result)
+	}
+}
+
+func TestFormatAddressList_Multiple(t *testing.T) {
+	result := formatAddressList([]string{"mysession:agent.0", "mysession:agent.1", "mysession:agent.2"})
+	expected := "mysession:agent.0, mysession:agent.1, or mysession:agent.2"
+	if result != expected {
+		t.Errorf("Expected '%s', got: %s", expected, result)
+	}
+}
+
+func TestListRecipientsHandler_NoPanes(t *testing.T) {
+	tmpDir := setupTestMailbox(t)
+	defer os.RemoveAll(tmpDir)
+
+	SetHandlerOptions(&HandlerOptions{
+		SkipTmuxCheck:   true,
+		RepoRoot:        tmpDir,
+		MockPanes:       []string{}, // No panes
+		MockPaneAddress: "mysession:sender.0",
+		MockSession:     "mysession",
+	})
+	defer SetHandlerOptions(nil)
+
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{
+		Params: &mcp.CallToolParamsRaw{
+			Name: ToolListRecipients,
+		},
+	}
+
+	result, err := listRecipientsHandler(ctx, req)
+	if err != nil {
+		t.Errorf("listRecipientsHandler should not error with no panes: %v", err)
+	}
+	if result == nil {
+		t.Fatal("Expected result for no panes")
+	}
+
+	if len(result.Content) == 0 {
+		t.Fatal("Expected content in result")
+	}
+
+	// Check first content item
+	textContent := result.Content[0].(*mcp.TextContent)
+
+	if textContent.Text != `{"recipients":[]}` {
+		t.Errorf("Expected '{\"recipients\":[]}', got: %s", textContent.Text)
 	}
 }

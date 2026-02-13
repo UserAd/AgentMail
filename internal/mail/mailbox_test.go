@@ -557,3 +557,299 @@ func TestTryLockWithTimeout_Timeout(t *testing.T) {
 		t.Errorf("TryLockWithTimeout should wait for timeout, elapsed: %v", elapsed)
 	}
 }
+
+// Tests for pane address support
+
+func TestAppend_WithPaneAddress(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	msg := Message{
+		ID:       "testID01",
+		From:     "mysession:sender.0",
+		To:       "mysession:editor.0",
+		Message:  "Hello from pane",
+		ReadFlag: false,
+	}
+
+	err = Append(tmpDir, msg)
+	if err != nil {
+		t.Fatalf("Append failed: %v", err)
+	}
+
+	// Verify file is created with sanitized filename
+	sanitizedFilename := "mysession%3Aeditor%2E0.jsonl"
+	filePath := filepath.Join(mailDir, sanitizedFilename)
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		t.Fatalf("File should exist with sanitized name: %s", sanitizedFilename)
+	}
+
+	// Verify message can be read back
+	messages, err := ReadAll(tmpDir, "mysession:editor.0")
+	if err != nil {
+		t.Fatalf("ReadAll failed: %v", err)
+	}
+
+	if len(messages) != 1 {
+		t.Fatalf("Expected 1 message, got %d", len(messages))
+	}
+
+	if messages[0].To != "mysession:editor.0" {
+		t.Errorf("Expected To 'mysession:editor.0', got '%s'", messages[0].To)
+	}
+}
+
+func TestReadAll_WithPaneAddress(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	// Write test data with sanitized filename
+	content := `{"id":"id1","from":"mysession:sender.0","to":"mysession:editor.1","message":"Hello","read_flag":false}
+`
+	sanitizedFilename := "mysession%3Aeditor%2E1.jsonl"
+	filePath := filepath.Join(mailDir, sanitizedFilename)
+	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	messages, err := ReadAll(tmpDir, "mysession:editor.1")
+	if err != nil {
+		t.Fatalf("ReadAll failed: %v", err)
+	}
+
+	if len(messages) != 1 {
+		t.Fatalf("Expected 1 message, got %d", len(messages))
+	}
+
+	if messages[0].To != "mysession:editor.1" {
+		t.Errorf("Expected To 'mysession:editor.1', got '%s'", messages[0].To)
+	}
+}
+
+func TestListMailboxRecipients_ReturnsDecodedAddresses(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	// Create mailbox files with encoded pane addresses
+	files := []string{
+		"mysession%3Aeditor%2E0.jsonl",
+		"mysession%3Aeditor%2E1.jsonl",
+		"s%3Amy.app%2E0.jsonl",
+	}
+
+	for _, filename := range files {
+		filePath := filepath.Join(mailDir, filename)
+		if err := os.WriteFile(filePath, []byte(""), 0644); err != nil {
+			t.Fatalf("Failed to create file %s: %v", filename, err)
+		}
+	}
+
+	recipients, err := ListMailboxRecipients(tmpDir)
+	if err != nil {
+		t.Fatalf("ListMailboxRecipients failed: %v", err)
+	}
+
+	if len(recipients) != 3 {
+		t.Fatalf("Expected 3 recipients, got %d", len(recipients))
+	}
+
+	// Verify decoded addresses
+	expected := []string{"mysession:editor.0", "mysession:editor.1", "s:my.app.0"}
+	for _, exp := range expected {
+		found := false
+		for _, rec := range recipients {
+			if rec == exp {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Expected recipient '%s' not found in list %v", exp, recipients)
+		}
+	}
+}
+
+// Tests for cleanup functions
+
+func TestCleanOldMessages(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	// Create messages with different ages
+	oldTime := time.Now().Add(-48 * time.Hour)
+	recentTime := time.Now().Add(-30 * time.Minute)
+
+	messages := []Message{
+		{ID: "old1", From: "sender", To: "mysession:editor.0", Message: "Old read", ReadFlag: true, CreatedAt: oldTime},
+		{ID: "recent1", From: "sender", To: "mysession:editor.0", Message: "Recent read", ReadFlag: true, CreatedAt: recentTime},
+		{ID: "unread1", From: "sender", To: "mysession:editor.0", Message: "Unread old", ReadFlag: false, CreatedAt: oldTime},
+	}
+
+	if err := WriteAll(tmpDir, "mysession:editor.0", messages); err != nil {
+		t.Fatalf("Failed to write messages: %v", err)
+	}
+
+	// Clean messages older than 1 hour
+	removed, err := CleanOldMessages(tmpDir, "mysession:editor.0", 1*time.Hour)
+	if err != nil {
+		t.Fatalf("CleanOldMessages failed: %v", err)
+	}
+
+	if removed != 1 {
+		t.Errorf("Expected 1 message removed, got %d", removed)
+	}
+
+	// Verify remaining messages
+	remaining, err := ReadAll(tmpDir, "mysession:editor.0")
+	if err != nil {
+		t.Fatalf("ReadAll failed: %v", err)
+	}
+
+	if len(remaining) != 2 {
+		t.Errorf("Expected 2 remaining messages, got %d", len(remaining))
+	}
+}
+
+func TestCountOldMessages(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	oldTime := time.Now().Add(-48 * time.Hour)
+	recentTime := time.Now().Add(-30 * time.Minute)
+
+	messages := []Message{
+		{ID: "old1", From: "sender", To: "mysession:editor.0", Message: "Old read", ReadFlag: true, CreatedAt: oldTime},
+		{ID: "recent1", From: "sender", To: "mysession:editor.0", Message: "Recent read", ReadFlag: true, CreatedAt: recentTime},
+		{ID: "unread1", From: "sender", To: "mysession:editor.0", Message: "Unread", ReadFlag: false, CreatedAt: oldTime},
+	}
+
+	if err := WriteAll(tmpDir, "mysession:editor.0", messages); err != nil {
+		t.Fatalf("Failed to write messages: %v", err)
+	}
+
+	count, err := CountOldMessages(tmpDir, "mysession:editor.0", 1*time.Hour)
+	if err != nil {
+		t.Fatalf("CountOldMessages failed: %v", err)
+	}
+
+	if count != 1 {
+		t.Errorf("Expected count 1, got %d", count)
+	}
+}
+
+func TestRemoveEmptyMailboxes(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	// Create empty mailbox
+	emptyFile := filepath.Join(mailDir, "mysession%3Aeditor%2E0.jsonl")
+	if err := os.WriteFile(emptyFile, []byte(""), 0644); err != nil {
+		t.Fatalf("Failed to create empty file: %v", err)
+	}
+
+	// Create non-empty mailbox
+	messages := []Message{
+		{ID: "msg1", From: "sender", To: "mysession:editor.1", Message: "Hello", ReadFlag: false},
+	}
+	if err := WriteAll(tmpDir, "mysession:editor.1", messages); err != nil {
+		t.Fatalf("Failed to write messages: %v", err)
+	}
+
+	removed, err := RemoveEmptyMailboxes(tmpDir)
+	if err != nil {
+		t.Fatalf("RemoveEmptyMailboxes failed: %v", err)
+	}
+
+	if removed != 1 {
+		t.Errorf("Expected 1 mailbox removed, got %d", removed)
+	}
+
+	// Verify empty file is gone
+	if _, err := os.Stat(emptyFile); !os.IsNotExist(err) {
+		t.Error("Empty mailbox file should be removed")
+	}
+}
+
+func TestCountEmptyMailboxes(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	// Create empty mailbox
+	emptyFile := filepath.Join(mailDir, "mysession%3Aeditor%2E0.jsonl")
+	if err := os.WriteFile(emptyFile, []byte(""), 0644); err != nil {
+		t.Fatalf("Failed to create empty file: %v", err)
+	}
+
+	// Create non-empty mailbox
+	messages := []Message{
+		{ID: "msg1", From: "sender", To: "mysession:editor.1", Message: "Hello", ReadFlag: false},
+	}
+	if err := WriteAll(tmpDir, "mysession:editor.1", messages); err != nil {
+		t.Fatalf("Failed to write messages: %v", err)
+	}
+
+	count, err := CountEmptyMailboxes(tmpDir)
+	if err != nil {
+		t.Fatalf("CountEmptyMailboxes failed: %v", err)
+	}
+
+	if count != 1 {
+		t.Errorf("Expected count 1, got %d", count)
+	}
+}

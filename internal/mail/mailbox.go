@@ -1,6 +1,7 @@
 package mail
 
 import (
+	"agentmail/internal/tmux"
 	"encoding/json"
 	"errors"
 	"io"
@@ -109,7 +110,7 @@ func Append(repoRoot string, msg Message) error {
 
 	// Build file path for recipient with path traversal protection (G304)
 	mailDir := filepath.Join(repoRoot, MailDir)
-	filePath, err := safePath(mailDir, msg.To+".jsonl")
+	filePath, err := safePath(mailDir, tmux.SanitizeForFilename(msg.To)+".jsonl")
 	if err != nil {
 		return err
 	}
@@ -150,7 +151,7 @@ func Append(repoRoot string, msg Message) error {
 func ReadAll(repoRoot string, recipient string) ([]Message, error) {
 	// Build file path with path traversal protection (G304)
 	mailDir := filepath.Join(repoRoot, MailDir)
-	filePath, err := safePath(mailDir, recipient+".jsonl")
+	filePath, err := safePath(mailDir, tmux.SanitizeForFilename(recipient)+".jsonl")
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +245,7 @@ func WriteAll(repoRoot string, recipient string, messages []Message) error {
 
 	// Build file path with path traversal protection (G304)
 	mailDir := filepath.Join(repoRoot, MailDir)
-	filePath, err := safePath(mailDir, recipient+".jsonl")
+	filePath, err := safePath(mailDir, tmux.SanitizeForFilename(recipient)+".jsonl")
 	if err != nil {
 		return err
 	}
@@ -277,7 +278,7 @@ func WriteAll(repoRoot string, recipient string, messages []Message) error {
 func CleanOldMessages(repoRoot string, recipient string, threshold time.Duration) (int, error) {
 	// Build file path with path traversal protection (G304)
 	mailDir := filepath.Join(repoRoot, MailDir)
-	filePath, err := safePath(mailDir, recipient+".jsonl")
+	filePath, err := safePath(mailDir, tmux.SanitizeForFilename(recipient)+".jsonl")
 	if err != nil {
 		return 0, err
 	}
@@ -365,7 +366,7 @@ func MarkAsRead(repoRoot string, recipient string, messageID string) error {
 
 	// Build file path with path traversal protection (G304)
 	mailDir := filepath.Join(repoRoot, MailDir)
-	filePath, err := safePath(mailDir, recipient+".jsonl")
+	filePath, err := safePath(mailDir, tmux.SanitizeForFilename(recipient)+".jsonl")
 	if err != nil {
 		return err
 	}
@@ -439,7 +440,7 @@ func RemoveEmptyMailboxes(repoRoot string) (int, error) {
 
 	for _, recipient := range recipients {
 		// Build file path with path traversal protection (G304)
-		filePath, err := safePath(mailDir, recipient+".jsonl")
+		filePath, err := safePath(mailDir, tmux.SanitizeForFilename(recipient)+".jsonl")
 		if err != nil {
 			continue // Skip invalid paths
 		}
@@ -519,7 +520,7 @@ func CountEmptyMailboxes(repoRoot string) (int, error) {
 	count := 0
 
 	for _, recipient := range recipients {
-		filePath, err := safePath(mailDir, recipient+".jsonl")
+		filePath, err := safePath(mailDir, tmux.SanitizeForFilename(recipient)+".jsonl")
 		if err != nil {
 			continue
 		}

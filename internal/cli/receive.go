@@ -12,11 +12,12 @@ import (
 // ReceiveOptions configures the Receive command behavior.
 // Used for testing to mock tmux and file system operations.
 type ReceiveOptions struct {
-	SkipTmuxCheck bool     // Skip tmux environment check
-	MockWindows   []string // Mock list of tmux windows
-	MockReceiver  string   // Mock receiver window name
-	RepoRoot      string   // Repository root (defaults to current directory)
-	HookMode      bool     // Enable hook mode for Claude Code integration
+	SkipTmuxCheck   bool     // Skip tmux environment check
+	MockWindows     []string // Mock list of tmux windows (deprecated)
+	MockReceiver    string   // Mock receiver window name (deprecated, use MockPaneAddress)
+	MockPaneAddress string   // Mock receiver pane address
+	RepoRoot        string   // Repository root (defaults to current directory)
+	HookMode        bool     // Enable hook mode for Claude Code integration
 }
 
 // Receive implements the agentmail receive command.
@@ -44,52 +45,42 @@ func Receive(stdout, stderr io.Writer, opts ReceiveOptions) int {
 		}
 	}
 
-	// Get receiver identity
+	// Get receiver identity (pane address)
 	var receiver string
-	if opts.MockReceiver != "" {
+	if opts.MockPaneAddress != "" {
+		receiver = opts.MockPaneAddress
+	} else if opts.MockReceiver != "" {
+		// Backward compatibility for old tests
 		receiver = opts.MockReceiver
+		// Validate receiver exists if using old MockWindows API
+		if opts.MockWindows != nil {
+			receiverExists := false
+			for _, w := range opts.MockWindows {
+				if w == receiver {
+					receiverExists = true
+					break
+				}
+			}
+			if !receiverExists {
+				// FR-004a: Hook mode exits silently on errors
+				if opts.HookMode {
+					return 0
+				}
+				fmt.Fprintf(stderr, "error: current window '%s' not found in tmux session\n", receiver)
+				return 1
+			}
+		}
 	} else {
 		var err error
-		receiver, err = tmux.GetCurrentWindow()
+		receiver, err = tmux.GetCurrentPaneAddress()
 		if err != nil {
 			// FR-004a: Hook mode exits silently on errors
 			if opts.HookMode {
 				return 0
 			}
-			fmt.Fprintf(stderr, "error: failed to get current window: %v\n", err)
+			fmt.Fprintf(stderr, "error: failed to get current pane: %v\n", err)
 			return 1
 		}
-	}
-
-	// Validate current window exists in tmux session
-	var receiverExists bool
-	if opts.MockWindows != nil {
-		for _, w := range opts.MockWindows {
-			if w == receiver {
-				receiverExists = true
-				break
-			}
-		}
-	} else {
-		var err error
-		receiverExists, err = tmux.WindowExists(receiver)
-		if err != nil {
-			// FR-004a: Hook mode exits silently on errors
-			if opts.HookMode {
-				return 0
-			}
-			fmt.Fprintf(stderr, "error: failed to check window: %v\n", err)
-			return 1
-		}
-	}
-
-	if !receiverExists {
-		// FR-004a: Hook mode exits silently on errors
-		if opts.HookMode {
-			return 0
-		}
-		fmt.Fprintf(stderr, "error: current window '%s' not found in tmux session\n", receiver)
-		return 1
 	}
 
 	// Determine repository root (find git root, not current directory)

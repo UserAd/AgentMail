@@ -46,7 +46,7 @@ func TestCleanup_OfflineRecipientRemoval(t *testing.T) {
 		RepoRoot:       tmpDir,
 		SkipTmuxCheck:  true,
 		MockInTmux:     true,
-		MockWindows:    []string{"agent-1"}, // Only agent-1 exists as tmux window
+		MockPanes:      []string{"agent-1"}, // Only agent-1 exists as tmux window
 	})
 
 	if exitCode != 0 {
@@ -103,7 +103,7 @@ func TestCleanup_RetainsExistingWindowRecipients(t *testing.T) {
 		RepoRoot:       tmpDir,
 		SkipTmuxCheck:  true,
 		MockInTmux:     true,
-		MockWindows:    []string{"agent-1", "agent-2", "agent-3"}, // All exist
+		MockPanes:      []string{"agent-1", "agent-2", "agent-3"}, // All exist
 	})
 
 	if exitCode != 0 {
@@ -145,7 +145,7 @@ func TestCleanup_EmptyOrMissingRecipients(t *testing.T) {
 			RepoRoot:       tmpDir,
 			SkipTmuxCheck:  true,
 			MockInTmux:     true,
-			MockWindows:    []string{"agent-1"},
+			MockPanes:      []string{"agent-1"},
 		})
 
 		if exitCode != 0 {
@@ -178,7 +178,7 @@ func TestCleanup_EmptyOrMissingRecipients(t *testing.T) {
 			RepoRoot:       tmpDir,
 			SkipTmuxCheck:  true,
 			MockInTmux:     true,
-			MockWindows:    []string{"agent-1"},
+			MockPanes:      []string{"agent-1"},
 		})
 
 		if exitCode != 0 {
@@ -221,7 +221,7 @@ func TestCleanup_NonTmuxEnvironmentSkipsOfflineCheck(t *testing.T) {
 		RepoRoot:       tmpDir,
 		SkipTmuxCheck:  true,  // Skip real tmux check
 		MockInTmux:     false, // Not in tmux
-		MockWindows:    nil,   // No windows (not used when not in tmux)
+		MockPanes:      nil,   // No windows (not used when not in tmux)
 	})
 
 	if exitCode != 0 {
@@ -282,7 +282,7 @@ func TestCleanup_OfflineRemovedCount(t *testing.T) {
 		RepoRoot:       tmpDir,
 		SkipTmuxCheck:  true,
 		MockInTmux:     true,
-		MockWindows:    []string{"agent-1", "agent-3"}, // Only 2 exist
+		MockPanes:      []string{"agent-1", "agent-3"}, // Only 2 exist
 	})
 
 	if exitCode != 0 {
@@ -521,7 +521,7 @@ func TestCleanup_StaleRecipientRemoval(t *testing.T) {
 		RepoRoot:       tmpDir,
 		SkipTmuxCheck:  true,
 		MockInTmux:     false, // Skip offline check to isolate stale test
-		MockWindows:    nil,
+		MockPanes:      nil,
 	})
 
 	if exitCode != 0 {
@@ -576,7 +576,7 @@ func TestCleanup_RetainsRecentRecipients(t *testing.T) {
 		RepoRoot:       tmpDir,
 		SkipTmuxCheck:  true,
 		MockInTmux:     false, // Skip offline check to isolate stale test
-		MockWindows:    nil,
+		MockPanes:      nil,
 	})
 
 	if exitCode != 0 {
@@ -626,7 +626,7 @@ func TestCleanup_CustomStaleHours(t *testing.T) {
 		RepoRoot:       tmpDir,
 		SkipTmuxCheck:  true,
 		MockInTmux:     false, // Skip offline check to isolate stale test
-		MockWindows:    nil,
+		MockPanes:      nil,
 	})
 
 	if exitCode != 0 {
@@ -686,7 +686,7 @@ func TestCleanup_OfflineAndStaleRemoval(t *testing.T) {
 		RepoRoot:       tmpDir,
 		SkipTmuxCheck:  true,
 		MockInTmux:     true,
-		MockWindows:    []string{"agent-1", "agent-3"}, // Only agent-1 and agent-3 have windows
+		MockPanes:      []string{"agent-1", "agent-3"}, // Only agent-1 and agent-3 have windows
 	})
 
 	if exitCode != 0 {
@@ -751,7 +751,7 @@ func TestCleanup_OldReadMessagesRemoved(t *testing.T) {
 		RepoRoot:       tmpDir,
 		SkipTmuxCheck:  true,
 		MockInTmux:     false, // Skip offline check to isolate message test
-		MockWindows:    nil,
+		MockPanes:      nil,
 	})
 
 	if exitCode != 0 {
@@ -822,7 +822,7 @@ func TestCleanup_UnreadMessagesNeverRemoved(t *testing.T) {
 		RepoRoot:       tmpDir,
 		SkipTmuxCheck:  true,
 		MockInTmux:     false,
-		MockWindows:    nil,
+		MockPanes:      nil,
 	})
 
 	if exitCode != 0 {
@@ -872,7 +872,7 @@ func TestCleanup_RecentReadMessagesRetained(t *testing.T) {
 		RepoRoot:       tmpDir,
 		SkipTmuxCheck:  true,
 		MockInTmux:     false,
-		MockWindows:    nil,
+		MockPanes:      nil,
 	})
 
 	if exitCode != 0 {
@@ -921,7 +921,7 @@ func TestCleanup_CustomDeliveredHours(t *testing.T) {
 		RepoRoot:       tmpDir,
 		SkipTmuxCheck:  true,
 		MockInTmux:     false,
-		MockWindows:    nil,
+		MockPanes:      nil,
 	})
 
 	if exitCode != 0 {
@@ -945,7 +945,7 @@ func TestCleanup_CustomDeliveredHours(t *testing.T) {
 		RepoRoot:       tmpDir,
 		SkipTmuxCheck:  true,
 		MockInTmux:     false,
-		MockWindows:    nil,
+		MockPanes:      nil,
 	})
 
 	if exitCode != 0 {
@@ -996,7 +996,7 @@ func TestCleanup_MessagesWithoutCreatedAtDeleted(t *testing.T) {
 		RepoRoot:       tmpDir,
 		SkipTmuxCheck:  true,
 		MockInTmux:     false,
-		MockWindows:    nil,
+		MockPanes:      nil,
 	})
 
 	if exitCode != 0 {
@@ -1068,7 +1068,7 @@ func TestCleanup_EmptyMailboxRemoved(t *testing.T) {
 		RepoRoot:       tmpDir,
 		SkipTmuxCheck:  true,
 		MockInTmux:     false,
-		MockWindows:    nil,
+		MockPanes:      nil,
 	})
 
 	if exitCode != 0 {
@@ -1117,7 +1117,7 @@ func TestCleanup_NonEmptyMailboxRetained(t *testing.T) {
 		RepoRoot:       tmpDir,
 		SkipTmuxCheck:  true,
 		MockInTmux:     false,
-		MockWindows:    nil,
+		MockPanes:      nil,
 	})
 
 	if exitCode != 0 {
@@ -1153,7 +1153,7 @@ func TestCleanup_NoMailboxesDirectory(t *testing.T) {
 		RepoRoot:       tmpDir,
 		SkipTmuxCheck:  true,
 		MockInTmux:     false,
-		MockWindows:    nil,
+		MockPanes:      nil,
 	})
 
 	if exitCode != 0 {
@@ -1192,7 +1192,7 @@ func TestCleanup_MailboxEmptiedByMessageCleanupIsRemoved(t *testing.T) {
 		RepoRoot:       tmpDir,
 		SkipTmuxCheck:  true,
 		MockInTmux:     false,
-		MockWindows:    nil,
+		MockPanes:      nil,
 	})
 
 	if exitCode != 0 {
@@ -1343,7 +1343,7 @@ func TestCleanup_OutputSummary(t *testing.T) {
 		RepoRoot:       tmpDir,
 		SkipTmuxCheck:  true,
 		MockInTmux:     true,
-		MockWindows:    []string{"agent-1", "agent-3"}, // agent-2 doesn't have window
+		MockPanes:      []string{"agent-1", "agent-3"}, // agent-2 doesn't have window
 	})
 
 	if exitCode != 0 {
@@ -1438,7 +1438,7 @@ func TestCleanup_DryRunMode(t *testing.T) {
 		RepoRoot:       tmpDir,
 		SkipTmuxCheck:  true,
 		MockInTmux:     true,
-		MockWindows:    []string{"agent-1", "agent-3"}, // agent-2 doesn't have window
+		MockPanes:      []string{"agent-1", "agent-3"}, // agent-2 doesn't have window
 	})
 
 	if exitCode != 0 {
@@ -1525,7 +1525,7 @@ func TestCleanup_WarningOnSkippedFiles(t *testing.T) {
 		RepoRoot:       tmpDir,
 		SkipTmuxCheck:  true,
 		MockInTmux:     false,
-		MockWindows:    nil,
+		MockPanes:      nil,
 	})
 
 	if exitCode != 0 {
@@ -1542,4 +1542,178 @@ func TestCleanup_WarningOnSkippedFiles(t *testing.T) {
 	// which is complex in a unit test. The warning format is tested through code review.
 	// The expected format when files are skipped is:
 	// "Warning: Skipped N locked file(s)"
+}
+
+func TestCleanup_DryRunModeAllPhases(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
+	}
+
+	// Create mailboxes directory
+	mailboxDir := filepath.Join(agentmailDir, "mailboxes")
+	if err := os.MkdirAll(mailboxDir, 0755); err != nil {
+		t.Fatalf("Failed to create mailboxes dir: %v", err)
+	}
+
+	now := time.Now()
+	oldTime := now.Add(-3 * time.Hour)
+
+	// Create old read messages
+	messages := []mail.Message{
+		{ID: "msg001", From: "sender", To: "mysession:agent.0", Message: "old read", ReadFlag: true, CreatedAt: oldTime},
+	}
+	if err := mail.WriteAll(tmpDir, "mysession:agent.0", messages); err != nil {
+		t.Fatalf("WriteAll failed: %v", err)
+	}
+
+	// Create empty mailbox
+	emptyFile := filepath.Join(mailboxDir, "mysession%3Aempty%2E0.jsonl")
+	if err := os.WriteFile(emptyFile, []byte(""), 0644); err != nil {
+		t.Fatalf("Failed to create empty mailbox: %v", err)
+	}
+
+	// Create stale recipient
+	if err := mail.UpdateRecipientState(tmpDir, "mysession:stale.0", mail.StatusWork, false); err != nil {
+		t.Fatalf("Failed to create stale recipient: %v", err)
+	}
+	// Manually update timestamp to be old
+	recipients, _ := mail.ReadAllRecipients(tmpDir)
+	for i := range recipients {
+		if recipients[i].Recipient == "mysession:stale.0" {
+			recipients[i].UpdatedAt = now.Add(-72 * time.Hour) // 3 days old
+		}
+	}
+	mail.WriteAllRecipients(tmpDir, recipients)
+
+	var stdout, stderr bytes.Buffer
+	exitCode := Cleanup(
+		&stdout,
+		&stderr,
+		CleanupOptions{
+			DryRun:         true, // Dry run mode
+			SkipTmuxCheck:  true,
+			MockInTmux:     true,
+			MockPanes:      []string{"mysession:agent.0"}, // stale.0 and empty.0 not in list
+			RepoRoot:       tmpDir,
+			StaleHours:     48,
+			DeliveredHours: 2,
+		},
+	)
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	stdoutStr := stdout.String()
+
+	// Verify dry run indicated
+	if !strings.Contains(stdoutStr, "dry-run") {
+		t.Errorf("Expected 'dry-run' indication, got: %s", stdoutStr)
+	}
+
+	// Verify counts are shown but nothing deleted
+	readMessages, _ := mail.ReadAll(tmpDir, "mysession:agent.0")
+	if len(readMessages) != 1 {
+		t.Errorf("Dry run should not delete messages, got %d messages", len(readMessages))
+	}
+
+	// Empty mailbox should still exist
+	if _, err := os.Stat(emptyFile); os.IsNotExist(err) {
+		t.Error("Dry run should not delete empty mailbox")
+	}
+
+	// Stale recipient should still exist
+	recipients, _ = mail.ReadAllRecipients(tmpDir)
+	found := false
+	for _, r := range recipients {
+		if r.Recipient == "mysession:stale.0" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("Dry run should not delete stale recipient")
+	}
+}
+
+func TestCleanup_NoRecipientsFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .agentmail directory but no recipients.jsonl
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	exitCode := Cleanup(
+		&stdout,
+		&stderr,
+		CleanupOptions{
+			SkipTmuxCheck:  true,
+			MockInTmux:     true,
+			MockPanes:      []string{},
+			RepoRoot:       tmpDir,
+			StaleHours:     48,
+			DeliveredHours: 2,
+		},
+	)
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0 with no recipients file, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	// Should complete without error
+	if !strings.Contains(stdout.String(), "Cleanup complete") {
+		t.Errorf("Expected 'Cleanup complete', got: %s", stdout.String())
+	}
+}
+
+func TestCleanup_CustomStaleThreshold(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create .agentmail directory
+	agentmailDir := filepath.Join(tmpDir, ".agentmail")
+	if err := os.MkdirAll(agentmailDir, 0755); err != nil {
+		t.Fatalf("Failed to create .agentmail dir: %v", err)
+	}
+
+	now := time.Now()
+
+	// Create recipient that's 25 hours old (stale with 24h threshold, fresh with 48h)
+	if err := mail.UpdateRecipientState(tmpDir, "mysession:agent.0", mail.StatusWork, false); err != nil {
+		t.Fatalf("Failed to create recipient: %v", err)
+	}
+	recipients, _ := mail.ReadAllRecipients(tmpDir)
+	for i := range recipients {
+		recipients[i].UpdatedAt = now.Add(-25 * time.Hour)
+	}
+	mail.WriteAllRecipients(tmpDir, recipients)
+
+	var stdout, stderr bytes.Buffer
+	exitCode := Cleanup(
+		&stdout,
+		&stderr,
+		CleanupOptions{
+			SkipTmuxCheck:  true,
+			MockInTmux:     true,
+			MockPanes:      []string{"mysession:agent.0"}, // Agent exists in tmux
+			RepoRoot:       tmpDir,
+			StaleHours:     24, // Custom threshold
+			DeliveredHours: 2,
+		},
+	)
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	// With 24h threshold, the 25h old recipient should be removed
+	recipients, _ = mail.ReadAllRecipients(tmpDir)
+	if len(recipients) != 0 {
+		t.Errorf("Expected stale recipient to be removed with 24h threshold, got %d recipients", len(recipients))
+	}
 }

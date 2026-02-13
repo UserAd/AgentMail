@@ -11,9 +11,9 @@ import (
 // StatusOptions configures the Status command behavior.
 // Used for testing to mock tmux and file system operations.
 type StatusOptions struct {
-	SkipTmuxCheck bool   // Skip tmux environment check
-	MockWindow    string // Mock current window name
-	RepoRoot      string // Repository root (defaults to finding git root)
+	SkipTmuxCheck   bool   // Skip tmux environment check
+	MockPaneAddress string // Mock current pane address
+	RepoRoot        string // Repository root (defaults to finding git root)
 }
 
 // ValidateStatus checks if the provided status is a valid status value.
@@ -78,15 +78,15 @@ func Status(args []string, stdout, stderr io.Writer, opts StatusOptions) int {
 		return 1
 	}
 
-	// Get current window name
-	var window string
-	if opts.MockWindow != "" {
-		window = opts.MockWindow
+	// Get current pane address
+	var paneAddress string
+	if opts.MockPaneAddress != "" {
+		paneAddress = opts.MockPaneAddress
 	} else {
 		var err error
-		window, err = tmux.GetCurrentWindow()
+		paneAddress, err = tmux.GetCurrentPaneAddress()
 		if err != nil {
-			fmt.Fprintf(stderr, "error: failed to get current window: %v\n", err)
+			fmt.Fprintf(stderr, "error: failed to get current pane address: %v\n", err)
 			return 1
 		}
 	}
@@ -107,7 +107,7 @@ func Status(args []string, stdout, stderr io.Writer, opts StatusOptions) int {
 	resetNotified := (status == mail.StatusWork || status == mail.StatusOffline)
 
 	// Update recipient state using existing infrastructure
-	if err := mail.UpdateRecipientState(repoRoot, window, status, resetNotified); err != nil {
+	if err := mail.UpdateRecipientState(repoRoot, paneAddress, status, resetNotified); err != nil {
 		fmt.Fprintf(stderr, "error: failed to update status: %v\n", err)
 		return 1
 	}

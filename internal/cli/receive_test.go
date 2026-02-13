@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"agentmail/internal/mail"
 )
 
 // T028: Tests for receive command no-messages case
@@ -486,5 +489,197 @@ func TestReceiveCommand_NormalMode_Unchanged(t *testing.T) {
 	// Should NOT have "You got new mail" prefix
 	if strings.Contains(stdout.String(), "You got new mail") {
 		t.Errorf("Normal mode should not have hook prefix")
+	}
+}
+
+// T008: Tests for pane address support in receive
+
+func TestReceiveCommand_PaneSpecificMailbox(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create message for specific pane
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	content := `{"id":"testID1","from":"mysession:sender.0","to":"mysession:editor.1","message":"Hello pane 1","read_flag":false}
+`
+	// Use sanitized filename
+	mailboxFile := filepath.Join(mailDir, "mysession%3Aeditor%2E1.jsonl")
+	if err := os.WriteFile(mailboxFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to write mailbox file: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	exitCode := Receive(&stdout, &stderr, ReceiveOptions{
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "mysession:editor.1",
+		RepoRoot:        tmpDir,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	if !strings.Contains(stdout.String(), "Hello pane 1") {
+		t.Errorf("Expected message content, got: %s", stdout.String())
+	}
+}
+
+// T012: Hook mode pane isolation test
+
+func TestReceiveCommand_HookMode_PaneIsolation(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	// Create message for pane 0 (sibling pane)
+	pane0Content := `{"id":"msg0","from":"mysession:sender.0","to":"mysession:editor.0","message":"Message for pane 0","read_flag":false}
+`
+	pane0File := filepath.Join(mailDir, "mysession%3Aeditor%2E0.jsonl")
+	if err := os.WriteFile(pane0File, []byte(pane0Content), 0644); err != nil {
+		t.Fatalf("Failed to write pane 0 mailbox: %v", err)
+	}
+
+	// Receive from pane 1 (different pane in same window)
+	var stdout, stderr bytes.Buffer
+	exitCode := Receive(&stdout, &stderr, ReceiveOptions{
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "mysession:editor.1",
+		RepoRoot:        tmpDir,
+		HookMode:        true,
+	})
+
+	// Should exit 0 with no output (no messages for pane 1)
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0 (no messages for this pane), got %d", exitCode)
+	}
+
+	if stdout.String() != "" {
+		t.Errorf("Expected no stdout output, got: %s", stdout.String())
+	}
+
+	if stderr.String() != "" {
+		t.Errorf("Expected no stderr output (pane isolation), got: %s", stderr.String())
+	}
+}
+
+func TestReceiveCommand_PaneIsolation_NoMessages(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "agentmail-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	mailDir := filepath.Join(tmpDir, ".agentmail", "mailboxes")
+	if err := os.MkdirAll(mailDir, 0755); err != nil {
+		t.Fatalf("Failed to create mail dir: %v", err)
+	}
+
+	// Create message for a different pane in the same window
+	otherPaneContent := `{"id":"msg1","from":"mysession:sender.0","to":"mysession:editor.0","message":"For pane 0","read_flag":false}
+`
+	otherPaneFile := filepath.Join(mailDir, "mysession%3Aeditor%2E0.jsonl")
+	if err := os.WriteFile(otherPaneFile, []byte(otherPaneContent), 0644); err != nil {
+		t.Fatalf("Failed to write mailbox: %v", err)
+	}
+
+	// Try to receive from pane 1
+	var stdout, stderr bytes.Buffer
+	exitCode := Receive(&stdout, &stderr, ReceiveOptions{
+		SkipTmuxCheck:   true,
+		MockPaneAddress: "mysession:editor.1",
+		RepoRoot:        tmpDir,
+	})
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d", exitCode)
+	}
+
+	if !strings.Contains(stdout.String(), "No unread messages") {
+		t.Errorf("Expected 'No unread messages', got: %s", stdout.String())
+	}
+}
+
+func TestReceiveCommand_NoRepoRoot(t *testing.T) {
+	// Change to a temp directory without .git so FindGitRoot() fails
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current dir: %v", err)
+	}
+	defer os.Chdir(origDir)
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Failed to chdir: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	exitCode := Receive(
+		&stdout,
+		&stderr,
+		ReceiveOptions{
+			SkipTmuxCheck:   true,
+			MockPaneAddress: "mysession:receiver.0",
+			RepoRoot:        "", // Force it to search for git root
+		},
+	)
+
+	if exitCode != 1 {
+		t.Errorf("Expected exit code 1 for no repo root, got %d", exitCode)
+	}
+
+	if !strings.Contains(stderr.String(), "not in a git repository") {
+		t.Errorf("Expected 'not in a git repository' error, got: %s", stderr.String())
+	}
+}
+
+func TestReceiveCommand_MultipleUnreadFIFO(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create mailbox with multiple unread messages
+	messages := []mail.Message{
+		{ID: "first123", From: "mysession:sender.0", To: "mysession:receiver.0", Message: "First message", ReadFlag: false, CreatedAt: time.Now().Add(-3 * time.Hour)},
+		{ID: "second12", From: "mysession:sender.0", To: "mysession:receiver.0", Message: "Second message", ReadFlag: false, CreatedAt: time.Now().Add(-2 * time.Hour)},
+		{ID: "third123", From: "mysession:sender.0", To: "mysession:receiver.0", Message: "Third message", ReadFlag: false, CreatedAt: time.Now().Add(-1 * time.Hour)},
+	}
+
+	if err := mail.WriteAll(tmpDir, "mysession:receiver.0", messages); err != nil {
+		t.Fatalf("Failed to create test messages: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	exitCode := Receive(
+		&stdout,
+		&stderr,
+		ReceiveOptions{
+			SkipTmuxCheck:   true,
+			MockPaneAddress: "mysession:receiver.0",
+			RepoRoot:        tmpDir,
+		},
+	)
+
+	if exitCode != 0 {
+		t.Errorf("Expected exit code 0, got %d. Stderr: %s", exitCode, stderr.String())
+	}
+
+	// Should receive oldest message first (FIFO)
+	if !strings.Contains(stdout.String(), "First message") {
+		t.Errorf("Expected 'First message' (oldest), got: %s", stdout.String())
+	}
+
+	if strings.Contains(stdout.String(), "Second message") || strings.Contains(stdout.String(), "Third message") {
+		t.Errorf("Should only receive oldest message, got: %s", stdout.String())
 	}
 }

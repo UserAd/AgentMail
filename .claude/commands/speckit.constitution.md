@@ -63,7 +63,9 @@ Follow this execution flow:
 
 7. Write the completed constitution back to `.specify/memory/constitution.md` (overwrite).
 
-8. Output a final summary to the user with:
+8. **Update project memory**: Update `.specify/memory/index.md` to include an entry for `constitution.md` (description: "Project constitution — principles, governance, and compliance rules", updated by: `speckit.constitution`). If the entry already exists, update the description if it changed. If other reusable project knowledge was produced during this session (domain terms, governance patterns), write or update the relevant file in `.specify/memory/` and add its entry to `index.md`. Keep memory files concise and project-scoped (not feature-specific). If no new reusable knowledge beyond the constitution was produced, skip silently.
+
+9. Output a final summary to the user with:
    - New version and bump rationale.
    - Any files flagged for manual follow-up.
    - Suggested commit message (e.g., `docs: amend constitution to vX.Y.Z (principle additions + governance update)`).

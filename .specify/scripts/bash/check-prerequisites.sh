@@ -9,13 +9,15 @@
 #
 # OPTIONS:
 #   --json              Output in JSON format
+#   --require-spec      Require spec.md to exist
+#   --require-plan      Require plan.md to exist
 #   --require-tasks     Require tasks.md to exist (for implementation phase)
 #   --include-tasks     Include tasks.md in AVAILABLE_DOCS list
 #   --paths-only        Only output path variables (no validation)
 #   --help, -h          Show help message
 #
 # OUTPUTS:
-#   JSON mode: {"FEATURE_DIR":"...", "AVAILABLE_DOCS":["..."]}
+#   JSON mode: {"FEATURE_DIR":"...", "FEATURE_SPEC":"...", "TASKS":"...", "AVAILABLE_DOCS":["..."]}
 #   Text mode: FEATURE_DIR:... \n AVAILABLE_DOCS: \n ✓/✗ file.md
 #   Paths only: REPO_ROOT: ... \n BRANCH: ... \n FEATURE_DIR: ... etc.
 
@@ -23,6 +25,8 @@ set -e
 
 # Parse command line arguments
 JSON_MODE=false
+REQUIRE_SPEC=false
+REQUIRE_PLAN=false
 REQUIRE_TASKS=false
 INCLUDE_TASKS=false
 PATHS_ONLY=false
@@ -31,6 +35,12 @@ for arg in "$@"; do
     case "$arg" in
         --json)
             JSON_MODE=true
+            ;;
+        --require-spec)
+            REQUIRE_SPEC=true
+            ;;
+        --require-plan)
+            REQUIRE_PLAN=true
             ;;
         --require-tasks)
             REQUIRE_TASKS=true
@@ -49,21 +59,26 @@ Consolidated prerequisite checking for Spec-Driven Development workflow.
 
 OPTIONS:
   --json              Output in JSON format
+  --require-spec      Require spec.md to exist
+  --require-plan      Require plan.md to exist
   --require-tasks     Require tasks.md to exist (for implementation phase)
   --include-tasks     Include tasks.md in AVAILABLE_DOCS list
   --paths-only        Only output path variables (no prerequisite validation)
   --help, -h          Show this help message
 
 EXAMPLES:
-  # Check task prerequisites (plan.md required)
+  # Check feature directory exists (minimal validation)
   ./check-prerequisites.sh --json
-  
-  # Check implementation prerequisites (plan.md + tasks.md required)
-  ./check-prerequisites.sh --json --require-tasks --include-tasks
-  
+
+  # Check task generation prerequisites (spec + plan required)
+  ./check-prerequisites.sh --json --require-spec --require-plan
+
+  # Check implementation prerequisites (spec + plan + tasks required)
+  ./check-prerequisites.sh --json --require-spec --require-plan --require-tasks --include-tasks
+
   # Get feature paths only (no validation)
   ./check-prerequisites.sh --paths-only
-  
+
 EOF
             exit 0
             ;;
@@ -102,20 +117,28 @@ fi
 # Validate required directories and files
 if [[ ! -d "$FEATURE_DIR" ]]; then
     echo "ERROR: Feature directory not found: $FEATURE_DIR" >&2
-    echo "Run /speckit.specify first to create the feature structure." >&2
+    echo "Run /speckit.specify or /speckit.quick first to create the feature structure." >&2
     exit 1
 fi
 
-if [[ ! -f "$IMPL_PLAN" ]]; then
+# Check for spec.md if required
+if $REQUIRE_SPEC && [[ ! -f "$FEATURE_SPEC" ]]; then
+    echo "ERROR: spec.md not found in $FEATURE_DIR" >&2
+    echo "Run /speckit.specify or /speckit.quick first to create the specification." >&2
+    exit 1
+fi
+
+# Check for plan.md if required
+if $REQUIRE_PLAN && [[ ! -f "$IMPL_PLAN" ]]; then
     echo "ERROR: plan.md not found in $FEATURE_DIR" >&2
-    echo "Run /speckit.plan first to create the implementation plan." >&2
+    echo "Run /speckit.plan or /speckit.quick first to create the implementation plan." >&2
     exit 1
 fi
 
 # Check for tasks.md if required
 if $REQUIRE_TASKS && [[ ! -f "$TASKS" ]]; then
     echo "ERROR: tasks.md not found in $FEATURE_DIR" >&2
-    echo "Run /speckit.tasks first to create the task list." >&2
+    echo "Run /speckit.tasks or /speckit.quick first to create the task list." >&2
     exit 1
 fi
 
@@ -148,7 +171,7 @@ if $JSON_MODE; then
         json_docs="[${json_docs%,}]"
     fi
     
-    printf '{"FEATURE_DIR":"%s","AVAILABLE_DOCS":%s}\n' "$FEATURE_DIR" "$json_docs"
+    printf '{"FEATURE_DIR":"%s","FEATURE_SPEC":"%s","TASKS":"%s","AVAILABLE_DOCS":%s}\n' "$FEATURE_DIR" "$FEATURE_SPEC" "$TASKS" "$json_docs"
 else
     # Text output
     echo "FEATURE_DIR:$FEATURE_DIR"

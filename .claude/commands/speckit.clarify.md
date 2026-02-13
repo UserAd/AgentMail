@@ -29,11 +29,9 @@ Execution steps:
    - If JSON parsing fails, abort and instruct user to re-run `/speckit.specify` or verify feature branch environment.
    - For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
-2. **Load context files**:
-   - Load the current spec file from FEATURE_SPEC
-   - Load `.specify/memory/ears-guidelines.md` for requirements syntax validation
+2. **Load project memory**: Always read `.specify/memory/constitution.md` if it exists. Then read `.specify/memory/index.md` and, if it lists files, read each listed file to gather project context (domain knowledge, tech decisions, conventions, lessons learned). Use this context to inform your work. If `index.md` is missing or empty, skip silently.
 
-   Perform a structured ambiguity & coverage scan using this taxonomy. For each category, mark status: Clear / Partial / Missing. Produce an internal coverage map used for prioritization (do not output raw map unless no questions will be asked).
+3. Load the current spec file. Perform a structured ambiguity & coverage scan using this taxonomy. For each category, mark status: Clear / Partial / Missing. Produce an internal coverage map used for prioritization (do not output raw map unless no questions will be asked).
 
    Functional Scope & Behavior:
    - Core user goals & success criteria
@@ -85,18 +83,11 @@ Execution steps:
    - TODO markers / unresolved decisions
    - Ambiguous adjectives ("robust", "intuitive") lacking quantification
 
-   EARS Compliance (from .specify/memory/ears-guidelines.md):
-   - Requirements follow EARS patterns (Ubiquitous/When/While/If-Then/Where)
-   - Requirements use active voice with explicit system name
-   - Requirements contain single "shall" statement
-   - Numerical values have units specified
-   - No vague terms or escape clauses present
-
    For each category with Partial or Missing status, add a candidate question opportunity unless:
    - Clarification would not materially change implementation or validation strategy
    - Information is better deferred to planning phase (note internally)
 
-3. Generate (internally) a prioritized queue of candidate clarification questions (maximum 5). Do NOT output them all at once. Apply these constraints:
+4. Generate (internally) a prioritized queue of candidate clarification questions (maximum 5). Do NOT output them all at once. Apply these constraints:
     - Maximum of 10 total questions across the whole session.
     - Each question must be answerable with EITHER:
        - A short multiple‑choice selection (2–5 distinct, mutually exclusive options), OR
@@ -107,84 +98,61 @@ Execution steps:
     - Favor clarifications that reduce downstream rework risk or prevent misaligned acceptance tests.
     - If more than 5 categories remain unresolved, select the top 5 by (Impact * Uncertainty) heuristic.
 
-4. Sequential questioning loop using **AskUserQuestion tool**:
-    - Present questions using the AskUserQuestion tool (1-4 questions per call).
-    - For each question in the prioritized queue:
+5. Sequential questioning loop (interactive):
+    - Present EXACTLY ONE question at a time.
+    - For multiple‑choice questions:
        - **Analyze all options** and determine the **most suitable option** based on:
           - Best practices for the project type
           - Common patterns in similar implementations
           - Risk reduction (security, performance, maintainability)
           - Alignment with any explicit project goals or constraints visible in the spec
-       - Create question object with:
-          - `question`: Clear question text (include context if needed)
-          - `header`: Short category label (max 12 chars, e.g., "Auth", "Scale", "Data")
-          - `options`: 2-4 options, each with `label` and `description`
-            - **First option MUST be recommended** with "(Recommended)" in the label
-            - Description should explain implications/tradeoffs
-          - `multiSelect`: false (clarifications are mutually exclusive)
+       - Present your **recommended option prominently** at the top with clear reasoning (1-2 sentences explaining why this is the best choice).
+       - Format as: `**Recommended:** Option [X] - <reasoning>`
+       - Then render all options as a Markdown table:
 
-       Example AskUserQuestion call for a batch of questions:
-       ```json
-       {
-         "questions": [
-           {
-             "question": "What is the expected scale for concurrent users?",
-             "header": "Scale",
-             "options": [
-               {"label": "1,000 users (Recommended)", "description": "Standard web app scale, simpler architecture"},
-               {"label": "10,000 users", "description": "Requires caching layer, connection pooling"},
-               {"label": "100,000+ users", "description": "Distributed architecture, significant complexity"}
-             ],
-             "multiSelect": false
-           },
-           {
-             "question": "How should the system handle authentication?",
-             "header": "Auth",
-             "options": [
-               {"label": "OAuth2/OIDC (Recommended)", "description": "Industry standard, SSO support, good security"},
-               {"label": "Session-based", "description": "Simple implementation, stateful servers"},
-               {"label": "JWT tokens", "description": "Stateless, good for microservices"}
-             ],
-             "multiSelect": false
-           }
-         ]
-       }
-       ```
+       | Option | Description |
+       |--------|-------------|
+       | A | <Option A description> |
+       | B | <Option B description> |
+       | C | <Option C description> (add D/E as needed up to 5) |
+       | Short | Provide a different short answer (<=5 words) (Include only if free-form alternative is appropriate) |
 
-    - After the user responds via AskUserQuestion:
-       - Process each answer from the tool response
-       - Record answers in working memory (do not yet write to disk)
-       - If user selected "Other" and provided custom input, use that value
-    - Continue with remaining questions (batch up to 4 at a time) until:
-       - All critical ambiguities resolved, OR
-       - You reach 5 total asked questions
+       - After the table, add: `You can reply with the option letter (e.g., "A"), accept the recommendation by saying "yes" or "recommended", or provide your own short answer.`
+    - For short‑answer style (no meaningful discrete options):
+       - Provide your **suggested answer** based on best practices and context.
+       - Format as: `**Suggested:** <your proposed answer> - <brief reasoning>`
+       - Then output: `Format: Short answer (<=5 words). You can accept the suggestion by saying "yes" or "suggested", or provide your own answer.`
+    - After the user answers:
+       - If the user replies with "yes", "recommended", or "suggested", use your previously stated recommendation/suggestion as the answer.
+       - Otherwise, validate the answer maps to one option or fits the <=5 word constraint.
+       - If ambiguous, ask for a quick disambiguation (count still belongs to same question; do not advance).
+       - Once satisfactory, record it in working memory (do not yet write to disk) and move to the next queued question.
+    - Stop asking further questions when:
+       - All critical ambiguities resolved early (remaining queued items become unnecessary), OR
+       - User signals completion ("done", "good", "no more"), OR
+       - You reach 5 asked questions.
+    - Never reveal future queued questions in advance.
     - If no valid questions exist at start, immediately report no critical ambiguities.
 
-5. Integration after EACH accepted answer (incremental update approach):
+6. Integration after EACH accepted answer (incremental update approach):
     - Maintain in-memory representation of the spec (loaded once at start) plus the raw file contents.
     - For the first integrated answer in this session:
        - Ensure a `## Clarifications` section exists (create it just after the highest-level contextual/overview section per the spec template if missing).
        - Under it, create (if not present) a `### Session YYYY-MM-DD` subheading for today.
     - Append a bullet line immediately after acceptance: `- Q: <question> → A: <final answer>`.
     - Then immediately apply the clarification to the most appropriate section(s):
-       - Functional ambiguity → Update or add a bullet in Functional Requirements using EARS pattern format.
+       - Functional ambiguity → Update or add a bullet in Functional Requirements.
        - User interaction / actor distinction → Update User Stories or Actors subsection (if present) with clarified role, constraint, or scenario.
        - Data shape / entities → Update Data Model (add fields, types, relationships) preserving ordering; note added constraints succinctly.
-       - Non-functional constraint → Add/modify measurable criteria in Non-Functional / Quality Attributes section (convert vague adjective to metric or explicit target using EARS format).
-       - Edge case / negative flow → Add a new bullet under Edge Cases / Error Handling (or create such subsection if template provides placeholder for it) using EARS "If...Then" pattern.
+       - Non-functional constraint → Add/modify measurable criteria in Non-Functional / Quality Attributes section (convert vague adjective to metric or explicit target).
+       - Edge case / negative flow → Add a new bullet under Edge Cases / Error Handling (or create such subsection if template provides placeholder for it).
        - Terminology conflict → Normalize term across spec; retain original only if necessary by adding `(formerly referred to as "X")` once.
-    - **EARS Compliance**: When adding or modifying requirements, ensure they follow EARS patterns from `.specify/memory/ears-guidelines.md`:
-       - Ubiquitous: `The <system> shall <response>`
-       - Event-Driven: `When <trigger>, the <system> shall <response>`
-       - State-Driven: `While <condition>, the <system> shall <response>`
-       - Unwanted Behavior: `If <trigger>, then the <system> shall <response>`
-       - Optional Feature: `Where <feature>, the <system> shall <response>`
     - If the clarification invalidates an earlier ambiguous statement, replace that statement instead of duplicating; leave no obsolete contradictory text.
     - Save the spec file AFTER each integration to minimize risk of context loss (atomic overwrite).
     - Preserve formatting: do not reorder unrelated sections; keep heading hierarchy intact.
     - Keep each inserted clarification minimal and testable (avoid narrative drift).
 
-6. Validation (performed after EACH write plus final pass):
+7. Validation (performed after EACH write plus final pass):
    - Clarifications session contains exactly one bullet per accepted answer (no duplicates).
    - Total asked (accepted) questions ≤ 5.
    - Updated sections contain no lingering vague placeholders the new answer was meant to resolve.
@@ -192,14 +160,13 @@ Execution steps:
    - Markdown structure valid; only allowed new headings: `## Clarifications`, `### Session YYYY-MM-DD`.
    - Terminology consistency: same canonical term used across all updated sections.
 
-7. Write the updated spec back to `FEATURE_SPEC`.
+8. Write the updated spec back to `FEATURE_SPEC`.
 
-8. Report completion (after questioning loop ends or early termination):
+9. Report completion (after questioning loop ends or early termination):
    - Number of questions asked & answered.
    - Path to updated spec.
    - Sections touched (list names).
    - Coverage summary table listing each taxonomy category with Status: Resolved (was Partial/Missing and addressed), Deferred (exceeds question quota or better suited for planning), Clear (already sufficient), Outstanding (still Partial/Missing but low impact).
-   - **EARS Compliance Status**: Report whether requirements follow EARS patterns. If non-compliant requirements exist, recommend running `/ears-translator` skill to convert them.
    - If any Outstanding or Deferred remain, recommend whether to proceed to `/speckit.plan` or run `/speckit.clarify` again later post-plan.
    - Suggested next command.
 

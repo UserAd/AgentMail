@@ -40,9 +40,9 @@ mkdir -p "$FEATURE_DIR"
 TEMPLATE="$REPO_ROOT/.specify/templates/plan-template.md"
 if [[ -f "$TEMPLATE" ]]; then
     cp "$TEMPLATE" "$IMPL_PLAN"
-    echo "Copied plan template to $IMPL_PLAN"
+    echo "Copied plan template to $IMPL_PLAN" >&2
 else
-    echo "Warning: Plan template not found at $TEMPLATE"
+    echo "Warning: Plan template not found at $TEMPLATE" >&2
     # Create a basic plan file if template doesn't exist
     touch "$IMPL_PLAN"
 fi

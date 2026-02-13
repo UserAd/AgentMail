@@ -26,27 +26,13 @@ get_current_branch() {
         return
     fi
 
-    # For non-git repos, try to find the latest feature directory
+    # For non-git repos, try to find the most recently modified feature directory
     local repo_root=$(get_repo_root)
     local specs_dir="$repo_root/specs"
 
     if [[ -d "$specs_dir" ]]; then
-        local latest_feature=""
-        local highest=0
-
-        for dir in "$specs_dir"/*; do
-            if [[ -d "$dir" ]]; then
-                local dirname=$(basename "$dir")
-                if [[ "$dirname" =~ ^([0-9]{3})- ]]; then
-                    local number=${BASH_REMATCH[1]}
-                    number=$((10#$number))
-                    if [[ "$number" -gt "$highest" ]]; then
-                        highest=$number
-                        latest_feature=$dirname
-                    fi
-                fi
-            fi
-        done
+        local latest_feature
+        latest_feature=$(ls -t "$specs_dir" 2>/dev/null | head -1)
 
         if [[ -n "$latest_feature" ]]; then
             echo "$latest_feature"
@@ -72,56 +58,23 @@ check_feature_branch() {
         return 0
     fi
 
-    if [[ ! "$branch" =~ ^[0-9]{3}- ]]; then
-        echo "ERROR: Not on a feature branch. Current branch: $branch" >&2
-        echo "Feature branches should be named like: 001-feature-name" >&2
+    if [[ "$branch" == "main" || "$branch" == "master" ]]; then
+        echo "ERROR: Cannot work on '$branch'. Please switch to a feature branch first." >&2
         return 1
     fi
 
     return 0
 }
 
-get_feature_dir() { echo "$1/specs/$2"; }
+# Translate branch name to directory-safe name
+# Handles prefixed branches: feature/name → feature-name, tech/name → tech-name
+branch_to_dirname() {
+    echo "$1" | sed 's|/|-|g' | sed -E 's/-+/-/g' | sed 's/^-//' | sed 's/-$//'
+}
 
-# Find feature directory by numeric prefix instead of exact branch match
-# This allows multiple branches to work on the same spec (e.g., 004-fix-bug, 004-add-feature)
-find_feature_dir_by_prefix() {
-    local repo_root="$1"
-    local branch_name="$2"
-    local specs_dir="$repo_root/specs"
-
-    # Extract numeric prefix from branch (e.g., "004" from "004-whatever")
-    if [[ ! "$branch_name" =~ ^([0-9]{3})- ]]; then
-        # If branch doesn't have numeric prefix, fall back to exact match
-        echo "$specs_dir/$branch_name"
-        return
-    fi
-
-    local prefix="${BASH_REMATCH[1]}"
-
-    # Search for directories in specs/ that start with this prefix
-    local matches=()
-    if [[ -d "$specs_dir" ]]; then
-        for dir in "$specs_dir"/"$prefix"-*; do
-            if [[ -d "$dir" ]]; then
-                matches+=("$(basename "$dir")")
-            fi
-        done
-    fi
-
-    # Handle results
-    if [[ ${#matches[@]} -eq 0 ]]; then
-        # No match found - return the branch name path (will fail later with clear error)
-        echo "$specs_dir/$branch_name"
-    elif [[ ${#matches[@]} -eq 1 ]]; then
-        # Exactly one match - perfect!
-        echo "$specs_dir/${matches[0]}"
-    else
-        # Multiple matches - this shouldn't happen with proper naming convention
-        echo "ERROR: Multiple spec directories found with prefix '$prefix': ${matches[*]}" >&2
-        echo "Please ensure only one spec directory exists per numeric prefix." >&2
-        echo "$specs_dir/$branch_name"  # Return something to avoid breaking the script
-    fi
+get_feature_dir() {
+    local dir_name=$(branch_to_dirname "$2")
+    echo "$1/specs/$dir_name"
 }
 
 get_feature_paths() {
@@ -133,8 +86,7 @@ get_feature_paths() {
         has_git_repo="true"
     fi
 
-    # Use prefix-based lookup to support multiple branches per spec
-    local feature_dir=$(find_feature_dir_by_prefix "$repo_root" "$current_branch")
+    local feature_dir=$(get_feature_dir "$repo_root" "$current_branch")
 
     cat <<EOF
 REPO_ROOT='$repo_root'

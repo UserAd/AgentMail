@@ -12,7 +12,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Outline
 
-1. Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks` from repo root and parse FEATURE_DIR and AVAILABLE_DOCS list. All paths must be absolute. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
+1. Run `.specify/scripts/bash/check-prerequisites.sh --json --require-spec --require-plan --require-tasks --include-tasks` from repo root and parse FEATURE_DIR and AVAILABLE_DOCS list. All paths must be absolute. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
 2. **Check checklists status** (if FEATURE_DIR/checklists/ exists):
    - Scan all checklist files in the checklists/ directory
@@ -36,24 +36,10 @@ You **MUST** consider the user input before proceeding (if not empty).
 
    - **If any checklist is incomplete**:
      - Display the table with incomplete item counts
-     - **Use AskUserQuestion tool** to confirm:
-       ```json
-       {
-         "questions": [
-           {
-             "question": "Some checklists are incomplete. Do you want to proceed with implementation anyway?",
-             "header": "Proceed?",
-             "options": [
-               {"label": "Yes, proceed", "description": "Continue with implementation despite incomplete checklists"},
-               {"label": "No, stop (Recommended)", "description": "Halt to complete checklists first - reduces risk"}
-             ],
-             "multiSelect": false
-           }
-         ]
-       }
-       ```
-     - If user selects "No, stop", halt execution
-     - If user selects "Yes, proceed", continue to step 3
+     - **STOP** and ask: "Some checklists are incomplete. Do you want to proceed with implementation anyway? (yes/no)"
+     - Wait for user response before continuing
+     - If user says "no" or "wait" or "stop", halt execution
+     - If user says "yes" or "proceed" or "continue", proceed to step 3
 
    - **If all checklists are complete**:
      - Display the table showing all checklists passed
@@ -66,8 +52,40 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **IF EXISTS**: Read contracts/ for API specifications and test requirements
    - **IF EXISTS**: Read research.md for technical decisions and constraints
    - **IF EXISTS**: Read quickstart.md for integration scenarios
+   - **Load project memory**: Always read `.specify/memory/constitution.md` if it exists. Then read `.specify/memory/index.md` and, if it lists files, read each listed file to gather project context (domain knowledge, tech decisions, conventions, lessons learned). Use this context to inform your work. If `index.md` is missing or empty, skip silently.
 
-4. **Project Setup Verification**:
+4. **STRICT RULE — Initialize and maintain worklog**:
+
+   **You MUST create and update a worklog file throughout implementation. This is non-negotiable — never skip worklog updates.**
+
+   - If `FEATURE_DIR/worklog.md` does not exist:
+     - Copy `.specify/templates/worklog-template.md` to `FEATURE_DIR/worklog.md`
+     - Replace `[FEATURE NAME]` with the feature name from plan.md
+     - Replace `[feature-name]` with the current branch name
+     - Replace `[DATE]` with today's date
+   - If `FEATURE_DIR/worklog.md` already exists (resuming implementation):
+     - Read it and continue appending from where it left off
+
+   **Worklog update rules** (enforced in steps 7 and 10):
+   - After completing **every phase**, immediately append a phase entry to worklog.md
+   - Each phase entry MUST include: tasks covered, what was done, problems encountered, solutions applied, and a phase summary
+   - After **all phases complete**, append the final `## Summary of implementation of feature` section
+   - **NEVER proceed to the next phase without updating the worklog first**
+   - **NEVER skip the final summary**
+
+   **Worklog entry format** (per phase):
+
+   ```markdown
+   ## Phase N: [Phase Name]
+
+   ### Tasks [range or individual]
+   {What was done, problems encountered, solutions applied}
+
+   ### Summary
+   {Brief summary of this phase's outcomes}
+   ```
+
+5. **Project Setup Verification**:
    - **REQUIRED**: Create/verify ignore files based on actual project setup:
 
    **Detection & Creation Logic**:
@@ -111,27 +129,27 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **Terraform**: `.terraform/`, `*.tfstate*`, `*.tfvars`, `.terraform.lock.hcl`
    - **Kubernetes/k8s**: `*.secret.yaml`, `secrets/`, `.kube/`, `kubeconfig*`, `*.key`, `*.crt`
 
-5. Parse tasks.md structure and extract:
-   - **Task phases**: Setup, Tests, Core, Integration, Polish
+6. Parse tasks.md structure and extract:
+   - **Task phases**: Setup, Foundational, User Stories (one phase per story in priority order), Polish
    - **Task dependencies**: Sequential vs parallel execution rules
-   - **Task details**: ID, description, file paths, parallel markers [P]
+   - **Task details**: ID, description, file paths, parallel markers [P], story labels [US1] etc.
    - **Execution flow**: Order and dependency requirements
 
-6. Execute implementation following the task plan:
+7. Execute implementation following the task plan:
    - **Phase-by-phase execution**: Complete each phase before moving to the next
-   - **Respect dependencies**: Run sequential tasks in order, parallel tasks [P] can run together  
-   - **Follow TDD approach**: Execute test tasks before their corresponding implementation tasks
+   - **Respect dependencies**: Run sequential tasks in order, parallel tasks [P] can run together
+   - **Test ordering**: If test tasks exist in a phase, execute them before their corresponding implementation tasks
    - **File-based coordination**: Tasks affecting the same files must run sequentially
    - **Validation checkpoints**: Verify each phase completion before proceeding
+   - **STRICT RULE — Update worklog after EVERY phase**: After completing each phase, you MUST immediately append a worklog entry to `FEATURE_DIR/worklog.md` before proceeding to the next phase. This is non-negotiable — never skip, never defer, never batch multiple phases into one entry. Each entry MUST describe: tasks covered, what was accomplished, problems encountered, solutions applied, and a phase summary. **NEVER move to the next phase without writing the worklog entry first.**
 
-7. Implementation execution rules:
-   - **Setup first**: Initialize project structure, dependencies, configuration
-   - **Tests before code**: If you need to write tests for contracts, entities, and integration scenarios
-   - **Core development**: Implement models, services, CLI commands, endpoints
-   - **Integration work**: Database connections, middleware, logging, external services
-   - **Polish and validation**: Unit tests, performance optimization, documentation
+8. Implementation execution rules (aligned with tasks.md phase schema):
+   - **Phase 1 - Setup**: Initialize project structure, dependencies, configuration
+   - **Phase 2 - Foundational**: Blocking prerequisites that must complete before user stories (shared models, middleware, base services)
+   - **Phase 3+ - User Stories**: Execute each story's tasks in priority order. Within each story: Models → Services → Endpoints → Integration. If test tasks exist, run them before their corresponding implementation tasks
+   - **Final Phase - Polish**: Cross-cutting concerns, documentation, performance optimization, final validation
 
-8. Progress tracking and error handling:
+9. Progress tracking and error handling:
    - Report progress after each completed task
    - Halt execution if any non-parallel task fails
    - For parallel tasks [P], continue with successful tasks, report failed ones
@@ -139,11 +157,13 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Suggest next steps if implementation cannot proceed
    - **IMPORTANT** For completed tasks, make sure to mark the task off as [X] in the tasks file.
 
-9. Completion validation:
+10. Completion validation:
    - Verify all required tasks are completed
    - Check that implemented features match the original specification
    - Validate that tests pass and coverage meets requirements
    - Confirm the implementation follows the technical plan
    - Report final status with summary of completed work
+   - **Update project memory**: If this session produced reusable project knowledge (patterns discovered, lessons learned, conventions established), write or update the relevant file in `.specify/memory/` and update `.specify/memory/index.md` with the file entry. Keep memory files concise and project-scoped (not feature-specific). If no new reusable knowledge was produced, skip silently.
+   - **STRICT RULE — Write final worklog summary**: Append the `## Summary of implementation of feature` section to `FEATURE_DIR/worklog.md` with an overall summary of the entire implementation covering: key accomplishments, major challenges and how they were resolved, deviations from the original plan, and final state of the feature. This is non-negotiable.
 
 Note: This command assumes a complete task breakdown exists in tasks.md. If tasks are incomplete or missing, suggest running `/speckit.tasks` first to regenerate the task list.

@@ -24,7 +24,7 @@ Identify inconsistencies, duplications, ambiguities, and underspecified items ac
 
 ### 1. Initialize Analysis Context
 
-Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks` once from repo root and parse JSON for FEATURE_DIR and AVAILABLE_DOCS. Derive absolute paths:
+Run `.specify/scripts/bash/check-prerequisites.sh --json --require-spec --require-plan --require-tasks --include-tasks` once from repo root and parse JSON for FEATURE_DIR and AVAILABLE_DOCS. Derive absolute paths:
 
 - SPEC = FEATURE_DIR/spec.md
 - PLAN = FEATURE_DIR/plan.md
@@ -33,7 +33,9 @@ Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --inclu
 Abort with an error message if any required file is missing (instruct the user to run missing prerequisite command).
 For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
-### 2. Load Artifacts (Progressive Disclosure)
+### 2. Load Project Memory and Artifacts (Progressive Disclosure)
+
+**Load project memory**: Always read `.specify/memory/constitution.md` if it exists — use it for principle validation. Then read `.specify/memory/index.md` and, if it lists files, read each listed file to gather project context (domain knowledge, tech decisions, conventions, lessons learned). If `index.md` is missing or empty, skip silently.
 
 Load only the minimal necessary context from each artifact:
 
@@ -59,14 +61,6 @@ Load only the minimal necessary context from each artifact:
 - Phase grouping
 - Parallel markers [P]
 - Referenced file paths
-
-**From constitution:**
-
-- Load `.specify/memory/constitution.md` for principle validation
-
-**From EARS guidelines:**
-
-- Load `.specify/memory/ears-guidelines.md` for requirements syntax validation
 
 ### 3. Build Semantic Models
 
@@ -102,24 +96,13 @@ Focus on high-signal findings. Limit to 50 findings total; aggregate remainder i
 - Any requirement or plan element conflicting with a MUST principle
 - Missing mandated sections or quality gates from constitution
 
-#### E. EARS Compliance
-
-- Requirements not following EARS patterns (Ubiquitous/When/While/If-Then/Where)
-- Requirements with passive voice instead of active voice
-- Requirements missing explicit system name
-- Requirements with multiple "shall" statements
-- Requirements with vague terms (fast, efficient, user-friendly, robust)
-- Requirements with escape clauses (if possible, where appropriate)
-- Requirements missing units for numerical values
-- Flag non-compliant requirements and recommend `/ears-translator` skill
-
-#### F. Coverage Gaps
+#### E. Coverage Gaps
 
 - Requirements with zero associated tasks
 - Tasks with no mapped requirement/story
 - Non-functional requirements not reflected in tasks (e.g., performance, security)
 
-#### G. Inconsistency
+#### F. Inconsistency
 
 - Terminology drift (same concept named differently across files)
 - Data entities referenced in plan but absent in spec (or vice versa)
@@ -131,9 +114,9 @@ Focus on high-signal findings. Limit to 50 findings total; aggregate remainder i
 Use this heuristic to prioritize findings:
 
 - **CRITICAL**: Violates constitution MUST, missing core spec artifact, or requirement with zero coverage that blocks baseline functionality
-- **HIGH**: Duplicate or conflicting requirement, ambiguous security/performance attribute, untestable acceptance criterion, EARS non-compliance affecting testability (vague terms, missing system name)
-- **MEDIUM**: Terminology drift, missing non-functional task coverage, underspecified edge case, EARS non-compliance affecting clarity (passive voice, escape clauses)
-- **LOW**: Style/wording improvements, minor redundancy not affecting execution order, minor EARS format issues (missing units)
+- **HIGH**: Duplicate or conflicting requirement, ambiguous security/performance attribute, untestable acceptance criterion
+- **MEDIUM**: Terminology drift, missing non-functional task coverage, underspecified edge case
+- **LOW**: Style/wording improvements, minor redundancy not affecting execution order
 
 ### 6. Produce Compact Analysis Report
 
@@ -154,8 +137,6 @@ Output a Markdown report (no file writes) with the following structure:
 
 **Constitution Alignment Issues:** (if any)
 
-**EARS Compliance Issues:** (if any - recommend `/ears-translator` skill for conversion)
-
 **Unmapped Tasks:** (if any)
 
 **Metrics:**
@@ -165,7 +146,6 @@ Output a Markdown report (no file writes) with the following structure:
 - Coverage % (requirements with >=1 task)
 - Ambiguity Count
 - Duplication Count
-- EARS Compliance % (requirements following EARS patterns)
 - Critical Issues Count
 
 ### 7. Provide Next Actions
@@ -174,30 +154,11 @@ At end of report, output a concise Next Actions block:
 
 - If CRITICAL issues exist: Recommend resolving before `/speckit.implement`
 - If only LOW/MEDIUM: User may proceed, but provide improvement suggestions
-- If EARS compliance below 80%: Recommend running `/ears-translator` skill to convert non-compliant requirements
-- Provide explicit command suggestions: e.g., "Run /speckit.specify with refinement", "Run /speckit.plan to adjust architecture", "Run /ears-translator to fix requirements format", "Manually edit tasks.md to add coverage for 'performance-metrics'"
+- Provide explicit command suggestions: e.g., "Run /speckit.specify with refinement", "Run /speckit.plan to adjust architecture", "Manually edit tasks.md to add coverage for 'performance-metrics'"
 
 ### 8. Offer Remediation
 
-**Use AskUserQuestion tool** to offer remediation options:
-```json
-{
-  "questions": [
-    {
-      "question": "Would you like me to suggest concrete remediation edits for the issues found?",
-      "header": "Remediation",
-      "options": [
-        {"label": "Yes, top 5 issues", "description": "Get specific edit suggestions for the 5 highest priority issues"},
-        {"label": "Yes, all issues", "description": "Get edit suggestions for all identified issues"},
-        {"label": "No, skip (Recommended)", "description": "Review the report first and decide later"}
-      ],
-      "multiSelect": false
-    }
-  ]
-}
-```
-
-If user requests remediation, provide concrete edit suggestions but do NOT apply them automatically.
+Ask the user: "Would you like me to suggest concrete remediation edits for the top N issues?" (Do NOT apply them automatically.)
 
 ## Operating Principles
 

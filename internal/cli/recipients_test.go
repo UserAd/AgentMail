@@ -130,7 +130,7 @@ func TestRecipientsCommand_EmptyWindowList(t *testing.T) {
 	exitCode := Recipients(&stdout, &stderr, RecipientsOptions{
 		SkipTmuxCheck:   true,
 		MockPanes:       []string{},
-		MockPaneAddress: "",
+		MockPaneAddress: "AgentMail:test.0",
 	})
 
 	if exitCode != 0 {

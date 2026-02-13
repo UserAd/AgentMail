@@ -2129,8 +2129,8 @@ func TestReceiveHandler_NoMockReceiverWithoutTmuxReturnsError(t *testing.T) {
 		t.Fatalf("receiveHandler error content is not TextContent, got %T", result.Content[0])
 	}
 
-	if !strings.Contains(textContent.Text, "failed to get current window") {
-		t.Errorf("Expected error to contain 'failed to get current window', got: %s", textContent.Text)
+	if !strings.Contains(textContent.Text, "failed to get current pane address") {
+		t.Errorf("Expected error to contain 'failed to get current pane address', got: %s", textContent.Text)
 	}
 }
 
@@ -2220,8 +2220,8 @@ func TestSendHandler_NoMockSenderWithoutTmuxReturnsError(t *testing.T) {
 		t.Fatalf("sendHandler error content is not TextContent, got %T", result.Content[0])
 	}
 
-	if !strings.Contains(textContent.Text, "failed to get current window") {
-		t.Errorf("Expected error to contain 'failed to get current window', got: %s", textContent.Text)
+	if !strings.Contains(textContent.Text, "failed to get current pane address") {
+		t.Errorf("Expected error to contain 'failed to get current pane address', got: %s", textContent.Text)
 	}
 }
 
@@ -2310,8 +2310,8 @@ func TestStatusHandler_NoMockReceiverWithoutTmuxReturnsError(t *testing.T) {
 		t.Fatalf("statusHandler error content is not TextContent, got %T", result.Content[0])
 	}
 
-	if !strings.Contains(textContent.Text, "failed to get current window") {
-		t.Errorf("Expected error to contain 'failed to get current window', got: %s", textContent.Text)
+	if !strings.Contains(textContent.Text, "failed to get current pane address") {
+		t.Errorf("Expected error to contain 'failed to get current pane address', got: %s", textContent.Text)
 	}
 }
 
@@ -2400,8 +2400,8 @@ func TestListRecipientsHandler_NoMockWindowsWithoutTmuxReturnsError(t *testing.T
 		t.Fatalf("listRecipientsHandler error content is not TextContent, got %T", result.Content[0])
 	}
 
-	if !strings.Contains(textContent.Text, "failed to get current window") &&
-		!strings.Contains(textContent.Text, "failed to list windows") {
+	if !strings.Contains(textContent.Text, "failed to get current pane address") &&
+		!strings.Contains(textContent.Text, "failed to list panes") {
 		t.Errorf("Expected error related to tmux failure, got: %s", textContent.Text)
 	}
 }
@@ -2445,8 +2445,8 @@ func TestListRecipientsHandler_ListWindowsFailsReturnsError(t *testing.T) {
 		t.Fatalf("listRecipientsHandler error content is not TextContent, got %T", result.Content[0])
 	}
 
-	if !strings.Contains(textContent.Text, "failed to list windows") {
-		t.Errorf("Expected error to contain 'failed to list windows', got: %s", textContent.Text)
+	if !strings.Contains(textContent.Text, "failed to list panes") {
+		t.Errorf("Expected error to contain 'failed to list panes', got: %s", textContent.Text)
 	}
 }
 

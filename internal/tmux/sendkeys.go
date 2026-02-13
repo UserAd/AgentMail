@@ -11,7 +11,7 @@ func SendKeys(target, text string) error {
 		return ErrNotInTmux
 	}
 
-	cmd := exec.Command("tmux", "send-keys", "-t", target, text)
+	cmd := exec.Command("tmux", "send-keys", "-t", target, text) // #nosec G204 -- target is a tmux pane address, not shell-interpolated
 	return cmd.Run()
 }
 
@@ -22,6 +22,6 @@ func SendEnter(target string) error {
 		return ErrNotInTmux
 	}
 
-	cmd := exec.Command("tmux", "send-keys", "-t", target, "Enter")
+	cmd := exec.Command("tmux", "send-keys", "-t", target, "Enter") // #nosec G204 -- target is a tmux pane address, not shell-interpolated
 	return cmd.Run()
 }

@@ -9,7 +9,7 @@ Update AgentMail to use full tmux pane addresses (`session:window.pane`) instead
 
 ## Technical Context
 
-**Language/Version**: Go 1.25.5 (minimum 1.21+ per constitution IC-001)
+**Language/Version**: Go 1.25.7 (minimum 1.21+ per constitution IC-001)
 **Primary Dependencies**: Standard library only (`os/exec`, `encoding/json`, `strings`, `strconv`, `fmt`, `regexp`). Existing approved deps: `fsnotify`, `go-sdk` (MCP), `ff/v3` (CLI flags)
 **Storage**: JSONL files in `.agentmail/` directory — mailbox files renamed from `<window>.jsonl` to `<percent-encoded-pane-address>.jsonl` (collision-safe encoding)
 **Testing**: `go test -v -race -coverprofile=coverage.out ./...` with >= 80% coverage

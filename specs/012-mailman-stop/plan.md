@@ -9,7 +9,7 @@ Add `agentmail mailman stop` subcommand to gracefully terminate the mailman daem
 
 ## Technical Context
 
-**Language/Version**: Go 1.25.5 (minimum 1.21+ per IC-001)
+**Language/Version**: Go 1.25.7 (minimum 1.21+ per IC-001)
 **Primary Dependencies**: Standard library only (os for file operations)
 **Storage**: `.agentmail/.stop` (new stop signal file), `.agentmail/mailman.pid` (existing)
 **Testing**: `go test -v -race -cover` with >= 80% coverage

@@ -24,7 +24,7 @@ A Go CLI tool for inter-agent communication within tmux sessions. Agents running
 
 ## Requirements
 
-- Go 1.25.5 or later
+- Go 1.25.7 or later
 - tmux (must be running inside a tmux session)
 - Linux or macOS
 
@@ -750,10 +750,10 @@ gosec ./...
 
 ### Testing in CI Environment
 
-To match the CI environment (Go 1.25.5, Linux):
+To match the CI environment (Go 1.25.7, Linux):
 
 ```bash
-docker run --rm -v $(pwd):/app -w /app golang:1.25.5 go test -v -race ./...
+docker run --rm -v $(pwd):/app -w /app golang:1.25.7 go test -v -race ./...
 ```
 
 ### CI/CD Pipeline

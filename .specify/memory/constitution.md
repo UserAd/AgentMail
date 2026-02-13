@@ -2,7 +2,7 @@
 Sync Impact Report: 1.1.0 → 1.2.0 (MINOR)
 
 Modified: IV. Standard Library Preference - added approved external dependencies
-Updated: Technology Constraints (Go 1.25.5), Quality Gates (govulncheck, gosec)
+Updated: Technology Constraints (Go 1.25.7), Quality Gates (govulncheck, gosec)
 Templates: All compatible, no changes needed
 -->
 
@@ -72,7 +72,7 @@ New dependencies require documented rationale in research.md with:
 
 ## Technology Constraints
 
-- **Language**: Go 1.25.5 (minimum 1.21+ per IC-001)
+- **Language**: Go 1.25.7 (minimum 1.21+ per IC-001)
 - **Storage**: JSONL files in `.agentmail/` directory (per-recipient files, state files)
 - **Platform**: macOS and Linux with tmux installed
 - **Build**: Standard `go build`, no CGO dependencies
